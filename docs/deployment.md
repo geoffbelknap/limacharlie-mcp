@@ -2,17 +2,14 @@
 
 This project deploys as a local stdio MCP server. It intentionally does not
 ship Docker artifacts. Install it as a Python package and run it from an MCP
-client. The default setup manages a local Vault instance for the user; existing
-external Vault deployments remain supported as an advanced path.
+client. The default setup stores credentials securely on the local machine;
+existing external Vault deployments remain supported as an advanced path.
 
 ## Model
 
 - The MCP process runs one profile command from a Python virtual environment.
-- Managed local Vault stores the stable LimaCharlie API key by default.
-- The MCP starts local Vault on `127.0.0.1` when needed and reads a narrow
-  runtime token from the generated state directory.
-- `limacharlie-mcp-configure` writes nonsecret runtime settings to
-  `~/.config/limacharlie-mcp/config.json`.
+- `limacharlie-mcp-configure` stores the LimaCharlie API key without echoing it
+  and writes nonsecret runtime settings locally.
 - The MCP client starts a profile command. It only needs `LC_MCP_CONFIG` when
   the config file is not in the default location.
 - The MCP exchanges the LimaCharlie API key for short-lived JWTs in memory.
@@ -58,7 +55,7 @@ python -m venv .venv
 pip install -e ".[dev]"
 ```
 
-## Managed Local Vault
+## Default Local Setup
 
 Most users should run the default configure flow:
 
@@ -67,19 +64,9 @@ limacharlie-mcp-configure \
   --oid "263c19e9-bd4a-475a-8cd3-5403af446cb9"
 ```
 
-This starts a localhost Vault server if needed, initializes and unseals it,
-enables KV v2, creates a narrow runtime token, writes the LimaCharlie API key
-to `secret/data/limacharlie/mcp`, and writes
-`~/.config/limacharlie-mcp/config.json`.
-
-Managed local Vault state is stored under:
-
-```text
-~/.local/share/limacharlie-mcp/vault/
-```
-
-The generated token and init files are written with owner-only permissions.
-Users should not need to edit them.
+The helper prompts for the LimaCharlie API key without echoing it, stores the
+key securely, writes local runtime settings, and runs an auth doctor check.
+Users should not need to edit generated credential files.
 
 ## External Vault
 
@@ -121,7 +108,7 @@ The token file should be readable only by the account running the MCP server.
 
 ## Configure, Bootstrap, Or Rotate The LimaCharlie Key
 
-Default managed-local setup:
+Default local setup:
 
 ```bash
 limacharlie-mcp-configure \
@@ -140,7 +127,8 @@ limacharlie-mcp-configure \
 ```
 
 The helper prompts for the LimaCharlie API key without echoing it, writes it to
-Vault, writes the nonsecret runtime config, and runs an auth doctor check.
+the configured credential store, writes the nonsecret runtime config, and runs
+an auth doctor check.
 
 For lower-level automation that only writes Vault and prints env values, use:
 
@@ -242,8 +230,8 @@ After configuring the MCP client, run these tools:
 
 Expected behavior:
 
-- `lc_auth_status` reports `credential_provider: vault`.
-- No tool returns a Vault token, LimaCharlie API key, or JWT.
+- `lc_auth_status` reports configured credentials and does not expose secrets.
+- No tool returns a credential-store token, LimaCharlie API key, or JWT.
 - The audit log is written locally without authorization headers.
 
 ## No Docker

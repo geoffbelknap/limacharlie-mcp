@@ -9,23 +9,13 @@ JWTs.
 Most deployments should use organization API key mode. User API key mode exists
 for multi-org workflows, but it is easier to misconfigure.
 
-| Need | Key source | Required MCP values | Notes |
+| Need | Key source | Required values | Notes |
 | --- | --- | --- | --- |
-| Work in one LimaCharlie org | Org page -> Access Management -> REST API | `oid`, `api_key_ref`, `vault_addr`, and `vault_token_file` in the MCP config file | Recommended default. The org REST API page may say "User-Generated API Keys"; those are still org-scoped keys. |
-| Discover/list orgs across the user's account | Account Settings -> API Keys | `auth_mode=user_api_key`, `uid`, and `user_api_key_ref` in the MCP config file | Use only when multi-org access is needed. Keep separate from the org key. |
+| Work in one LimaCharlie org | Org page -> Access Management -> REST API | Organization ID and organization API key | Recommended default. The org REST API page may say "User-Generated API Keys"; those are still org-scoped keys. |
+| Discover/list orgs across the user's account | Account Settings -> API Keys | User ID and user API key | Use only when multi-org access is needed. Keep separate from the org key. |
 
 Do not overwrite a working organization API key with a user API key. Keep both
-values separate. The default config file is:
-
-```text
-~/.config/limacharlie-mcp/config.json
-```
-
-It stores nonsecret pointers only. The LimaCharlie API key belongs in Vault,
-not in the config file.
-
-When both org and user key references exist, the runtime stays in organization
-API key mode unless `auth_mode` is `user_api_key`.
+values separate. When in doubt, use the organization API key.
 
 ## Where To Find Each Value
 
@@ -37,30 +27,27 @@ Use these LimaCharlie locations before running setup:
 | Organization API key | In the target org, go to Organization Settings -> Access Management -> REST API. Under User-Generated API Keys, click Create API Key. | Copy the secret value shown at creation time. It is shown once. This is the recommended key for normal MCP use. |
 | User API key | Click your account/avatar, open Account Settings, then API Keys. Use Create User API Key. | Copy the secret value shown at creation time. Use this only for multi-org discovery. |
 | User ID, or `uid` | On Account Settings -> API Keys, use the copy control associated with the text that describes your User ID. | Copy the JWT-accepted user id. It may not be the email address and may not be the UUID-shaped account id. |
-| Vault details | Usually nowhere. The default setup creates and manages a local Vault instance for the MCP. | Only collect Vault address, token file, or API key ref when using an existing external Vault. |
 
 Screenshot checklist for user-facing docs:
 
 - `lc-org-rest-api.png`: Organization Settings -> Access Management -> REST API, showing the API Root, `OID`, and Create API Key area.
 - `lc-account-api-keys.png`: Account Settings -> API Keys, showing the User API Keys page and the user-id copy control.
-- `managed-local-vault.png`: Optional example of the generated config file with `managed_vault`, `vault_addr`, and `vault_token_file` visible but token values redacted.
 
-Do not include screenshots that show real API keys, Vault tokens, JWTs, or
-personal account details.
+Do not include screenshots that show real API keys, JWTs, or personal account
+details.
 
 ## Recommended Setup
 
-Use an Organization API key for the org you want the MCP to access. The default
-setup starts and manages a local Vault instance for the MCP, stores the API key
-there, and keeps JWT refresh hidden from the user. Raw environment API keys are
-a local-development fallback, not the recommended runtime model.
+Use an Organization API key for the org you want the MCP to access. The setup
+stores the key securely on the local machine and keeps JWT refresh hidden from
+the user. Raw environment API keys are a local-development fallback, not the
+recommended runtime model.
 
 1. In LimaCharlie, open the organization.
 2. Go to Access Management -> REST API.
 3. Create an API key with the minimum permissions needed for the workflows.
-4. Run `limacharlie-mcp-configure` with the org ID. The helper starts local
-   Vault if needed, reads the LimaCharlie key through a hidden prompt, writes
-   it to Vault KV v2, and writes a nonsecret config file.
+4. Run `limacharlie-mcp-configure` with the org ID. The helper reads the
+   LimaCharlie key through a hidden prompt and stores it securely.
 5. Point the MCP client at a profile command. If the config file is in the
    default location, no auth env block is needed.
 6. Start the MCP server.
@@ -70,38 +57,6 @@ a local-development fallback, not the recommended runtime model.
 ```bash
 limacharlie-mcp-configure \
   --oid "263c19e9-bd4a-475a-8cd3-5403af446cb9"
-```
-
-The resulting config file is safe to inspect. It should look like this:
-
-```json
-{
-  "api_key_ref": "vault://secret/data/limacharlie/mcp#api_key",
-  "auth_mode": "org_api_key",
-  "credential_provider": "vault",
-  "managed_vault": {
-    "addr": "http://127.0.0.1:8220",
-    "enabled": true,
-    "state_dir": "/Users/you/.local/share/limacharlie-mcp/vault"
-  },
-  "oid": "263c19e9-bd4a-475a-8cd3-5403af446cb9",
-  "vault_addr": "http://127.0.0.1:8220",
-  "vault_token_file": "/Users/you/.local/share/limacharlie-mcp/vault/runtime-token"
-}
-```
-
-It should not contain `api_key`, `user_api_key`, `vault_token`, or `jwt`.
-
-If your environment already provides Vault, use the advanced external Vault
-path:
-
-```bash
-limacharlie-mcp-configure \
-  --external-vault \
-  --oid "263c19e9-bd4a-475a-8cd3-5403af446cb9" \
-  --vault-addr "https://vault.example.com" \
-  --token-file "/run/secrets/limacharlie-mcp-bootstrap-token" \
-  --runtime-token-file "/run/secrets/limacharlie-mcp-vault-token"
 ```
 
 For unattended setup, provide all values and pipe the key from an approved
@@ -151,14 +106,15 @@ export LC_API_KEY=your-organization-api-key
 
 Do not use `.env` files for production LimaCharlie API keys.
 
-See [Deployment](deployment.md) for Vault policies, Vault Agent token-file
-setup, and MCP client config templates.
+See [Deployment](deployment.md) for advanced operator deployment and MCP client
+config templates.
 
 ## Preflight With Auth Doctor
 
 Use `limacharlie-mcp-auth-doctor` before adding the MCP to an agent client. It
 prints configuration shape, selected auth mode, bounded live-check status, and
-secret leak checks without printing API keys, UID values, Vault tokens, or JWTs.
+secret leak checks without printing API keys, UID values, credential-store
+tokens, or JWTs.
 
 For local development:
 
@@ -172,7 +128,7 @@ For user-key mode with both org and user keys present:
 limacharlie-mcp-auth-doctor --env-file /path/to/local-env --mode user_api_key
 ```
 
-For production Vault-backed runtime, run:
+For the normal configured runtime, run:
 
 ```bash
 limacharlie-mcp-auth-doctor
@@ -191,23 +147,16 @@ LimaCharlie:
 limacharlie-mcp-auth-doctor --no-live
 ```
 
-## What Happens Internally
+## How Auth Behaves
 
-LimaCharlie REST authentication uses short-lived JWTs. This MCP hides that from
-the user:
+LimaCharlie REST authentication uses short-lived JWTs. This MCP handles that
+refresh work for the user:
 
-- Vault stores the stable LimaCharlie API key.
-- The default setup runs a managed local Vault on `127.0.0.1` and restarts it
-  automatically when MCP tools need credentials.
-- `limacharlie-mcp-configure` writes the key to Vault without echoing or
-  returning it, then writes nonsecret runtime settings to the config file.
-- The server reads the API key from the configured Vault reference only when it
-  needs a new LimaCharlie JWT.
-- The server exchanges that API key for a LimaCharlie JWT.
-- JWTs are cached in memory only.
-- JWT values are never returned by tools.
-- JWT values are not written to the audit log.
-- The server refreshes expired or near-expired JWTs automatically.
+- `limacharlie-mcp-configure` asks for the LimaCharlie API key through a hidden
+  prompt.
+- MCP tools never return API keys or JWTs.
+- API keys and JWTs are not written to the audit log.
+- Expired or near-expired JWTs refresh automatically during later tool calls.
 
 ## Reauth
 
@@ -216,7 +165,7 @@ tool call refreshes the JWT automatically.
 
 Use `lc_auth_refresh` when:
 
-- a user just rotated the API key in Vault,
+- a user just rotated the API key,
 - a token is suspected to be stale,
 - a user wants to verify auth before a workflow,
 - a user changed from user API key mode to org API key mode.
@@ -254,12 +203,10 @@ Bootstrap a user API key with:
 limacharlie-mcp-configure \
   --user-api-key \
   --uid "your-user-id" \
-  --oid "263c19e9-bd4a-475a-8cd3-5403af446cb9" \
-  --path "limacharlie/mcp-user"
+  --oid "263c19e9-bd4a-475a-8cd3-5403af446cb9"
 ```
 
-This writes `auth_mode=user_api_key`, `uid`, and `user_api_key_ref` into the
-nonsecret config file.
+This stores the user API key separately from the organization API key.
 
 User API key mode can list orgs and then mint org-scoped JWTs for individual
 org operations. It is more powerful than an organization API key because it
@@ -275,19 +222,6 @@ For local development only, user API key mode can also use
 `LC_USER_API_KEY` are present in the same environment, set
 `LC_AUTH_MODE=user_api_key` to select the user key. Without that selector, the
 runtime stays in org API key mode.
-
-## Other KMS Or HSM Providers
-
-The runtime currently supports Vault and direct env-key fallback. If an
-environment standardizes on a different KMS or HSM, prefer one of these paths:
-
-- Use Vault Agent or an approved broker to expose the key through the same Vault
-  HTTP shape.
-- Add a new credential provider with the same non-leakage behavior:
-  `lc_auth_status` reports readiness booleans only, and JWT refresh resolves the
-  key just-in-time without returning or auditing it.
-
-Do not add a raw provider that returns stable LimaCharlie API keys to agents.
 
 ## Permission Profiles
 
@@ -334,10 +268,10 @@ mutation tool has a preview/confirm implementation.
 ## Troubleshooting
 
 If `lc_auth_status` returns `missing_credentials`, the MCP process did not
-receive a complete Vault configuration. Check the MCP config file for
-`vault_addr`, `vault_token_file`, and `api_key_ref` or `user_api_key_ref`. If
-the config file is not in `~/.config/limacharlie-mcp/config.json`, make sure
-the MCP client sets `LC_MCP_CONFIG` to the correct path. For local development fallback, check
+receive complete credential configuration. Rerun `limacharlie-mcp-configure`
+with the correct org ID, then start a new MCP client session. If the config
+file is not in the default location, make sure the MCP client sets
+`LC_MCP_CONFIG` to the correct path. For local development fallback, check
 `LC_SECRET_PROVIDER=env` with `LC_API_KEY` for org mode or `LC_USER_API_KEY`
 for user mode.
 

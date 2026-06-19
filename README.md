@@ -54,7 +54,7 @@ uvx --from git+https://github.com/geoffbelknap/limacharlie-mcp \
 Then start a new Codex or Claude chat with the plugin enabled and call
 `lc_auth_status`.
 
-For screenshots, permissions, user API key mode, external Vault, and
+For screenshots, permissions, user API key mode, advanced deployment, and
 troubleshooting, see [Onboarding And Auth](docs/onboarding-auth.md).
 
 ## Tool Surface
@@ -88,7 +88,7 @@ that should use these MCP profiles:
 
 | Skill | Workflow |
 | --- | --- |
-| `limacharlie-auth-onboarding` | Vault-first auth setup, reauth, UID/OID confusion, and secret-safe smoke tests. |
+| `limacharlie-auth-onboarding` | Auth setup, reauth, UID/OID confusion, and secret-safe smoke tests. |
 | `limacharlie-posture-review` | Bounded expert review across fleet, content, access, outputs, cases, and detection noise. |
 | `limacharlie-detection-tuning` | Evidence-led noisy-alert and missing-alert tuning. |
 | `limacharlie-detect-triage` | Detection, case, event, IOC, search, artifact, and vulnerability triage. |
@@ -524,26 +524,8 @@ python -m venv .venv
 pip install -e ".[dev]"
 ```
 
-Configure stable API-key credentials with the short checklist near the top of
-this README. The setup path stores the LimaCharlie API key in managed local
-Vault, writes nonsecret runtime config, and keeps JWT exchange hidden from the
-user.
-
-For existing external Vault automation, pass `--external-vault` and the Vault
-details:
-
-```bash
-limacharlie-mcp-configure \
-  --external-vault \
-  --oid "263c19e9-bd4a-475a-8cd3-5403af446cb9" \
-  --vault-addr "https://vault.example.com" \
-  --token-file "/run/secrets/limacharlie-mcp-bootstrap-token" \
-  --runtime-token-file "/run/secrets/limacharlie-mcp-vault-token"
-```
-
-For unattended setup, pass `--api-key-stdin` and pipe the key from an approved
-secret manager. For local development only, you can use
-`LC_SECRET_PROVIDER=env` with `LC_API_KEY`.
+Configure credentials with the short checklist near the top of this README.
+Advanced deployment options live in [Deployment](docs/deployment.md).
 
 Org-scoped tools always require an explicit `oid`. Discovery tools
 (`lc_list_orgs`, unscoped `lc_auth_whoami`) use LimaCharlie's minimal JWT org
@@ -589,38 +571,13 @@ from different UI locations and should be kept in separate MCP variables.
 Run `limacharlie-mcp-auth-doctor` to validate the selected auth mode before
 connecting the MCP to an agent client.
 
-## Environment
-
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `LC_MCP_CONFIG` | `~/.config/limacharlie-mcp/config.json` | Optional path to the nonsecret runtime config file. |
-| `LC_SECRET_PROVIDER` | `vault` when `LC_API_KEY` is unset | Credential provider. Supported values: `vault`, `env`. |
-| `LC_API_KEY_REF` | `vault://secret/data/limacharlie/mcp#api_key` | Vault reference for the LimaCharlie API key. |
-| `LC_VAULT_ADDR` | unset | Vault server URL. Required for the Vault provider. |
-| `LC_VAULT_TOKEN_FILE` | unset | File containing a Vault token from Vault Agent, platform secret mount, or `vault login`. Preferred for deployment. |
-| `LC_VAULT_TOKEN` | unset | Vault token value. Useful for local tests; avoid in shared configs. |
-| `LC_VAULT_NAMESPACE` | unset | Optional Vault Enterprise namespace. |
-| `LC_API_KEY` | unset | Local-development fallback when `LC_SECRET_PROVIDER=env`, or direct override when explicitly set. |
-| `LC_USER_API_KEY` | unset | Local-development fallback for user-scoped API key mode. Keep separate from `LC_API_KEY`. |
-| `LC_USER_API_KEY_REF` | unset | Vault reference for a user-scoped LimaCharlie API key. |
-| `LC_UID` | unset | User ID for user-scoped API keys. Does not switch org-key mode unless a user key source is configured. |
-| `LC_AUTH_MODE` | `auto` | Optional auth selector. Use `user_api_key` when both org and user keys are present and you want user-key mode. |
-| `LC_API_ROOT` | `https://api.limacharlie.io` | LimaCharlie API root. |
-| `LC_JWT_ROOT` | `https://jwt.limacharlie.io` | JWT exchange root. |
-| `LC_CASES_API_ROOT` | `https://cases.limacharlie.io` | Cases API root. |
-| `LC_AI_SESSIONS_ROOT` | `https://ai.limacharlie.io` | AI-session governance API root. |
-| `LC_MCP_TIMEOUT_SECONDS` | `30` | Per-command timeout. |
-| `LC_MCP_AUDIT_LOG` | platform cache dir | JSONL audit log path. |
-| `LC_MCP_PROFILE` | `full-dev` for `limacharlie-mcp`; fixed by profile-specific commands | Optional profile filter: `core`, `fleet`, `admin`, `content`, `detect`, `contain`, `evict`, `recover`, `review`, or `full-dev`. |
-
 The audit log records timestamp, purpose, org ID, HTTP method, URL, query
 parameters, status code, duration, and output size. It does not record
 credentials or authorization headers.
 
 See [docs/onboarding-auth.md](docs/onboarding-auth.md) for the onboarding,
-auth, and reauth flow. See [docs/deployment.md](docs/deployment.md) for the
-Vault-first deployment model, Vault policies, Vault Agent token-file example,
-and MCP client config templates.
+auth, and reauth flow. See [docs/deployment.md](docs/deployment.md) for
+advanced deployment and MCP client config templates.
 
 ## Development
 

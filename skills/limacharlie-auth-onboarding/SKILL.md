@@ -1,16 +1,17 @@
 ---
 name: limacharlie-auth-onboarding
-description: Set up or troubleshoot LimaCharlie MCP authentication with Vault-first credential storage, org API keys, JWT refresh, UID confusion, onboarding smoke tests, and reauth. Use when users need to configure LimaCharlie MCP auth, verify credentials, rotate keys, diagnose missing_credentials or permission errors, or avoid pasting API keys/JWTs into env files.
+description: Set up or troubleshoot LimaCharlie MCP authentication with secure local credential storage, org API keys, JWT refresh, UID confusion, onboarding smoke tests, and reauth. Use when users need to configure LimaCharlie MCP auth, verify credentials, rotate keys, diagnose missing_credentials or permission errors, or avoid pasting API keys/JWTs into env files.
 ---
 
 # LimaCharlie Auth Onboarding
 
 ## Workflow
 
-Use managed local Vault as the default credential store. Do not ask users to
-bring a Vault instance, paste production LimaCharlie API keys into `.env`
-files, or put keys in chat. If a local test must use direct environment
-variables, label it as temporary and prefer managed Vault for deployment.
+Use the default configure helper as the normal credential setup path. Do not
+ask users to bring a credential-store instance, paste production LimaCharlie
+API keys into `.env` files, or put keys in chat. If a local test must use
+direct environment variables, label it as temporary and prefer the default
+configure helper for real use.
 
 1. Identify the intended org and key type:
    - Prefer an organization API key for MCP runtime access.
@@ -19,10 +20,8 @@ variables, label it as temporary and prefer managed Vault for deployment.
    - Do not ask for an `LC_UID` unless using user API key JWT exchange.
 2. Store or reference the key:
    - Use `limacharlie-mcp-configure --oid <org-id>` for the default path.
-   - Only ask for Vault address or token-file details when the user explicitly
-     wants to use an existing external Vault.
-   - Write nonsecret runtime settings to `~/.config/limacharlie-mcp/config.json`
-     by default.
+   - Only ask for external credential-store details when the user explicitly
+     wants an advanced operator deployment.
    - Use only `LC_MCP_CONFIG` when the runtime config file is not in the
      default location.
    - Keep `LC_API_KEY` as local test fallback only.
@@ -45,8 +44,9 @@ make onboarding easier.
 
 ## Failure Handling
 
-If auth fails, report the concrete failure class and next check. Do not print API
-keys, Vault tokens, JWTs, or authorization headers. If an org API key works in
-the LimaCharlie UI but the MCP fails, verify that the MCP config file has
-`oid`, `vault_addr`, `vault_token_file`, and `api_key_ref`, and that it is not
-trying to use `uid` unless user API key mode is intentional.
+If auth fails, report the concrete failure class and next check. Do not print
+API keys, credential-store tokens, JWTs, or authorization headers. If an org
+API key works in the LimaCharlie UI but the MCP fails, rerun
+`limacharlie-mcp-configure --oid <org-id>`, then verify the MCP client is
+using the expected profile and config path. Do not ask for `uid` unless user
+API key mode is intentional.

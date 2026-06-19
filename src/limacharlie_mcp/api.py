@@ -156,6 +156,26 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "side_effects": "none",
         "notes": "Uses LimaCharlie's minimal JWT org placeholder for discovery.",
     },
+    "download.sensor_targets.list": {
+        "suite": "platform",
+        "tool": "lc_list_sensor_download_targets",
+        "action": "read",
+        "resource_type": "download_target_collection",
+        "required_inputs": [],
+        "optional_inputs": [],
+        "side_effects": "none",
+        "notes": "Lists supported sensor installer target URLs without downloading binaries.",
+    },
+    "download.adapter_targets.list": {
+        "suite": "platform",
+        "tool": "lc_list_adapter_download_targets",
+        "action": "read",
+        "resource_type": "download_target_collection",
+        "required_inputs": [],
+        "optional_inputs": [],
+        "side_effects": "none",
+        "notes": "Lists supported adapter binary target URLs without downloading binaries.",
+    },
     "sensor.list": {
         "suite": "investigation",
         "tool": "lc_list_sensors",
@@ -295,6 +315,38 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "side_effects": "none",
         "notes": "Searches Insight object prevalence and locations for one indicator.",
     },
+    "ioc.batch_search": {
+        "suite": "investigation",
+        "tool": "lc_batch_search_iocs",
+        "action": "read",
+        "resource_type": "ioc_batch_search",
+        "required_inputs": ["oid", "objects"],
+        "optional_inputs": ["info", "case_sensitive", "limit"],
+        "bounds": {"limit_min": 1, "limit_max": 1000, "object_types": ["domain", "ip", "file_hash", "file_path", "file_name", "user", "service_name", "package_name"]},
+        "side_effects": "none",
+        "notes": "Batch Insight prevalence/location lookup for bounded indicator groups.",
+    },
+    "ioc.object_info": {
+        "suite": "investigation",
+        "tool": "lc_get_object_information",
+        "action": "read",
+        "resource_type": "ioc_search",
+        "required_inputs": ["oid", "obj_type", "obj_name"],
+        "optional_inputs": ["info", "case_sensitive", "wildcards", "limit"],
+        "bounds": {"limit_min": 1, "limit_max": 1000, "info": ["summary", "locations"]},
+        "side_effects": "none",
+        "notes": "Alias for a single-object Insight lookup with enrichment-oriented naming.",
+    },
+    "insight.status": {
+        "suite": "investigation",
+        "tool": "lc_get_insight_status",
+        "action": "read",
+        "resource_type": "insight_status",
+        "required_inputs": ["oid"],
+        "optional_inputs": [],
+        "side_effects": "none",
+        "notes": "Checks whether Insight retention appears enabled for an org.",
+    },
     "search.validate": {
         "suite": "investigation",
         "tool": "lc_validate_search_query",
@@ -349,6 +401,39 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "side_effects": "cancels_server_search_query",
         "notes": "Cancels a server-side LCQL search job to release search resources.",
     },
+    "replay.validate_rule": {
+        "suite": "content",
+        "tool": "lc_validate_replay_rule",
+        "action": "read",
+        "resource_type": "replay_validation",
+        "required_inputs": ["oid", "rule_content"],
+        "optional_inputs": ["trace", "limit_events", "limit_evals"],
+        "bounds": {"limit_events_max": 1000, "limit_evals_max": 100000},
+        "side_effects": "none",
+        "notes": "Validates a D&R rule by dry-running a minimal event through Replay.",
+    },
+    "replay.scan_events": {
+        "suite": "content",
+        "tool": "lc_replay_scan_events",
+        "action": "read",
+        "resource_type": "replay_result",
+        "required_inputs": ["oid", "events"],
+        "optional_inputs": ["rule_name", "namespace", "rule_content", "trace", "limit_events", "limit_evals", "stream"],
+        "bounds": {"events_max": 100, "limit_events_max": 1000, "limit_evals_max": 100000, "stream": ["event", "detect", "audit"]},
+        "side_effects": "none",
+        "notes": "Dry-runs a rule against explicit events through Replay without generating detections.",
+    },
+    "replay.run_dry": {
+        "suite": "content",
+        "tool": "lc_replay_dry_run",
+        "action": "read",
+        "resource_type": "replay_result",
+        "required_inputs": ["oid", "start", "end"],
+        "optional_inputs": ["rule_name", "detect", "respond", "sensor_id", "selector", "stream", "trace", "limit_events", "limit_evals"],
+        "bounds": {"time_format": "unix_seconds", "limit_events_max": 100000, "limit_evals_max": 1000000, "stream": ["event", "detect", "audit"]},
+        "side_effects": "none",
+        "notes": "Dry-runs a D&R rule against historical data. Non-dry-run replay remains gated behind future preview/confirm.",
+    },
     "artifact.list": {
         "suite": "investigation",
         "tool": "lc_list_artifacts",
@@ -369,6 +454,38 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "optional_inputs": [],
         "side_effects": "none",
         "notes": "Requests original artifact data or signed export URL.",
+    },
+    "payload.list": {
+        "suite": "content",
+        "tool": "lc_list_payloads",
+        "action": "read",
+        "resource_type": "payload_collection",
+        "required_inputs": ["oid"],
+        "optional_inputs": ["limit"],
+        "bounds": {"limit_min": 1, "limit_max": 500},
+        "side_effects": "none",
+        "notes": "Lists payload metadata. Does not download payload bytes.",
+    },
+    "payload.get_url": {
+        "suite": "content",
+        "tool": "lc_get_payload_download_url",
+        "action": "read",
+        "resource_type": "payload",
+        "required_inputs": ["oid", "name"],
+        "optional_inputs": [],
+        "side_effects": "none",
+        "notes": "Returns the API response containing a signed payload download URL when available; does not fetch binary bytes.",
+    },
+    "arl.get": {
+        "suite": "investigation",
+        "tool": "lc_get_arl",
+        "action": "read",
+        "resource_type": "authenticated_resource_locator",
+        "required_inputs": ["oid", "arl_url"],
+        "optional_inputs": ["limit"],
+        "bounds": {"limit_min": 1, "limit_max": 500},
+        "side_effects": "none",
+        "notes": "Resolves a LimaCharlie authenticated resource locator in explicit org context.",
     },
     "job.list": {
         "suite": "investigation",
@@ -570,6 +687,48 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "bounds": {"limit_min": 1, "limit_max": 500},
         "side_effects": "none",
         "notes": "Lists organization groups accessible to the authenticated identity.",
+    },
+    "billing.status": {
+        "suite": "administration",
+        "tool": "lc_get_billing_status",
+        "action": "read",
+        "resource_type": "billing_status",
+        "required_inputs": ["oid"],
+        "optional_inputs": [],
+        "side_effects": "none",
+        "notes": "Gets current billing status for an org.",
+    },
+    "billing.details": {
+        "suite": "administration",
+        "tool": "lc_get_billing_details",
+        "action": "read",
+        "resource_type": "billing_details",
+        "required_inputs": ["oid"],
+        "optional_inputs": [],
+        "side_effects": "none",
+        "notes": "Gets detailed billing information for an org.",
+    },
+    "billing.invoice_url": {
+        "suite": "administration",
+        "tool": "lc_get_billing_invoice_url",
+        "action": "read",
+        "resource_type": "billing_invoice",
+        "required_inputs": ["oid", "year", "month"],
+        "optional_inputs": ["fmt"],
+        "bounds": {"month_min": 1, "month_max": 12, "fmt": ["pdf", "csv"]},
+        "side_effects": "none",
+        "notes": "Gets an invoice URL for a specific billing month.",
+    },
+    "billing.plans": {
+        "suite": "administration",
+        "tool": "lc_list_billing_plans",
+        "action": "read",
+        "resource_type": "billing_plan_collection",
+        "required_inputs": [],
+        "optional_inputs": ["limit"],
+        "bounds": {"limit_min": 1, "limit_max": 500},
+        "side_effects": "none",
+        "notes": "Lists available billing plans.",
     },
     "group.get": {
         "suite": "administration",
@@ -882,6 +1041,38 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "side_effects": "none",
         "notes": "Fetches one false-positive hive record.",
     },
+    "integrity_rule.list": {
+        "suite": "content",
+        "tool": "lc_list_integrity_rules",
+        "action": "read",
+        "resource_type": "integrity_rule_collection",
+        "required_inputs": ["oid"],
+        "optional_inputs": ["limit"],
+        "bounds": {"limit_min": 1, "limit_max": 500},
+        "side_effects": "none",
+        "notes": "Lists integrity monitoring rules through the integrity service.",
+    },
+    "integrity_rule.get": {
+        "suite": "content",
+        "tool": "lc_get_integrity_rule",
+        "action": "read",
+        "resource_type": "integrity_rule",
+        "required_inputs": ["oid", "name"],
+        "optional_inputs": [],
+        "side_effects": "none",
+        "notes": "Fetches one integrity rule by name from the integrity service list.",
+    },
+    "usp.validate": {
+        "suite": "content",
+        "tool": "lc_validate_usp_mapping",
+        "action": "read",
+        "resource_type": "usp_validation",
+        "required_inputs": ["oid", "platform"],
+        "optional_inputs": ["mapping", "mappings", "text_input", "json_input", "hostname", "indexing"],
+        "bounds": {"payload_max_bytes": 200000},
+        "side_effects": "none",
+        "notes": "Validates Universal Sensor Protocol mapping/input configuration.",
+    },
     "yara_rule.list": {
         "suite": "content",
         "tool": "lc_list_yara_rules",
@@ -980,11 +1171,39 @@ _IOC_TYPES = {"domain", "ip", "file_hash", "file_path", "file_name", "user", "se
 _INFO_TYPES = {"summary", "locations"}
 _DR_NAMESPACES = {"general", "managed", "service"}
 _SEARCH_STREAMS = {"event", "detect", "audit"}
+_INVOICE_FORMATS = {"pdf", "csv"}
 _SAFE_CVE = re.compile(r"^CVE-[0-9]{4}-[0-9]{4,}$", re.IGNORECASE)
 _VULN_SEARCH_OPS = {"is", "contains"}
 _VULN_RESOLUTIONS = {"mitigated", "accepted", "false_positive"}
 _VULN_SCOPES = {"org", "host"}
 _VULN_SEVERITIES = {"critical", "high", "medium", "low"}
+_SENSOR_DOWNLOAD_TARGETS: dict[tuple[str, str], str] = {
+    ("windows", "64"): "sensor/windows/64",
+    ("windows", "32"): "sensor/windows/32",
+    ("windows", "arm64"): "sensor/windows/arm64",
+    ("windows", "msi64"): "sensor/windows/msi64",
+    ("windows", "msi32"): "sensor/windows/msi32",
+    ("linux", "64"): "sensor/linux/64",
+    ("linux", "deb64"): "sensor/linux/deb64",
+    ("linux", "debarm64"): "sensor/linux/debarm64",
+    ("linux", "alpine64"): "sensor/linux/alpine64",
+    ("mac", "64"): "sensor/mac/64",
+    ("mac", "arm64"): "sensor/mac/arm64",
+    ("chrome", ""): "sensor/chrome",
+}
+_ADAPTER_DOWNLOAD_TARGETS: dict[tuple[str, str], str] = {
+    ("linux", "64"): "adapter/linux/64",
+    ("linux", "arm"): "adapter/linux/arm",
+    ("linux", "arm64"): "adapter/linux/arm64",
+    ("windows", "64"): "adapter/windows/64",
+    ("mac", "64"): "adapter/mac/64",
+    ("mac", "arm64"): "adapter/mac/arm64",
+    ("aix", "ppc64"): "adapter/aix/ppc64",
+    ("freebsd", "64"): "adapter/freebsd/64",
+    ("openbsd", "64"): "adapter/openbsd/64",
+    ("netbsd", "64"): "adapter/netbsd/64",
+    ("solaris", "64"): "adapter/solaris/64",
+}
 _SUMMARY_LIST_KEYS = (
     "data",
     "items",
@@ -1116,6 +1335,31 @@ def require_info_type(info: str) -> str:
     return info
 
 
+def require_invoice_year(value: int) -> int:
+    if not isinstance(value, int):
+        raise ValidationError("year must be an integer")
+    if value < 2020 or value > 2100:
+        raise ValidationError("year must be between 2020 and 2100")
+    return value
+
+
+def require_invoice_month(value: int) -> int:
+    if not isinstance(value, int):
+        raise ValidationError("month must be an integer")
+    if value < 1 or value > 12:
+        raise ValidationError("month must be between 1 and 12")
+    return value
+
+
+def require_invoice_format(value: str | None) -> str | None:
+    if value is None:
+        return None
+    fmt = str(value).lower()
+    if fmt not in _INVOICE_FORMATS:
+        raise ValidationError("fmt must be pdf or csv")
+    return fmt
+
+
 def require_search_query(query: str) -> str:
     if not isinstance(query, str):
         raise ValidationError("query must be a string")
@@ -1133,6 +1377,65 @@ def require_search_stream(stream: str | None) -> str | None:
     value = str(stream).lower()
     if value not in _SEARCH_STREAMS:
         raise ValidationError("stream must be event, detect, or audit")
+    return value
+
+
+def require_json_size(value: Any, name: str, *, maximum: int = 200_000) -> Any:
+    try:
+        size = len(json.dumps(value).encode())
+    except (TypeError, ValueError) as exc:
+        raise ValidationError(f"{name} must be JSON-serializable") from exc
+    if size > maximum:
+        raise ValidationError(f"{name} must serialize to {maximum} bytes or less")
+    return value
+
+
+def require_dict(value: dict[str, Any] | None, name: str) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise ValidationError(f"{name} must be an object")
+    return require_json_size(value, name)
+
+
+def require_dict_list(value: list[dict[str, Any]] | None, name: str, *, maximum: int = 100) -> list[dict[str, Any]] | None:
+    if value is None:
+        return None
+    if not isinstance(value, list) or len(value) > maximum:
+        raise ValidationError(f"{name} must be a list with at most {maximum} objects")
+    if any(not isinstance(item, dict) for item in value):
+        raise ValidationError(f"{name} must contain only objects")
+    return require_json_size(value, name)
+
+
+def require_ioc_batch(objects: dict[str, list[str]]) -> dict[str, list[str]]:
+    if not isinstance(objects, dict) or not objects:
+        raise ValidationError("objects must be a non-empty object of IOC type to string list")
+    checked: dict[str, list[str]] = {}
+    total = 0
+    for key, values in objects.items():
+        obj_type = require_ioc_type(str(key))
+        if not isinstance(values, list) or not values:
+            raise ValidationError("each objects entry must be a non-empty list")
+        if len(values) > 100:
+            raise ValidationError("each objects entry may contain at most 100 indicators")
+        checked_values: list[str] = []
+        for value in values:
+            if not isinstance(value, str) or not value or len(value) > 500 or "\x00" in value:
+                raise ValidationError("IOC values must be non-empty strings under 500 characters")
+            checked_values.append(value)
+        checked[obj_type] = checked_values
+        total += len(checked_values)
+    if total > 500:
+        raise ValidationError("objects may contain at most 500 total indicators")
+    return checked
+
+
+def require_arl(value: str) -> str:
+    if not isinstance(value, str) or not value or len(value) > 2000 or "\x00" in value:
+        raise ValidationError("arl_url must be a non-empty string under 2000 characters")
+    if not re.match(r"^[A-Za-z][A-Za-z0-9+.-]*://", value):
+        raise ValidationError("arl_url must include a URL scheme")
     return value
 
 
@@ -1575,6 +1878,20 @@ class LimaCharlieAPI:
             observed_at=observed_at(),
         ).as_dict()
 
+    def list_sensor_download_targets(self) -> dict[str, Any]:
+        return self._local_response(
+            "download.sensor_targets.list",
+            {"targets": self._download_targets(_SENSOR_DOWNLOAD_TARGETS)},
+            resource={"type": "download_target_collection", "id": "sensor"},
+        )
+
+    def list_adapter_download_targets(self) -> dict[str, Any]:
+        return self._local_response(
+            "download.adapter_targets.list",
+            {"targets": self._download_targets(_ADAPTER_DOWNLOAD_TARGETS)},
+            resource={"type": "download_target_collection", "id": "adapter"},
+        )
+
     def list_sensors(self, oid: str, selector: str | None = None, limit: int = 100) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         bounded_limit = require_limit(limit)
@@ -1840,6 +2157,74 @@ class LimaCharlieAPI:
             limit=bounded_limit,
         ).as_dict()
 
+    def batch_search_iocs(
+        self,
+        oid: str,
+        objects: dict[str, list[str]],
+        info: str = "summary",
+        case_sensitive: bool = True,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_objects = require_ioc_batch(objects)
+        safe_info = require_info_type(info)
+        bounded_limit = require_limit(limit, maximum=1000)
+        params: dict[str, Any] = {
+            "objects": json.dumps(safe_objects),
+            "case_sensitive": bool_param(case_sensitive),
+            "info": safe_info,
+        }
+        if safe_info == "locations":
+            params["limit"] = bounded_limit
+        return self._request(
+            "POST",
+            f"insight/{scoped_oid}/objects",
+            operation="ioc.batch_search",
+            oid=scoped_oid,
+            resource={"type": "ioc_batch_search", "id": scoped_oid},
+            params=params,
+            limit=bounded_limit,
+        ).as_dict()
+
+    def get_object_information(
+        self,
+        oid: str,
+        obj_type: str,
+        obj_name: str,
+        info: str = "summary",
+        case_sensitive: bool = True,
+        wildcards: bool = False,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        result = self.search_ioc(
+            oid,
+            obj_type,
+            obj_name,
+            info=info,
+            case_sensitive=case_sensitive,
+            wildcards=wildcards,
+            limit=limit,
+        )
+        result["operation"] = "ioc.object_info"
+        return result
+
+    def get_insight_status(self, oid: str) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        result = self._request(
+            "GET",
+            f"insight/{scoped_oid}",
+            operation="insight.status",
+            oid=scoped_oid,
+            resource={"type": "insight_status", "id": scoped_oid},
+        ).as_dict()
+        if result.get("ok") and isinstance(result.get("data"), dict):
+            result["state"] = {
+                "current": "enabled" if result["data"].get("insight_bucket") else "unknown_or_disabled",
+                "enabled": bool(result["data"].get("insight_bucket")),
+            }
+            result["meta"]["summary"]["enabled"] = bool(result["data"].get("insight_bucket"))
+        return result
+
     def validate_search_query(
         self,
         oid: str,
@@ -1974,6 +2359,133 @@ class LimaCharlieAPI:
             result["state"] = {"current": "cancelled", "terminal": True, "query_id": safe_query_id}
         return result
 
+    def validate_replay_rule(
+        self,
+        oid: str,
+        rule_content: dict[str, Any],
+        trace: bool = False,
+        limit_events: int = 1,
+        limit_evals: int = 1000,
+    ) -> dict[str, Any]:
+        return self.replay_scan_events(
+            oid=oid,
+            events=[{"event": {}, "routing": {}}],
+            rule_content=rule_content,
+            trace=trace,
+            limit_events=limit_events,
+            limit_evals=limit_evals,
+            stream="event",
+            operation="replay.validate_rule",
+            resource_type="replay_validation",
+        )
+
+    def replay_scan_events(
+        self,
+        oid: str,
+        events: list[dict[str, Any]],
+        rule_name: str | None = None,
+        namespace: str | None = None,
+        rule_content: dict[str, Any] | None = None,
+        trace: bool = False,
+        limit_events: int = 100,
+        limit_evals: int = 1000,
+        stream: str = "event",
+        *,
+        operation: str = "replay.scan_events",
+        resource_type: str = "replay_result",
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        checked_events = require_dict_list(events, "events", maximum=100) or []
+        checked_rule = require_dict(rule_content, "rule_content")
+        if not rule_name and checked_rule is None:
+            raise ValidationError("rule_name or rule_content is required")
+        bounded_limit_events = require_seconds(limit_events, "limit_events", minimum=1, maximum=1000)
+        bounded_limit_evals = require_seconds(limit_evals, "limit_evals", minimum=1, maximum=100_000)
+        body = {
+            "oid": scoped_oid,
+            "rule_source": {
+                "rule_name": require_token(rule_name, "rule_name") if rule_name else "",
+                "namespace": require_dr_namespace(namespace) if namespace else "",
+                "rule": checked_rule,
+            },
+            "event_source": {
+                "stream": require_search_stream(stream) or "event",
+                "sensor_events": {},
+                "events": checked_events,
+            },
+            "trace": bool(trace),
+            "limit_event": bounded_limit_events,
+            "limit_eval": bounded_limit_evals,
+            "is_dry_run": True,
+        }
+        return self._request(
+            "POST",
+            "",
+            operation=operation,
+            oid=scoped_oid,
+            resource={"type": resource_type, "id": scoped_oid},
+            json_body=body,
+            base_url=self._replay_root(scoped_oid),
+        ).as_dict()
+
+    def replay_dry_run(
+        self,
+        oid: str,
+        start: int,
+        end: int,
+        rule_name: str | None = None,
+        detect: dict[str, Any] | None = None,
+        respond: list[dict[str, Any]] | None = None,
+        sensor_id: str | None = None,
+        selector: str | None = None,
+        stream: str = "event",
+        trace: bool = False,
+        limit_events: int = 1000,
+        limit_evals: int = 10_000,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        start_ts, end_ts = require_time_window(start, end)
+        safe_rule_name = require_token(rule_name, "rule_name") if rule_name else None
+        checked_detect = require_dict(detect, "detect")
+        checked_respond = require_dict_list(respond, "respond", maximum=100)
+        if not safe_rule_name and checked_detect is None and checked_respond is None:
+            raise ValidationError("rule_name or detect/respond rule content is required")
+        sensor_events: dict[str, Any] = {"start_time": start_ts, "end_time": end_ts}
+        if sensor_id:
+            sensor_events["sid"] = require_oid(sensor_id)
+        if selector:
+            sensor_events["selector"] = require_selector(selector)
+        rule_source: dict[str, Any] = {}
+        if safe_rule_name:
+            rule_source["rule_name"] = safe_rule_name
+        if checked_detect is not None or checked_respond is not None:
+            rule_source["rule"] = {}
+            if checked_detect is not None:
+                rule_source["rule"]["detect"] = checked_detect
+            if checked_respond is not None:
+                rule_source["rule"]["respond"] = checked_respond
+        body = {
+            "oid": scoped_oid,
+            "rule_source": rule_source,
+            "event_source": {
+                "stream": require_search_stream(stream) or "event",
+                "sensor_events": sensor_events,
+            },
+            "trace": bool(trace),
+            "is_dry_run": True,
+            "limit_event": require_seconds(limit_events, "limit_events", minimum=1, maximum=100_000),
+            "limit_eval": require_seconds(limit_evals, "limit_evals", minimum=1, maximum=1_000_000),
+        }
+        return self._request(
+            "POST",
+            "",
+            operation="replay.run_dry",
+            oid=scoped_oid,
+            resource={"type": "replay_result", "id": scoped_oid},
+            json_body=body,
+            base_url=self._replay_root(scoped_oid),
+        ).as_dict()
+
     def list_artifacts(
         self,
         oid: str,
@@ -2015,6 +2527,43 @@ class LimaCharlieAPI:
             operation="artifact.get_url",
             oid=scoped_oid,
             resource={"type": "artifact", "id": safe_artifact_id, "parent": {"type": "organization", "id": scoped_oid}},
+        ).as_dict()
+
+    def list_payloads(self, oid: str, limit: int = 100) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        bounded_limit = require_limit(limit)
+        return self._request(
+            "GET",
+            f"payload/{scoped_oid}",
+            operation="payload.list",
+            oid=scoped_oid,
+            resource={"type": "payload_collection", "id": scoped_oid},
+            limit=bounded_limit,
+        ).as_dict()
+
+    def get_payload_download_url(self, oid: str, name: str) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_name = require_token(name, "name")
+        return self._request(
+            "GET",
+            f"payload/{scoped_oid}/{quote(safe_name, safe='')}",
+            operation="payload.get_url",
+            oid=scoped_oid,
+            resource={"type": "payload", "id": safe_name, "parent": {"type": "organization", "id": scoped_oid}},
+        ).as_dict()
+
+    def get_arl(self, oid: str, arl_url: str, limit: int = 100) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        bounded_limit = require_limit(limit)
+        safe_arl = require_arl(arl_url)
+        return self._request(
+            "GET",
+            f"arl/{scoped_oid}",
+            operation="arl.get",
+            oid=scoped_oid,
+            resource={"type": "authenticated_resource_locator", "id": scoped_oid},
+            params={"arl": safe_arl},
+            limit=bounded_limit,
         ).as_dict()
 
     def list_jobs(
@@ -2334,6 +2883,52 @@ class LimaCharlieAPI:
             operation="org.quota_usage",
             oid=scoped_oid,
             resource={"type": "quota_usage", "id": scoped_oid},
+        ).as_dict()
+
+    def get_billing_status(self, oid: str) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        return self._request(
+            "GET",
+            f"orgs/{scoped_oid}/billing/status",
+            operation="billing.status",
+            oid=scoped_oid,
+            resource={"type": "billing_status", "id": scoped_oid},
+        ).as_dict()
+
+    def get_billing_details(self, oid: str) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        return self._request(
+            "GET",
+            f"orgs/{scoped_oid}/billing/details",
+            operation="billing.details",
+            oid=scoped_oid,
+            resource={"type": "billing_details", "id": scoped_oid},
+        ).as_dict()
+
+    def get_billing_invoice_url(self, oid: str, year: int, month: int, fmt: str | None = None) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_year = require_invoice_year(year)
+        safe_month = require_invoice_month(month)
+        safe_fmt = require_invoice_format(fmt)
+        params = {"format": safe_fmt} if safe_fmt else None
+        return self._request(
+            "GET",
+            f"orgs/{scoped_oid}/billing/invoice/{safe_year}/{safe_month:02d}",
+            operation="billing.invoice_url",
+            oid=scoped_oid,
+            resource={"type": "billing_invoice", "id": f"{safe_year}-{safe_month:02d}", "parent": {"type": "organization", "id": scoped_oid}},
+            params=params,
+        ).as_dict()
+
+    def list_billing_plans(self, limit: int = 100) -> dict[str, Any]:
+        bounded_limit = require_limit(limit)
+        return self._request(
+            "GET",
+            "plans",
+            operation="billing.plans",
+            oid="-",
+            resource={"type": "billing_plan_collection", "id": "-"},
+            limit=bounded_limit,
         ).as_dict()
 
     def list_groups(self, limit: int = 100) -> dict[str, Any]:
@@ -2840,6 +3435,94 @@ class LimaCharlieAPI:
             resource={"type": "fp_rule", "id": safe_name, "parent": {"type": "organization", "id": scoped_oid}},
         ).as_dict()
 
+    def list_integrity_rules(self, oid: str, limit: int = 100) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        bounded_limit = require_limit(limit)
+        return self._request(
+            "POST",
+            f"service/{scoped_oid}/integrity",
+            operation="integrity_rule.list",
+            oid=scoped_oid,
+            resource={"type": "integrity_rule_collection", "id": scoped_oid},
+            params=service_request_params({"action": "list_rules"}),
+            limit=bounded_limit,
+        ).as_dict()
+
+    def get_integrity_rule(self, oid: str, name: str) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_name = require_token(name, "name")
+        result = self._request(
+            "POST",
+            f"service/{scoped_oid}/integrity",
+            operation="integrity_rule.get",
+            oid=scoped_oid,
+            resource={"type": "integrity_rule", "id": safe_name, "parent": {"type": "organization", "id": scoped_oid}},
+            params=service_request_params({"action": "list_rules"}),
+        ).as_dict()
+        if result.get("ok") and isinstance(result.get("data"), dict):
+            rules = result["data"]
+            if safe_name in rules:
+                result["data"] = rules[safe_name]
+                result["meta"]["summary"] = summarize_data(result["data"])
+            else:
+                result["ok"] = False
+                result["data"] = None
+                result["error"] = {
+                    "code": "resource_not_found",
+                    "class": "not_found",
+                    "message": f"Integrity rule {safe_name!r} was not found.",
+                    "retryable": False,
+                    "same_input_retryable": False,
+                    "suggested_next_actions": ["Call lc_list_integrity_rules to inspect available rule names."],
+                }
+                result["meta"]["summary"] = {"shape": "empty"}
+        return result
+
+    def validate_usp_mapping(
+        self,
+        oid: str,
+        platform: str,
+        mapping: dict[str, Any] | None = None,
+        mappings: list[dict[str, Any]] | None = None,
+        text_input: str | None = None,
+        json_input: dict[str, Any] | list[dict[str, Any]] | None = None,
+        hostname: str | None = None,
+        indexing: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        body: dict[str, Any] = {"platform": require_token(platform, "platform")}
+        checked_mapping = require_dict(mapping, "mapping")
+        if checked_mapping is not None:
+            body["mapping"] = checked_mapping
+        checked_mappings = require_dict_list(mappings, "mappings", maximum=100)
+        if checked_mappings is not None:
+            body["mappings"] = checked_mappings
+        if text_input is not None:
+            if not isinstance(text_input, str) or len(text_input.encode()) > 100_000 or "\x00" in text_input:
+                raise ValidationError("text_input must be a string under 100000 bytes without NUL bytes")
+            body["text_input"] = text_input
+        if json_input is not None:
+            if isinstance(json_input, dict):
+                body["json_input"] = [require_json_size(json_input, "json_input")]
+            elif isinstance(json_input, list) and all(isinstance(item, dict) for item in json_input):
+                body["json_input"] = require_json_size(json_input, "json_input")
+            else:
+                raise ValidationError("json_input must be an object or list of objects")
+        if hostname is not None:
+            body["hostname"] = require_token(hostname, "hostname")
+        checked_indexing = require_dict(indexing, "indexing")
+        if checked_indexing is not None:
+            body["indexing"] = checked_indexing
+        require_json_size(body, "USP validation payload")
+        return self._request(
+            "POST",
+            f"usp/validate/{scoped_oid}",
+            operation="usp.validate",
+            oid=scoped_oid,
+            resource={"type": "usp_validation", "id": scoped_oid},
+            json_body=body,
+        ).as_dict()
+
     def list_yara_rules(self, oid: str, limit: int = 100) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         bounded_limit = require_limit(limit)
@@ -3190,6 +3873,31 @@ class LimaCharlieAPI:
             observed_at=observed_at(),
         )
 
+    def _local_response(
+        self,
+        operation: str,
+        data: Any,
+        *,
+        resource: dict[str, Any] | None = None,
+        state: dict[str, Any] | None = None,
+        warnings: list[str] | None = None,
+        side_effects: list[dict[str, Any]] | None = None,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        bounded, truncated = bound_output(data, limit)
+        return ToolResponse(
+            ok=True,
+            operation=operation,
+            request_id=f"req_{uuid.uuid4().hex}",
+            resource=resource,
+            state=state or {},
+            data=bounded,
+            side_effects=side_effects or [],
+            warnings=warnings or [],
+            meta={"summary": summarize_data(bounded), "truncated": truncated},
+            observed_at=observed_at(),
+        ).as_dict()
+
     def _create_mutation_preview(
         self,
         *,
@@ -3291,6 +3999,17 @@ class LimaCharlieAPI:
             },
         ).as_dict()
 
+    @staticmethod
+    def _download_targets(targets: dict[tuple[str, str], str]) -> list[dict[str, str]]:
+        return [
+            {
+                "platform": platform,
+                "arch": arch,
+                "url": f"https://downloads.limacharlie.io/{path}",
+            }
+            for (platform, arch), path in sorted(targets.items())
+        ]
+
     def _search_body(
         self,
         oid: str,
@@ -3330,6 +4049,19 @@ class LimaCharlieAPI:
             root = f"{root}/v1"
         self._search_roots[oid] = root
         return root
+
+    def _replay_root(self, oid: str) -> str:
+        result = self.get_org_urls(oid)
+        url = ""
+        if result.get("ok") and isinstance(result.get("data"), dict):
+            value = result["data"].get("replay")
+            if isinstance(value, str):
+                url = value
+        if not url:
+            url = "replay.limacharlie.io"
+        if not url.startswith(("http://", "https://")):
+            url = f"https://{url}"
+        return url.rstrip("/")
 
     def _finalize_search_poll(self, result: dict[str, Any], query_id: str, limit: int) -> None:
         data = result.get("data")

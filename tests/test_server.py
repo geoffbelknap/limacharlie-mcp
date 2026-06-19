@@ -49,9 +49,18 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
         "lc_get_org_urls",
         "lc_get_runtime_metadata",
         "lc_get_quota_usage",
+        "lc_get_billing_status",
+        "lc_get_billing_details",
+        "lc_get_billing_invoice_url",
+        "lc_list_billing_plans",
         "lc_list_groups",
         "lc_get_group",
         "lc_list_group_logs",
+        "lc_list_sensor_download_targets",
+        "lc_list_adapter_download_targets",
+        "lc_batch_search_iocs",
+        "lc_get_object_information",
+        "lc_get_insight_status",
         "lc_list_vulnerability_cves",
         "lc_get_vulnerability_cve",
         "lc_list_vulnerability_cve_hosts",
@@ -67,6 +76,15 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
         "lc_execute_search_query",
         "lc_poll_search_query",
         "lc_cancel_search_query",
+        "lc_validate_replay_rule",
+        "lc_replay_scan_events",
+        "lc_replay_dry_run",
+        "lc_list_payloads",
+        "lc_get_payload_download_url",
+        "lc_get_arl",
+        "lc_list_integrity_rules",
+        "lc_get_integrity_rule",
+        "lc_validate_usp_mapping",
         "lc_list_pending_mutations",
         "lc_preview_add_sensor_tag",
         "lc_preview_remove_sensor_tag",
@@ -103,5 +121,12 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
     search_poll_schema = tools["lc_poll_search_query"]["inputSchema"]
     assert set(search_poll_schema["required"]) == {"oid", "query_id"}
     assert search_poll_schema["properties"]["limit"]["default"] == 100
+    replay_schema = tools["lc_replay_dry_run"]["inputSchema"]
+    assert set(replay_schema["required"]) == {"oid", "start", "end"}
+    assert replay_schema["properties"]["limit_events"]["default"] == 1000
+    billing_invoice_schema = tools["lc_get_billing_invoice_url"]["inputSchema"]
+    assert set(billing_invoice_schema["required"]) == {"oid", "year", "month"}
+    usp_schema = tools["lc_validate_usp_mapping"]["inputSchema"]
+    assert set(usp_schema["required"]) == {"oid", "platform"}
     confirm_schema = tools["lc_confirm_mutation"]["inputSchema"]
     assert set(confirm_schema["required"]) == {"confirmation_token"}

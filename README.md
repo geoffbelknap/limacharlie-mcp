@@ -36,6 +36,8 @@ renaming tools.
 | `lc_auth_status` | Show credential mode and cached JWT freshness without exposing secrets. |
 | `lc_auth_refresh` | Force a local JWT refresh from configured API-key credentials. |
 | `lc_list_orgs` | List organizations available to the authenticated API key. |
+| `lc_list_sensor_download_targets` | List supported sensor installer URLs without downloading binaries. |
+| `lc_list_adapter_download_targets` | List supported adapter binary URLs without downloading binaries. |
 
 ### Investigation
 
@@ -52,6 +54,9 @@ renaming tools.
 | `lc_list_detections` | List one bounded page of detections for an explicit org and time window. |
 | `lc_get_detection` | Fetch one detection by detection ID. |
 | `lc_search_ioc` | Search Insight prevalence or locations for an IOC/object. |
+| `lc_batch_search_iocs` | Batch Insight prevalence or location lookups for bounded IOC groups. |
+| `lc_get_object_information` | Lookup one object through Insight with enrichment-oriented naming. |
+| `lc_get_insight_status` | Check whether Insight retention appears enabled. |
 | `lc_validate_search_query` | Validate LCQL through the org search service before estimation or execution. |
 | `lc_estimate_search_query` | Estimate LCQL cost for an explicit time window. |
 | `lc_execute_search_query` | Start a paginated LCQL search and return a query ID. |
@@ -59,6 +64,9 @@ renaming tools.
 | `lc_cancel_search_query` | Cancel a running LCQL search job. |
 | `lc_list_artifacts` | List artifacts for an org, sensor, time window, or cursor. |
 | `lc_get_artifact_url` | Request original artifact payload or signed export URL. |
+| `lc_list_payloads` | List payload metadata without downloading payload bytes. |
+| `lc_get_payload_download_url` | Request payload metadata including a signed download URL when returned. |
+| `lc_get_arl` | Resolve a LimaCharlie authenticated resource locator. |
 | `lc_list_jobs` | List service jobs for an explicit org and time window. |
 | `lc_get_job` | Fetch one service job. |
 | `lc_wait_job` | Poll one service job until terminal state or bounded timeout. |
@@ -89,6 +97,10 @@ renaming tools.
 | `lc_get_org_urls` | Fetch service URLs for sensors, adapters, webhooks, replay, and related connectivity. |
 | `lc_get_runtime_metadata` | Fetch runtime metadata, optionally filtered by entity type/name. |
 | `lc_get_quota_usage` | Fetch enforced quota usage for capacity checks. |
+| `lc_get_billing_status` | Fetch current billing status. |
+| `lc_get_billing_details` | Fetch detailed billing information. |
+| `lc_get_billing_invoice_url` | Fetch an invoice URL for a specific billing month. |
+| `lc_list_billing_plans` | List available billing plans. |
 | `lc_list_groups` | List organization groups accessible to the authenticated identity. |
 | `lc_get_group` | Fetch one organization group definition. |
 | `lc_list_group_logs` | List audit logs for one organization group. |
@@ -115,10 +127,16 @@ renaming tools.
 | `lc_get_mitre_report` | Fetch MITRE ATT&CK coverage data. |
 | `lc_list_artifact_rules` | List artifact collection rules. |
 | `lc_list_logging_rules` | List logging collection rules. |
+| `lc_validate_replay_rule` | Validate a D&R rule through Replay using dry-run evaluation. |
+| `lc_replay_scan_events` | Dry-run a D&R rule against explicit events. |
+| `lc_replay_dry_run` | Dry-run a D&R rule against historical data without creating detections. |
 | `lc_list_dr_rules` | List D&R rules from a hive namespace. |
 | `lc_get_dr_rule` | Fetch one D&R rule from a hive namespace. |
 | `lc_list_fp_rules` | List false-positive rules. |
 | `lc_get_fp_rule` | Fetch one false-positive rule. |
+| `lc_list_integrity_rules` | List integrity monitoring rules. |
+| `lc_get_integrity_rule` | Fetch one integrity monitoring rule. |
+| `lc_validate_usp_mapping` | Validate USP mapping/input configuration. |
 | `lc_list_yara_rules` | List YARA scanning rules. |
 | `lc_list_yara_sources` | List YARA source names. |
 | `lc_get_yara_source` | Fetch one YARA source. |

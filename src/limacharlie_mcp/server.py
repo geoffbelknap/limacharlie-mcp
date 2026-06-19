@@ -59,6 +59,20 @@ def lc_list_orgs() -> dict:
 
 
 @mcp.tool()
+def lc_list_sensor_download_targets() -> dict:
+    """List supported sensor installer target URLs without downloading binaries."""
+
+    return lc.list_sensor_download_targets()
+
+
+@mcp.tool()
+def lc_list_adapter_download_targets() -> dict:
+    """List supported adapter binary target URLs without downloading binaries."""
+
+    return lc.list_adapter_download_targets()
+
+
+@mcp.tool()
 def lc_list_sensors(oid: str, selector: str | None = None, limit: int = 100) -> dict:
     """List sensors for an explicit org, optionally filtered by selector."""
 
@@ -227,6 +241,59 @@ def lc_search_ioc(
 
 
 @mcp.tool()
+def lc_batch_search_iocs(
+    oid: str,
+    objects: dict[str, list[str]],
+    info: str = "summary",
+    case_sensitive: bool = True,
+    limit: int = 100,
+) -> dict:
+    """Batch Insight prevalence or location lookup for bounded IOC groups."""
+
+    return _call(
+        "ioc.batch_search",
+        lc.batch_search_iocs,
+        oid=oid,
+        objects=objects,
+        info=info,
+        case_sensitive=case_sensitive,
+        limit=limit,
+    )
+
+
+@mcp.tool()
+def lc_get_object_information(
+    oid: str,
+    obj_type: str,
+    obj_name: str,
+    info: str = "summary",
+    case_sensitive: bool = True,
+    wildcards: bool = False,
+    limit: int = 100,
+) -> dict:
+    """Lookup one object through Insight with enrichment-oriented naming."""
+
+    return _call(
+        "ioc.object_info",
+        lc.get_object_information,
+        oid=oid,
+        obj_type=obj_type,
+        obj_name=obj_name,
+        info=info,
+        case_sensitive=case_sensitive,
+        wildcards=wildcards,
+        limit=limit,
+    )
+
+
+@mcp.tool()
+def lc_get_insight_status(oid: str) -> dict:
+    """Check whether Insight retention appears enabled for an org."""
+
+    return _call("insight.status", lc.get_insight_status, oid=oid)
+
+
+@mcp.tool()
 def lc_validate_search_query(
     oid: str,
     query: str,
@@ -268,6 +335,91 @@ def lc_cancel_search_query(oid: str, query_id: str) -> dict:
 
 
 @mcp.tool()
+def lc_validate_replay_rule(
+    oid: str,
+    rule_content: dict[str, Any],
+    trace: bool = False,
+    limit_events: int = 1,
+    limit_evals: int = 1000,
+) -> dict:
+    """Validate a D&R rule through Replay using a dry-run minimal event."""
+
+    return _call(
+        "replay.validate_rule",
+        lc.validate_replay_rule,
+        oid=oid,
+        rule_content=rule_content,
+        trace=trace,
+        limit_events=limit_events,
+        limit_evals=limit_evals,
+    )
+
+
+@mcp.tool()
+def lc_replay_scan_events(
+    oid: str,
+    events: list[dict[str, Any]],
+    rule_name: str | None = None,
+    namespace: str | None = None,
+    rule_content: dict[str, Any] | None = None,
+    trace: bool = False,
+    limit_events: int = 100,
+    limit_evals: int = 1000,
+    stream: str = "event",
+) -> dict:
+    """Dry-run a D&R rule against explicit events through Replay."""
+
+    return _call(
+        "replay.scan_events",
+        lc.replay_scan_events,
+        oid=oid,
+        events=events,
+        rule_name=rule_name,
+        namespace=namespace,
+        rule_content=rule_content,
+        trace=trace,
+        limit_events=limit_events,
+        limit_evals=limit_evals,
+        stream=stream,
+    )
+
+
+@mcp.tool()
+def lc_replay_dry_run(
+    oid: str,
+    start: int,
+    end: int,
+    rule_name: str | None = None,
+    detect: dict[str, Any] | None = None,
+    respond: list[dict[str, Any]] | None = None,
+    sensor_id: str | None = None,
+    selector: str | None = None,
+    stream: str = "event",
+    trace: bool = False,
+    limit_events: int = 1000,
+    limit_evals: int = 10000,
+) -> dict:
+    """Dry-run a D&R rule against historical data without creating detections."""
+
+    return _call(
+        "replay.run_dry",
+        lc.replay_dry_run,
+        oid=oid,
+        start=start,
+        end=end,
+        rule_name=rule_name,
+        detect=detect,
+        respond=respond,
+        sensor_id=sensor_id,
+        selector=selector,
+        stream=stream,
+        trace=trace,
+        limit_events=limit_events,
+        limit_evals=limit_evals,
+    )
+
+
+@mcp.tool()
 def lc_list_artifacts(
     oid: str,
     sensor_id: str | None = None,
@@ -295,6 +447,27 @@ def lc_get_artifact_url(oid: str, artifact_id: str) -> dict:
     """Request original artifact payload or signed export URL."""
 
     return _call("artifact.get_url", lc.get_artifact_url, oid=oid, artifact_id=artifact_id)
+
+
+@mcp.tool()
+def lc_list_payloads(oid: str, limit: int = 100) -> dict:
+    """List payload metadata for an org without downloading payload bytes."""
+
+    return _call("payload.list", lc.list_payloads, oid=oid, limit=limit)
+
+
+@mcp.tool()
+def lc_get_payload_download_url(oid: str, name: str) -> dict:
+    """Request payload API metadata, including a signed download URL when returned."""
+
+    return _call("payload.get_url", lc.get_payload_download_url, oid=oid, name=name)
+
+
+@mcp.tool()
+def lc_get_arl(oid: str, arl_url: str, limit: int = 100) -> dict:
+    """Resolve a LimaCharlie authenticated resource locator."""
+
+    return _call("arl.get", lc.get_arl, oid=oid, arl_url=arl_url, limit=limit)
 
 
 @mcp.tool()
@@ -463,6 +636,34 @@ def lc_get_quota_usage(oid: str) -> dict:
     """Fetch enforced quota usage for an explicit org."""
 
     return _call("org.quota_usage", lc.get_quota_usage, oid=oid)
+
+
+@mcp.tool()
+def lc_get_billing_status(oid: str) -> dict:
+    """Fetch current billing status for an org."""
+
+    return _call("billing.status", lc.get_billing_status, oid=oid)
+
+
+@mcp.tool()
+def lc_get_billing_details(oid: str) -> dict:
+    """Fetch detailed billing information for an org."""
+
+    return _call("billing.details", lc.get_billing_details, oid=oid)
+
+
+@mcp.tool()
+def lc_get_billing_invoice_url(oid: str, year: int, month: int, fmt: str | None = None) -> dict:
+    """Fetch an invoice URL for a specific billing month."""
+
+    return _call("billing.invoice_url", lc.get_billing_invoice_url, oid=oid, year=year, month=month, fmt=fmt)
+
+
+@mcp.tool()
+def lc_list_billing_plans(limit: int = 100) -> dict:
+    """List available billing plans."""
+
+    return _call("billing.plans", lc.list_billing_plans, limit=limit)
 
 
 @mcp.tool()
@@ -816,6 +1017,47 @@ def lc_get_fp_rule(oid: str, name: str) -> dict:
     """Fetch one false-positive rule by name."""
 
     return _call("fp_rule.get", lc.get_fp_rule, oid=oid, name=name)
+
+
+@mcp.tool()
+def lc_list_integrity_rules(oid: str, limit: int = 100) -> dict:
+    """List integrity monitoring rules for an org."""
+
+    return _call("integrity_rule.list", lc.list_integrity_rules, oid=oid, limit=limit)
+
+
+@mcp.tool()
+def lc_get_integrity_rule(oid: str, name: str) -> dict:
+    """Fetch one integrity monitoring rule by name."""
+
+    return _call("integrity_rule.get", lc.get_integrity_rule, oid=oid, name=name)
+
+
+@mcp.tool()
+def lc_validate_usp_mapping(
+    oid: str,
+    platform: str,
+    mapping: dict[str, Any] | None = None,
+    mappings: list[dict[str, Any]] | None = None,
+    text_input: str | None = None,
+    json_input: dict[str, Any] | list[dict[str, Any]] | None = None,
+    hostname: str | None = None,
+    indexing: dict[str, Any] | None = None,
+) -> dict:
+    """Validate a Universal Sensor Protocol mapping/input configuration."""
+
+    return _call(
+        "usp.validate",
+        lc.validate_usp_mapping,
+        oid=oid,
+        platform=platform,
+        mapping=mapping,
+        mappings=mappings,
+        text_input=text_input,
+        json_input=json_input,
+        hostname=hostname,
+        indexing=indexing,
+    )
 
 
 @mcp.tool()

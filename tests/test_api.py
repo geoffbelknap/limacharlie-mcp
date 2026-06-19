@@ -24,6 +24,10 @@ def decode_gzdata(value: str) -> Any:
     return json.loads(gzip.decompress(base64.b64decode(value)).decode())
 
 
+def decode_request_data(value: str) -> Any:
+    return json.loads(base64.b64decode(value).decode())
+
+
 class FakeHTTP:
     def __init__(self) -> None:
         self.calls: list[dict[str, Any]] = []
@@ -88,6 +92,8 @@ def test_tool_catalog_exposes_operation_contracts(tmp_path: Path) -> None:
     assert result["data"]["operations"]["api_key.list"]["suite"] == "administration"
     assert result["data"]["operations"]["audit.list"]["suite"] == "investigation"
     assert result["data"]["operations"]["yara_rule.list"]["suite"] == "content"
+    assert result["data"]["operations"]["billing.status"]["suite"] == "administration"
+    assert result["data"]["operations"]["replay.validate_rule"]["suite"] == "content"
     assert result["data"]["operations"]["detection.list"]["bounds"]["time_format"] == "unix_seconds"
 
 
@@ -104,6 +110,23 @@ def test_list_orgs_uses_direct_api_and_jwt(tmp_path: Path) -> None:
     assert fake.calls[0]["url"] == "https://jwt.limacharlie.io"
     assert fake.calls[0]["data"]["oid"] == "-"
     assert fake.calls[1]["headers"]["Authorization"] == "Bearer test-token"
+
+
+def test_download_target_tools_are_local_metadata(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    client = make_client(tmp_path, fake)
+
+    sensors = client.list_sensor_download_targets()
+    adapters = client.list_adapter_download_targets()
+
+    assert sensors["ok"] is True
+    assert_ax_envelope(sensors, "download.sensor_targets.list")
+    assert any(target["platform"] == "windows" and target["arch"] == "64" for target in sensors["data"]["targets"])
+    assert adapters["ok"] is True
+    assert_ax_envelope(adapters, "download.adapter_targets.list")
+    assert any(target["platform"] == "linux" and target["arch"] == "arm64" for target in adapters["data"]["targets"])
+    assert "downloads.limacharlie.io" in sensors["data"]["targets"][0]["url"]
+    assert fake.calls == []
 
 
 def test_auth_whoami_uses_minimal_oid_for_unscoped_identity(tmp_path: Path) -> None:
@@ -357,6 +380,27 @@ def test_ioc_search_uses_insight_objects_path(tmp_path: Path) -> None:
     }
 
 
+def test_insight_batch_status_and_object_info_use_expected_paths(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("POST", f"https://api.limacharlie.io/v1/insight/{OID}/objects", {"summary": {"example.com": 2}})
+    fake.add("GET", f"https://api.limacharlie.io/v1/insight/{OID}", {"insight_bucket": "bucket-1"})
+    fake.add("GET", f"https://api.limacharlie.io/v1/insight/{OID}/objects/ip", {"locations": [{"sid": SID}]})
+    client = make_client(tmp_path, fake)
+
+    batch = client.batch_search_iocs(OID, {"domain": ["example.com"]}, info="locations", limit=25)
+    status = client.get_insight_status(OID)
+    obj = client.get_object_information(OID, "ip", "192.0.2.10", info="locations", limit=10)
+
+    assert batch["ok"] is True
+    assert_ax_envelope(batch, "ioc.batch_search")
+    assert json.loads(fake.calls[1]["params"]["objects"]) == {"domain": ["example.com"]}
+    assert fake.calls[1]["params"]["limit"] == 25
+    assert status["state"]["enabled"] is True
+    assert status["operation"] == "insight.status"
+    assert obj["operation"] == "ioc.object_info"
+    assert fake.calls[3]["params"]["name"] == "192.0.2.10"
+
+
 def test_validate_search_query_discovers_search_url_and_posts_json(tmp_path: Path) -> None:
     fake = FakeHTTP()
     fake.add("GET", f"https://api.limacharlie.io/v1/orgs/{OID}/url", {"search": "region.replay-search.limacharlie.io"})
@@ -461,6 +505,27 @@ def test_cancel_search_query_calls_delete_and_reports_terminal_state(tmp_path: P
     assert result["side_effects"][0]["type"] == "search_query_cancelled"
 
 
+def test_replay_tools_use_replay_url_and_force_dry_run(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("GET", f"https://api.limacharlie.io/v1/orgs/{OID}/url", {"replay": "replay-region.limacharlie.io"})
+    fake.add("POST", "https://replay-region.limacharlie.io/", {"results": []})
+    client = make_client(tmp_path, fake)
+
+    rule = {"detect": {"event": "NEW_PROCESS"}, "respond": []}
+    validated = client.validate_replay_rule(OID, rule)
+    scanned = client.replay_scan_events(OID, [{"event": {"FILE_PATH": "cmd.exe"}, "routing": {}}], rule_content=rule)
+    dry = client.replay_dry_run(OID, 1_771_000_000, 1_771_003_600, rule_name="rule-1", limit_events=50)
+
+    assert validated["operation"] == "replay.validate_rule"
+    assert scanned["operation"] == "replay.scan_events"
+    assert dry["operation"] == "replay.run_dry"
+    assert fake.calls[2]["json"]["is_dry_run"] is True
+    assert fake.calls[4]["json"]["event_source"]["events"][0]["event"]["FILE_PATH"] == "cmd.exe"
+    assert fake.calls[6]["json"]["rule_source"]["rule_name"] == "rule-1"
+    assert fake.calls[6]["json"]["limit_event"] == 50
+    assert all(call["url"] != "https://jwt.limacharlie.io" for call in (fake.calls[3], fake.calls[5]))
+
+
 def test_artifact_and_job_tools_use_bounded_paths(tmp_path: Path) -> None:
     fake = FakeHTTP()
     fake.add("GET", f"https://api.limacharlie.io/v1/insight/{OID}/artifacts", {"artifacts": [{"id": "a1"}]})
@@ -473,6 +538,25 @@ def test_artifact_and_job_tools_use_bounded_paths(tmp_path: Path) -> None:
     assert client.get_artifact_url(OID, "a1")["data"]["export"] == "https://signed"
     assert client.list_jobs(OID, start=1_771_000_000, end=1_771_003_600)["data"]["jobs"]["job-1"]["id"] == "job-1"
     assert client.get_job(OID, "job-1")["resource"]["id"] == "job-1"
+
+
+def test_payload_and_arl_read_tools_use_expected_paths(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("GET", f"https://api.limacharlie.io/v1/payload/{OID}", {"payloads": [{"name": "p1"}]})
+    fake.add("GET", f"https://api.limacharlie.io/v1/payload/{OID}/p1", {"get_url": "https://signed"})
+    fake.add("GET", f"https://api.limacharlie.io/v1/arl/{OID}", {"data": [{"id": "resolved"}]})
+    client = make_client(tmp_path, fake)
+
+    payloads = client.list_payloads(OID)
+    payload = client.get_payload_download_url(OID, "p1")
+    arl = client.get_arl(OID, "lc://example/resource", limit=1)
+
+    assert payloads["operation"] == "payload.list"
+    assert payloads["data"]["payloads"][0]["name"] == "p1"
+    assert payload["operation"] == "payload.get_url"
+    assert payload["data"]["get_url"] == "https://signed"
+    assert arl["operation"] == "arl.get"
+    assert fake.calls[3]["params"] == {"arl": "lc://example/resource"}
 
 
 def test_wait_job_returns_terminal_state(tmp_path: Path) -> None:
@@ -755,6 +839,25 @@ def test_fp_yara_and_logging_read_tools_use_expected_paths(tmp_path: Path) -> No
     assert decoded == {"action": "list_rules"}
 
 
+def test_integrity_and_usp_tools_use_expected_paths(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("POST", f"https://api.limacharlie.io/v1/service/{OID}/integrity", {"rule-1": {"patterns": ["/bin/*"]}})
+    fake.add("POST", f"https://api.limacharlie.io/v1/usp/validate/{OID}", {"valid": True})
+    client = make_client(tmp_path, fake)
+
+    listed = client.list_integrity_rules(OID)
+    fetched = client.get_integrity_rule(OID, "rule-1")
+    validation = client.validate_usp_mapping(OID, "json", mapping={"event": "NEW_PROCESS"}, json_input={"x": 1})
+
+    assert listed["operation"] == "integrity_rule.list"
+    assert fetched["operation"] == "integrity_rule.get"
+    assert fetched["data"]["patterns"] == ["/bin/*"]
+    assert decode_request_data(fake.calls[1]["params"]["request_data"]) == {"action": "list_rules"}
+    assert validation["ok"] is True
+    assert validation["operation"] == "usp.validate"
+    assert fake.calls[3]["json"]["json_input"] == [{"x": 1}]
+
+
 def test_artifact_list_requires_time_window_without_cursor(tmp_path: Path) -> None:
     client = make_client(tmp_path, FakeHTTP())
 
@@ -807,6 +910,26 @@ def test_org_platform_read_tools_use_expected_paths(tmp_path: Path) -> None:
     assert runtime["data"]["records"] == [{"entity": "sensor"}]
     assert fake.calls[2]["params"] == {"entity_type": "sensor", "entity_name": "sensor-1"}
     assert quota["data"]["usage"] == 3
+
+
+def test_billing_read_tools_use_expected_paths(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("GET", f"https://api.limacharlie.io/v1/orgs/{OID}/billing/status", {"status": "active"})
+    fake.add("GET", f"https://api.limacharlie.io/v1/orgs/{OID}/billing/details", {"plan": "pro"})
+    fake.add("GET", f"https://api.limacharlie.io/v1/orgs/{OID}/billing/invoice/2026/06", {"url": "https://invoice"})
+    fake.add("GET", "https://api.limacharlie.io/v1/plans", {"plans": [{"name": "pro"}]})
+    client = make_client(tmp_path, fake)
+
+    status = client.get_billing_status(OID)
+    details = client.get_billing_details(OID)
+    invoice = client.get_billing_invoice_url(OID, 2026, 6, fmt="pdf")
+    plans = client.list_billing_plans()
+
+    assert status["operation"] == "billing.status"
+    assert details["data"]["plan"] == "pro"
+    assert invoice["resource"]["id"] == "2026-06"
+    assert fake.calls[3]["params"] == {"format": "pdf"}
+    assert plans["data"]["plans"][0]["name"] == "pro"
 
 
 def test_group_read_tools_use_expected_paths(tmp_path: Path) -> None:

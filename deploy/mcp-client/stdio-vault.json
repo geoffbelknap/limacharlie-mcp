@@ -1,13 +1,12 @@
 {
   "mcpServers": {
     "limacharlie-review": {
+      "command": "/opt/limacharlie-mcp/.venv/bin/limacharlie-mcp-review"
+    },
+    "limacharlie-review-custom-config": {
       "command": "/opt/limacharlie-mcp/.venv/bin/limacharlie-mcp-review",
       "env": {
-        "LC_SECRET_PROVIDER": "vault",
-        "LC_VAULT_ADDR": "https://vault.example.com",
-        "LC_VAULT_TOKEN_FILE": "/run/secrets/limacharlie-mcp-vault-token",
-        "LC_API_KEY_REF": "vault://secret/data/limacharlie/mcp#api_key",
-        "LC_MCP_AUDIT_LOG": "/var/log/limacharlie-mcp/audit.jsonl"
+        "LC_MCP_CONFIG": "/etc/limacharlie-mcp/config.json"
       }
     }
   }

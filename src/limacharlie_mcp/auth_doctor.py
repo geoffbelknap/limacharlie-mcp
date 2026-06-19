@@ -9,6 +9,26 @@ from pathlib import Path
 from typing import Any
 
 from .api import HttpClient, LimaCharlieAPI
+from .runtime_config import load_runtime_config
+
+
+CONFIG_ENV_MAP = {
+    "oid": "LC_ORG_ID",
+    "uid": "LC_UID",
+    "auth_mode": "LC_AUTH_MODE",
+    "credential_provider": "LC_SECRET_PROVIDER",
+    "api_key_ref": "LC_API_KEY_REF",
+    "user_api_key_ref": "LC_USER_API_KEY_REF",
+    "vault_addr": "LC_VAULT_ADDR",
+    "vault_token_file": "LC_VAULT_TOKEN_FILE",
+    "vault_namespace": "LC_VAULT_NAMESPACE",
+    "api_root": "LC_API_ROOT",
+    "jwt_root": "LC_JWT_ROOT",
+    "cases_root": "LC_CASES_API_ROOT",
+    "ai_root": "LC_AI_SESSIONS_ROOT",
+    "timeout_seconds": "LC_MCP_TIMEOUT_SECONDS",
+    "audit_log": "LC_MCP_AUDIT_LOG",
+}
 
 
 def _parse_env_file(path: Path) -> dict[str, str]:
@@ -30,8 +50,19 @@ def _parse_env_file(path: Path) -> dict[str, str]:
     return values
 
 
-def _load_values(env_file: Path | None) -> dict[str, str]:
-    values = dict(os.environ)
+def _config_as_env(config: dict[str, Any]) -> dict[str, str]:
+    values: dict[str, str] = {}
+    for config_key, env_key in CONFIG_ENV_MAP.items():
+        value = config.get(config_key)
+        if value is not None and value != "":
+            values[env_key] = str(value)
+    return values
+
+
+def _load_values(env_file: Path | None, config_file: Path | None) -> dict[str, str]:
+    config = load_runtime_config(config_file)
+    values = _config_as_env(config)
+    values.update({key: value for key, value in os.environ.items() if value})
     if env_file:
         values.update(_parse_env_file(env_file))
     return values
@@ -72,12 +103,13 @@ def _secret_leak_checks(result: dict[str, Any], values: dict[str, str]) -> dict[
 def run_doctor(
     *,
     env_file: Path | None = None,
+    config_file: Path | None = None,
     mode: str | None = None,
     oid: str | None = None,
     live: bool = True,
     http_client: HttpClient | None = None,
 ) -> dict[str, Any]:
-    values = _load_values(env_file)
+    values = _load_values(env_file, config_file)
     requested_mode = mode or values.get("LC_AUTH_MODE") or "auto"
     if requested_mode == "auto":
         auth_mode = None
@@ -86,8 +118,8 @@ def run_doctor(
     scoped_oid = oid or values.get("LC_ORG_ID") or values.get("LC_OID")
 
     client = LimaCharlieAPI(
-        api_key=values.get("LC_API_KEY", ""),
-        user_api_key=values.get("LC_USER_API_KEY", ""),
+        api_key=values.get("LC_API_KEY"),
+        user_api_key=values.get("LC_USER_API_KEY"),
         uid=values.get("LC_UID") or None,
         auth_mode=auth_mode,
         credential_provider=values.get("LC_SECRET_PROVIDER") or values.get("LC_CREDENTIAL_PROVIDER"),
@@ -154,6 +186,11 @@ def run_doctor(
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Validate LimaCharlie MCP auth configuration without printing secrets.")
+    parser.add_argument(
+        "--config",
+        type=Path,
+        help="Optional LimaCharlie MCP config file. Defaults to LC_MCP_CONFIG or ~/.config/limacharlie-mcp/config.json.",
+    )
     parser.add_argument("--env-file", type=Path, help="Optional dotenv-style file to read for local validation.")
     parser.add_argument("--oid", help="Organization ID to use for org-scoped validation.")
     parser.add_argument(
@@ -168,7 +205,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
-    result = run_doctor(env_file=args.env_file, mode=args.mode, oid=args.oid, live=not args.no_live)
+    result = run_doctor(
+        env_file=args.env_file,
+        config_file=args.config,
+        mode=args.mode,
+        oid=args.oid,
+        live=not args.no_live,
+    )
     print(json.dumps(result, indent=2, sort_keys=True))
     if not result["ok"]:
         raise SystemExit(2)

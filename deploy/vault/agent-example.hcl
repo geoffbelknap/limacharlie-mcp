@@ -1,8 +1,8 @@
 # Example Vault Agent config for limacharlie-mcp.
 #
 # This example uses AppRole auto-auth and writes a renewable Vault token to a
-# local file. Point LC_VAULT_TOKEN_FILE at the sink path in the MCP client
-# config. Replace all example paths and role details before use.
+# local file. Point vault_token_file in the LimaCharlie MCP config file at the
+# sink path. Replace all example paths and role details before use.
 
 pid_file = "/var/run/limacharlie-mcp/vault-agent.pid"
 

@@ -16,6 +16,7 @@ from urllib.parse import quote
 import httpx
 
 from .profiles import filter_operation_catalog, normalize_profile, profile_catalog
+from .runtime_config import env_first, load_runtime_config
 
 
 class HttpClient(Protocol):
@@ -3977,19 +3978,26 @@ class LimaCharlieAPI:
         default_oid: str | None = None,
         timeout_seconds: float | None = None,
         audit_path: Path | None = None,
+        config_path: str | Path | None = None,
         http_client: HttpClient | None = None,
     ) -> None:
+        config = load_runtime_config(config_path)
+        environ = os.environ
         self._explicit_api_key = api_key is not None
         self._explicit_api_key_ref = api_key_ref is not None
         self._explicit_user_api_key = user_api_key is not None
         self._explicit_user_api_key_ref = user_api_key_ref is not None
-        self.api_key = api_key if api_key is not None else os.environ.get("LC_API_KEY")
+        self.api_key = env_first(config, environ, "api_key", "LC_API_KEY", explicit=api_key)
         self.user_api_key = (
-            user_api_key if user_api_key is not None else os.environ.get("LC_USER_API_KEY")
+            env_first(config, environ, "user_api_key", "LC_USER_API_KEY", explicit=user_api_key)
         )
-        self.uid = uid or os.environ.get("LC_UID")
-        self.default_oid = default_oid or os.environ.get("LC_ORG_ID") or os.environ.get("LC_OID")
-        raw_auth_mode = (auth_mode or os.environ.get("LC_AUTH_MODE") or "auto").strip().lower()
+        self.uid = env_first(config, environ, "uid", "LC_UID", explicit=uid)
+        self.default_oid = (
+            env_first(config, environ, "oid", "LC_ORG_ID", "LC_OID", explicit=default_oid)
+        )
+        raw_auth_mode = (
+            env_first(config, environ, "auth_mode", "LC_AUTH_MODE", explicit=auth_mode) or "auto"
+        ).strip().lower()
         if raw_auth_mode in {"", "auto"}:
             self.auth_mode: str | None = None
         elif raw_auth_mode in {"org", "org_api_key"}:
@@ -3999,9 +4007,14 @@ class LimaCharlieAPI:
         else:
             raise ValidationError("auth_mode must be auto, org_api_key, or user_api_key")
         configured_provider = (
-            credential_provider
-            or os.environ.get("LC_SECRET_PROVIDER")
-            or os.environ.get("LC_CREDENTIAL_PROVIDER")
+            env_first(
+                config,
+                environ,
+                "credential_provider",
+                "LC_SECRET_PROVIDER",
+                "LC_CREDENTIAL_PROVIDER",
+                explicit=credential_provider,
+            )
         )
         self.credential_provider = (
             configured_provider or ("env" if self.api_key or self.user_api_key else "vault")
@@ -4009,41 +4022,112 @@ class LimaCharlieAPI:
         if self.credential_provider not in {"env", "vault"}:
             raise ValidationError("credential_provider must be env or vault")
         self.api_key_ref = (
-            api_key_ref
-            if api_key_ref is not None
-            else os.environ.get("LC_API_KEY_REF") or os.environ.get("LC_API_KEY_SECRET_REF")
+            env_first(
+                config,
+                environ,
+                "api_key_ref",
+                "LC_API_KEY_REF",
+                "LC_API_KEY_SECRET_REF",
+                explicit=api_key_ref,
+            )
         )
         self.user_api_key_ref = (
-            user_api_key_ref
-            if user_api_key_ref is not None
-            else os.environ.get("LC_USER_API_KEY_REF") or os.environ.get("LC_USER_API_KEY_SECRET_REF")
+            env_first(
+                config,
+                environ,
+                "user_api_key_ref",
+                "LC_USER_API_KEY_REF",
+                "LC_USER_API_KEY_SECRET_REF",
+                explicit=user_api_key_ref,
+            )
         )
         if self.credential_provider == "vault" and not self.api_key_ref and not self.user_api_key_ref:
             self.api_key_ref = "vault://secret/data/limacharlie/mcp#api_key"
         self.vault_addr = (
-            vault_addr or os.environ.get("LC_VAULT_ADDR") or os.environ.get("VAULT_ADDR") or ""
+            env_first(
+                config,
+                environ,
+                "vault_addr",
+                "LC_VAULT_ADDR",
+                "VAULT_ADDR",
+                explicit=vault_addr,
+            )
+            or ""
         ).rstrip("/")
         self.vault_token = (
-            vault_token
-            if vault_token is not None
-            else os.environ.get("LC_VAULT_TOKEN") or os.environ.get("VAULT_TOKEN")
+            env_first(
+                config,
+                environ,
+                "vault_token",
+                "LC_VAULT_TOKEN",
+                "VAULT_TOKEN",
+                explicit=vault_token,
+            )
         )
         self.vault_token_file = (
-            vault_token_file
-            or os.environ.get("LC_VAULT_TOKEN_FILE")
-            or os.environ.get("VAULT_TOKEN_FILE")
+            env_first(
+                config,
+                environ,
+                "vault_token_file",
+                "LC_VAULT_TOKEN_FILE",
+                "VAULT_TOKEN_FILE",
+                explicit=vault_token_file,
+            )
         )
         self.vault_namespace = (
-            vault_namespace
-            or os.environ.get("LC_VAULT_NAMESPACE")
-            or os.environ.get("VAULT_NAMESPACE")
+            env_first(
+                config,
+                environ,
+                "vault_namespace",
+                "LC_VAULT_NAMESPACE",
+                "VAULT_NAMESPACE",
+                explicit=vault_namespace,
+            )
         )
-        self.api_root = (api_root or os.environ.get("LC_API_ROOT") or "https://api.limacharlie.io").rstrip("/")
-        self.jwt_root = (jwt_root or os.environ.get("LC_JWT_ROOT") or "https://jwt.limacharlie.io").rstrip("/")
-        self.cases_root = (cases_root or os.environ.get("LC_CASES_API_ROOT") or "https://cases.limacharlie.io").rstrip("/")
-        self.ai_root = (ai_root or os.environ.get("LC_AI_SESSIONS_ROOT") or "https://ai.limacharlie.io").rstrip("/")
-        self.timeout_seconds = timeout_seconds or float(os.environ.get("LC_MCP_TIMEOUT_SECONDS", "30"))
-        self.audit_path = audit_path or Path(os.environ.get("LC_MCP_AUDIT_LOG", default_audit_path()))
+        self.api_root = (
+            env_first(config, environ, "api_root", "LC_API_ROOT", explicit=api_root)
+            or "https://api.limacharlie.io"
+        ).rstrip("/")
+        self.jwt_root = (
+            env_first(config, environ, "jwt_root", "LC_JWT_ROOT", explicit=jwt_root)
+            or "https://jwt.limacharlie.io"
+        ).rstrip("/")
+        self.cases_root = (
+            env_first(
+                config,
+                environ,
+                "cases_root",
+                "LC_CASES_API_ROOT",
+                explicit=cases_root,
+            )
+            or "https://cases.limacharlie.io"
+        ).rstrip("/")
+        self.ai_root = (
+            env_first(
+                config,
+                environ,
+                "ai_root",
+                "LC_AI_SESSIONS_ROOT",
+                explicit=ai_root,
+            )
+            or "https://ai.limacharlie.io"
+        ).rstrip("/")
+        raw_timeout = env_first(
+            config,
+            environ,
+            "timeout_seconds",
+            "LC_MCP_TIMEOUT_SECONDS",
+            explicit=timeout_seconds,
+        )
+        self.timeout_seconds = float(raw_timeout or 30)
+        raw_audit_path = env_first(
+            config,
+            environ,
+            "audit_log",
+            "LC_MCP_AUDIT_LOG",
+            explicit=audit_path,
+        )
+        self.audit_path = Path(raw_audit_path) if raw_audit_path else Path(default_audit_path())
         self.http: HttpClient = http_client or httpx.Client()
         self._tokens: dict[str, Token] = {}
         self._pending_mutations: dict[str, PendingMutation] = {}

@@ -31,6 +31,7 @@ limacharlie-mcp-contain = "limacharlie_mcp.server:main_contain"
 limacharlie-mcp-evict = "limacharlie_mcp.server:main_evict"
 limacharlie-mcp-recover = "limacharlie_mcp.server:main_recover"
 limacharlie-mcp-review = "limacharlie_mcp.server:main_review"
+limacharlie-mcp-configure = "limacharlie_mcp.configure:main"
 limacharlie-mcp-auth-doctor = "limacharlie_mcp.auth_doctor:main"
 limacharlie-mcp-vault-bootstrap = "limacharlie_mcp.vault_bootstrap:main"
 

@@ -6,8 +6,8 @@
 # - The optional LimaCharlie user API key is stored at secret/data/limacharlie/mcp-user.
 # - The key field name is "api_key".
 #
-# If you use a different mount or path, update both this policy and
-# LC_API_KEY_REF or LC_USER_API_KEY_REF in the MCP client config.
+# If you use a different mount or path, update both this policy and api_key_ref
+# or user_api_key_ref in the LimaCharlie MCP config file.
 
 path "secret/data/limacharlie/mcp" {
   capabilities = ["read"]

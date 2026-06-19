@@ -514,9 +514,19 @@ generate or paste JWTs, and they should not put the LimaCharlie API key in a
 memory.
 
 If you already have a Vault token file from `vault login`, Vault Agent, or your
-platform secret mount, use the bootstrap helper. It prompts for the
-LimaCharlie API key without echoing it, writes the key to Vault, and prints a
-nonsecret MCP env block.
+platform secret mount, configure the runtime once. It prompts for the
+LimaCharlie API key without echoing it, writes the key to Vault, and writes a
+nonsecret config file at `~/.config/limacharlie-mcp/config.json`.
+
+```bash
+limacharlie-mcp-configure \
+  --oid "263c19e9-bd4a-475a-8cd3-5403af446cb9" \
+  --vault-addr "https://vault.example.com" \
+  --token-file "$HOME/.vault-token"
+```
+
+For existing Vault automation, the lower-level bootstrap helper is still
+available:
 
 ```bash
 limacharlie-mcp-vault-bootstrap \
@@ -525,7 +535,7 @@ limacharlie-mcp-vault-bootstrap \
   --runtime-token-file "/run/secrets/limacharlie-mcp-vault-token"
 ```
 
-Store the LimaCharlie API key in Vault KV v2 at
+Both helpers store the LimaCharlie API key in Vault KV v2 at
 `secret/data/limacharlie/mcp`, field `api_key`. For unattended setup, pass
 `--api-key-stdin` and pipe the key from an approved secret manager. For local
 development only, you can use `LC_SECRET_PROVIDER=env` with `LC_API_KEY`.
@@ -536,7 +546,20 @@ placeholder internally.
 
 ## MCP Client Config
 
-Example stdio config:
+Example stdio config using the default config file:
+
+```json
+{
+  "mcpServers": {
+    "limacharlie-local": {
+      "command": "/path/to/limacharlie-mcp/.venv/bin/limacharlie-mcp"
+    }
+  }
+}
+```
+
+If you store the nonsecret config somewhere else, pass just one environment
+variable:
 
 ```json
 {
@@ -544,10 +567,7 @@ Example stdio config:
     "limacharlie-local": {
       "command": "/path/to/limacharlie-mcp/.venv/bin/limacharlie-mcp",
       "env": {
-        "LC_SECRET_PROVIDER": "vault",
-        "LC_VAULT_ADDR": "https://vault.example.com",
-        "LC_VAULT_TOKEN_FILE": "/run/secrets/limacharlie-mcp-vault-token",
-        "LC_API_KEY_REF": "vault://secret/data/limacharlie/mcp#api_key"
+        "LC_MCP_CONFIG": "/path/to/limacharlie-mcp-config.json"
       }
     }
   }
@@ -568,6 +588,7 @@ connecting the MCP to an agent client.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
+| `LC_MCP_CONFIG` | `~/.config/limacharlie-mcp/config.json` | Optional path to the nonsecret runtime config file. |
 | `LC_SECRET_PROVIDER` | `vault` when `LC_API_KEY` is unset | Credential provider. Supported values: `vault`, `env`. |
 | `LC_API_KEY_REF` | `vault://secret/data/limacharlie/mcp#api_key` | Vault reference for the LimaCharlie API key. |
 | `LC_VAULT_ADDR` | unset | Vault server URL. Required for the Vault provider. |

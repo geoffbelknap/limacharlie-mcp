@@ -17,8 +17,11 @@ environment variables, label it as temporary and prefer Vault for deployment.
      access across organizations.
    - Do not ask for an `LC_UID` unless using user API key JWT exchange.
 2. Store or reference the key:
-   - Use `limacharlie-mcp-vault-bootstrap` when a Vault token file exists.
-   - Use `LC_API_KEY_REF`, `LC_VAULT_ADDR`, and `LC_VAULT_TOKEN_FILE` for runtime.
+   - Use `limacharlie-mcp-configure` when a Vault token file exists.
+   - Write nonsecret runtime settings to `~/.config/limacharlie-mcp/config.json`
+     by default.
+   - Use only `LC_MCP_CONFIG` when the runtime config file is not in the
+     default location.
    - Keep `LC_API_KEY` as local test fallback only.
 3. Verify without exposing secrets:
    - Call `lc_auth_status` first.
@@ -41,5 +44,6 @@ make onboarding easier.
 
 If auth fails, report the concrete failure class and next check. Do not print API
 keys, Vault tokens, JWTs, or authorization headers. If an org API key works in
-the LimaCharlie UI but the MCP fails, verify that the MCP is using `oid` for org
-JWT exchange rather than `uid`.
+the LimaCharlie UI but the MCP fails, verify that the MCP config file has
+`oid`, `vault_addr`, `vault_token_file`, and `api_key_ref`, and that it is not
+trying to use `uid` unless user API key mode is intentional.

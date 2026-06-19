@@ -14,6 +14,8 @@ cd "$ROOT"
 
 "$PYTHON_BIN" -m pytest -q
 "$PYTHON_BIN" tools/parity/audit_parity.py --fetch-current-docs --format markdown --strict >/dev/null
+"$PYTHON_BIN" -m limacharlie_mcp.configure --help >/dev/null
+"$PYTHON_BIN" -m limacharlie_mcp.auth_doctor --help >/dev/null
 "$PYTHON_BIN" -m limacharlie_mcp.vault_bootstrap --help >/dev/null
 
 echo "readiness ok"

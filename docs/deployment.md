@@ -10,7 +10,10 @@ client, and use Vault as the default credential provider.
 - Vault stores the stable LimaCharlie API key.
 - Vault Agent, platform secret mounting, or `vault login` provides a local
   Vault token file.
-- The MCP client passes nonsecret environment values to the process.
+- `limacharlie-mcp-configure` writes nonsecret runtime settings to
+  `~/.config/limacharlie-mcp/config.json`.
+- The MCP client starts a profile command. It only needs `LC_MCP_CONFIG` when
+  the config file is not in the default location.
 - The MCP exchanges the LimaCharlie API key for short-lived JWTs in memory.
 
 Do not put production LimaCharlie API keys in `.env` files or MCP client
@@ -89,9 +92,22 @@ environment.
 
 The token file should be readable only by the account running the MCP server.
 
-## Bootstrap Or Rotate The LimaCharlie Key
+## Configure, Bootstrap, Or Rotate The LimaCharlie Key
 
-Run the bootstrap helper with a token that has the bootstrap policy:
+Run the configure helper with a token that has the bootstrap policy:
+
+```bash
+limacharlie-mcp-configure \
+  --oid "263c19e9-bd4a-475a-8cd3-5403af446cb9" \
+  --vault-addr "https://vault.example.com" \
+  --token-file "/run/secrets/limacharlie-mcp-bootstrap-token" \
+  --runtime-token-file "/run/secrets/limacharlie-mcp-vault-token"
+```
+
+The helper prompts for the LimaCharlie API key without echoing it, writes it to
+Vault, writes the nonsecret runtime config, and runs an auth doctor check.
+
+For lower-level automation that only writes Vault and prints env values, use:
 
 ```bash
 limacharlie-mcp-vault-bootstrap \
@@ -127,6 +143,17 @@ approved-secret-manager read limacharlie/mcp/api-key \
       --api-key-stdin
 ```
 
+If the key already exists in Vault and you only need to write the local config:
+
+```bash
+limacharlie-mcp-configure \
+  --skip-vault-write \
+  --api-key-ref "vault://secret/data/limacharlie/mcp#api_key" \
+  --oid "263c19e9-bd4a-475a-8cd3-5403af446cb9" \
+  --vault-addr "https://vault.example.com" \
+  --token-file "/run/secrets/limacharlie-mcp-vault-token"
+```
+
 After rotation, call `lc_auth_refresh` or let the next LimaCharlie API request
 refresh the in-memory JWT automatically.
 
@@ -137,7 +164,21 @@ Start from one of these templates:
 - `deploy/mcp-client/stdio-vault.json`
 - `deploy/mcp-client/stdio-vault-user-key.json`
 
-Production config should contain only nonsecret values:
+When the config file is in the default location, production MCP client config
+does not need an auth env block:
+
+```json
+{
+  "mcpServers": {
+    "limacharlie-review": {
+      "command": "/opt/limacharlie-mcp/.venv/bin/limacharlie-mcp-review"
+    }
+  }
+}
+```
+
+If your deployment stores the nonsecret config somewhere else, pass
+`LC_MCP_CONFIG`:
 
 ```json
 {
@@ -145,11 +186,7 @@ Production config should contain only nonsecret values:
     "limacharlie-review": {
       "command": "/opt/limacharlie-mcp/.venv/bin/limacharlie-mcp-review",
       "env": {
-        "LC_SECRET_PROVIDER": "vault",
-        "LC_VAULT_ADDR": "https://vault.example.com",
-        "LC_VAULT_TOKEN_FILE": "/run/secrets/limacharlie-mcp-vault-token",
-        "LC_API_KEY_REF": "vault://secret/data/limacharlie/mcp#api_key",
-        "LC_MCP_AUDIT_LOG": "/var/log/limacharlie-mcp/audit.jsonl"
+        "LC_MCP_CONFIG": "/etc/limacharlie-mcp/config.json"
       }
     }
   }

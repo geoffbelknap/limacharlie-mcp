@@ -21,7 +21,7 @@ def test_no_docker_deployment_artifacts() -> None:
     assert dockerish == []
 
 
-def test_mcp_client_templates_use_vault_refs_without_raw_api_keys() -> None:
+def test_mcp_client_templates_use_config_file_without_raw_api_keys() -> None:
     templates = sorted((ROOT / "deploy" / "mcp-client").glob("*.json"))
     assert templates
 
@@ -30,14 +30,14 @@ def test_mcp_client_templates_use_vault_refs_without_raw_api_keys() -> None:
         servers = config["mcpServers"]
         for server in servers.values():
             assert server["command"].endswith("/limacharlie-mcp-review")
-            env = server["env"]
-            assert env["LC_SECRET_PROVIDER"] == "vault"
+            env = server.get("env", {})
+            assert set(env) <= {"LC_MCP_CONFIG"}
+            if env:
+                assert env["LC_MCP_CONFIG"].endswith(".json")
             assert "LC_API_KEY" not in env
             assert "LC_USER_API_KEY" not in env
-            ref_key = "LC_USER_API_KEY_REF" if "LC_UID" in env else "LC_API_KEY_REF"
-            assert env[ref_key].startswith("vault://")
             assert "LC_VAULT_TOKEN" not in env
-            assert "LC_VAULT_TOKEN_FILE" in env
+            assert "LC_VAULT_TOKEN_FILE" not in env
 
 
 def test_vault_policies_split_bootstrap_and_runtime_access() -> None:
@@ -60,6 +60,7 @@ def test_profile_console_entrypoints_are_registered() -> None:
     scripts = pyproject["project"]["scripts"]
 
     assert scripts["limacharlie-mcp"] == "limacharlie_mcp.server:main"
+    assert scripts["limacharlie-mcp-configure"] == "limacharlie_mcp.configure:main"
     for profile in ("core", "fleet", "admin", "content", "detect", "contain", "evict", "recover", "review"):
         script = f"limacharlie-mcp-{profile}"
         target = f"limacharlie_mcp.server:main_{profile.replace('-', '_')}"

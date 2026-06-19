@@ -72,7 +72,7 @@ def read_api_key(*, api_key_stdin: bool) -> str:
     if api_key_stdin:
         api_key = sys.stdin.read().strip()
     else:
-        api_key = getpass.getpass("LimaCharlie API key: ").strip()
+        api_key = getpass.getpass("LimaCharlie API key secret (input hidden): ").strip()
     if not api_key:
         raise ValueError("LimaCharlie API key was empty")
     return api_key

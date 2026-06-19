@@ -66,7 +66,10 @@ limacharlie-mcp-configure \
 
 Expected success output is a short checklist: the key was stored in managed
 local Vault, local MCP config was written, JWT refresh was verified, and org
-access was verified. Use `--json` only when a script needs the full structured
+access was verified. If the output says live verification failed, the key was
+stored locally but LimaCharlie rejected it or the live check could not complete.
+Do not start review or response workflows until JWT refresh verifies
+successfully. Use `--json` only when a script needs the full structured
 configuration result.
 
 For unattended setup, provide all values and pipe the key from an approved
@@ -293,6 +296,7 @@ Common auth mistakes:
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
 | `lc_list_orgs` fails in org-key mode | Organization API keys cannot do unscoped account org discovery | Use org-scoped tools with explicit `oid`, or switch to user API key mode. |
+| JWT exchange returns `unknown api key` in org mode | The pasted key is wrong, expired/deleted, or not the org API key secret for this organization | Create a fresh key under Organization Settings -> Access Management -> REST API for the target org, rerun configure, and paste the new secret shown once. |
 | JWT exchange returns `unknown api key` in user mode | `LC_USER_API_KEY` is missing, wrong, or actually an org API key | Create a fresh user API key under Account Settings -> API Keys and copy the secret shown once. |
 | JWT exchange returns `user not found` in user mode | `LC_UID` is not the JWT-accepted user id | Re-copy the user id from the account user API key guidance, or validate with the direct JWT exchange before using the MCP. |
 | `LC_UID` is set and org tools unexpectedly fail | Older configs may accidentally pair `LC_UID` with an org key | Current runtime defaults to org mode unless `LC_AUTH_MODE=user_api_key` is set; remove stale `LC_AUTH_MODE` if needed. |

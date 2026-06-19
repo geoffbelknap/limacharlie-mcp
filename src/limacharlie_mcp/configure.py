@@ -268,17 +268,48 @@ def _check_ok(doctor: dict[str, Any] | None, step: str) -> bool:
     return any(isinstance(check, dict) and check.get("step") == step and check.get("ok") for check in checks)
 
 
+def _failed_checks(doctor: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if not isinstance(doctor, dict):
+        return []
+    checks = doctor.get("checks")
+    if not isinstance(checks, list):
+        return []
+    return [check for check in checks if isinstance(check, dict) and not check.get("ok") and not check.get("skipped")]
+
+
+def _failure_reason(check: dict[str, Any]) -> str:
+    parts = []
+    error_code = check.get("error_code")
+    error_class = check.get("error_class")
+    error_message = str(check.get("error_message") or "").strip()
+    if error_class:
+        parts.append(str(error_class))
+    if error_code:
+        parts.append(str(error_code))
+    prefix = "/".join(parts)
+    if prefix and error_message:
+        return f"{prefix}: {error_message}"
+    return error_message or prefix or "Unknown verification failure."
+
+
 def _format_human_result(result: dict[str, Any], args: argparse.Namespace) -> str:
     auth_mode = str(result.get("auth_mode") or "")
     key_label = "user API key" if auth_mode == "user_api_key" else "organization API key"
     doctor = result.get("doctor") if isinstance(result.get("doctor"), dict) else None
+    failed_checks = _failed_checks(doctor)
+    verified = bool(result.get("ok"))
     oid = None
     if isinstance(doctor, dict):
         config = doctor.get("config")
         if isinstance(config, dict) and config.get("oid_present"):
             oid = args.oid
 
-    lines = ["Configured LimaCharlie MCP auth.", ""]
+    if verified:
+        lines = ["Configured and verified LimaCharlie MCP auth.", ""]
+    elif doctor is None:
+        lines = ["Configured LimaCharlie MCP auth.", ""]
+    else:
+        lines = ["Configured local LimaCharlie MCP auth, but live verification failed.", ""]
     if result.get("managed_vault"):
         lines.append(f"[OK] Stored the LimaCharlie {key_label} in managed local Vault")
     else:
@@ -293,13 +324,20 @@ def _format_human_result(result: dict[str, Any], args: argparse.Namespace) -> st
         elif args.no_live:
             lines.append("- Skipped live JWT refresh check")
         else:
-            lines.append("- JWT refresh check did not complete")
+            lines.append("[FAILED] JWT refresh check did not complete")
 
         if _check_ok(doctor, "get_org_info"):
             suffix = f" {oid}" if oid else ""
             lines.append(f"[OK] Verified access to org{suffix}")
         elif args.no_live:
             lines.append("- Skipped live org access check")
+
+    if failed_checks:
+        lines.append("")
+        lines.append("Verification issue:")
+        for check in failed_checks[:3]:
+            step = str(check.get("step") or "check")
+            lines.append(f"- {step}: {_failure_reason(check)}")
 
     if args.verbose:
         lines.extend(
@@ -311,17 +349,28 @@ def _format_human_result(result: dict[str, Any], args: argparse.Namespace) -> st
             ]
         )
 
-    lines.extend(
-        [
-            "",
-            "Next:",
-            "1. Open a new Codex or Claude chat with the LimaCharlie MCP plugin enabled.",
-            "2. Ask: \"Check my LimaCharlie MCP auth status.\"",
-            "   The agent should confirm credentials are configured without showing secrets.",
-            "3. Ask: \"Review my LimaCharlie org posture.\"",
-            "   For a smaller smoke test, ask: \"List my LimaCharlie sensors.\"",
-        ]
-    )
+    if verified:
+        lines.extend(
+            [
+                "",
+                "Next:",
+                "1. Open a new Codex or Claude chat with the LimaCharlie MCP plugin enabled.",
+                "2. Ask: \"Check my LimaCharlie MCP auth status.\"",
+                "   The agent should confirm credentials are configured without showing secrets.",
+                "3. Ask: \"Review my LimaCharlie org posture.\"",
+                "   For a smaller smoke test, ask: \"List my LimaCharlie sensors.\"",
+            ]
+        )
+    elif doctor is not None:
+        lines.extend(
+            [
+                "",
+                "Next:",
+                "1. Create or copy a fresh organization API key from the target org's REST API page.",
+                "2. Rerun this configure command and paste that key at the hidden prompt.",
+                "3. Do not start review or response workflows until JWT refresh verifies successfully.",
+            ]
+        )
     return "\n".join(lines)
 
 

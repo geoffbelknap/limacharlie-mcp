@@ -249,7 +249,7 @@ def test_configure_cli_prints_human_success_by_default(
     )
 
     output = capsys.readouterr().out
-    assert output.startswith("Configured LimaCharlie MCP auth.")
+    assert output.startswith("Configured and verified LimaCharlie MCP auth.")
     assert "[OK] Stored the LimaCharlie organization API key in managed local Vault" in output
     assert "[OK] Wrote local MCP config" in output
     assert "[OK] Verified JWT refresh" in output
@@ -262,6 +262,76 @@ def test_configure_cli_prints_human_success_by_default(
     assert "api_key_ref" not in output
     assert "vault_token_file" not in output
     assert "secret/data" not in output
+
+
+def test_configure_cli_warns_when_live_verification_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    clear_lc_env(monkeypatch)
+    config = tmp_path / "config.json"
+    root_token_file = tmp_path / "vault" / "root-token"
+    runtime_token_file = tmp_path / "vault" / "runtime-token"
+    root_token_file.parent.mkdir()
+    root_token_file.write_text("root-token", encoding="utf-8")
+    runtime_token_file.write_text("runtime-token", encoding="utf-8")
+
+    monkeypatch.setattr(
+        configure_module,
+        "ensure_managed_vault",
+        lambda mapping=None: SimpleNamespace(
+            addr="http://127.0.0.1:8220",
+            root_token_file=root_token_file,
+            runtime_token_file=runtime_token_file,
+            started=True,
+            initialized=True,
+            sealed=False,
+        ),
+    )
+    monkeypatch.setattr(
+        configure_module,
+        "run_doctor",
+        lambda *, config_file, live: {
+            "ok": False,
+            "config": {"oid_present": True},
+            "checks": [
+                {"step": "auth_status", "ok": True},
+                {
+                    "step": "auth_refresh_org_scoped",
+                    "ok": False,
+                    "error_class": "internal",
+                    "error_code": "request_failed",
+                    "error_message": 'JWT exchange failed with status 401: {"error":"unknown api key"}',
+                },
+            ],
+            "leak_checks": {},
+        },
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        configure_module.main(
+            [
+                "--config",
+                str(config),
+                "--oid",
+                OID,
+                "--api-key-ref",
+                "vault://secret/data/limacharlie/mcp#api_key",
+                "--skip-vault-write",
+                "--yes",
+            ]
+        )
+
+    assert exc.value.code == 2
+    output = capsys.readouterr().out
+    assert output.startswith("Configured local LimaCharlie MCP auth, but live verification failed.")
+    assert "[OK] Stored the LimaCharlie organization API key in managed local Vault" in output
+    assert "[FAILED] JWT refresh check did not complete" in output
+    assert "unknown api key" in output
+    assert "Create or copy a fresh organization API key" in output
+    assert "Do not start review or response workflows" in output
+    assert 'Ask: "Review my LimaCharlie org posture."' not in output
 
 
 def test_configure_cli_json_preserves_structured_output(

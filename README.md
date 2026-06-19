@@ -323,8 +323,8 @@ entire detections, cases, or rule bodies.
 | `lc_validate_replay_rule` | Validate a D&R rule through Replay using dry-run evaluation. |
 | `lc_replay_scan_events` | Dry-run a D&R rule against explicit events. |
 | `lc_replay_dry_run` | Dry-run a D&R rule against historical data without creating detections. |
-| `lc_list_dr_rules` | List D&R rules from a hive namespace. |
-| `lc_get_dr_rule` | Fetch one D&R rule from a hive namespace. |
+| `lc_list_dr_rules` | List D&R rules from the general or managed namespace. |
+| `lc_get_dr_rule` | Fetch one D&R rule from the general or managed namespace. |
 | `lc_preview_set_dr_rule` | Preview creating or updating a D&R rule. |
 | `lc_preview_delete_dr_rule` | Preview deleting a D&R rule. |
 | `lc_list_fp_rules` | List false-positive rules. |

@@ -1628,9 +1628,9 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "resource_type": "dr_rule_collection",
         "required_inputs": ["oid"],
         "optional_inputs": ["namespace", "limit"],
-        "bounds": {"limit_min": 1, "limit_max": 500, "namespace": ["general", "managed", "service"]},
+        "bounds": {"limit_min": 1, "limit_max": 500, "namespace": ["general", "managed"]},
         "side_effects": "none",
-        "notes": "Lists D&R rules from the corresponding hive namespace.",
+        "notes": "Lists D&R rules from user-managed or managed-content hive namespaces.",
     },
     "dr_rule.get": {
         "suite": "content",
@@ -1639,9 +1639,9 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "resource_type": "dr_rule",
         "required_inputs": ["oid", "name"],
         "optional_inputs": ["namespace"],
-        "bounds": {"namespace": ["general", "managed", "service"]},
+        "bounds": {"namespace": ["general", "managed"]},
         "side_effects": "none",
-        "notes": "Fetches one D&R hive record.",
+        "notes": "Fetches one D&R hive record from user-managed or managed-content namespaces.",
     },
     "dr_rule.set.preview": {
         "suite": "content",
@@ -3028,7 +3028,7 @@ _SAFE_EXTENSION_NAME = re.compile(r"^[A-Za-z0-9_.:/@+=%-]{1,300}$")
 _UNSAFE_SELECTOR = re.compile(r"[\x00-\x1f;&|`$]")
 _IOC_TYPES = {"domain", "ip", "file_hash", "file_path", "file_name", "user", "service_name", "package_name"}
 _INFO_TYPES = {"summary", "locations"}
-_DR_NAMESPACES = {"general", "managed", "service"}
+_DR_NAMESPACES = {"general", "managed"}
 _SEARCH_STREAMS = {"event", "detect", "audit"}
 _INVOICE_FORMATS = {"pdf", "csv"}
 _SAFE_CVE = re.compile(r"^CVE-[0-9]{4}-[0-9]{4,}$", re.IGNORECASE)
@@ -3040,7 +3040,6 @@ _AI_SESSION_STATUSES = {"running", "ended", "starting", "failed"}
 _KNOWN_HIVE_TYPES = (
     "dr-general",
     "dr-managed",
-    "dr-service",
     "fp",
     "cloud_sensor",
     "extension_config",
@@ -3643,7 +3642,7 @@ def require_vuln_severities(severities: list[str] | None) -> list[str] | None:
 def require_dr_namespace(namespace: str | None) -> str:
     value = namespace or "general"
     if value not in _DR_NAMESPACES:
-        raise ValidationError("namespace must be general, managed, or service")
+        raise ValidationError("namespace must be general or managed")
     return value
 
 

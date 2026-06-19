@@ -9,7 +9,7 @@ from typing import Any
 import httpx
 import pytest
 
-from limacharlie_mcp.api import LimaCharlieAPI, ValidationError
+from limacharlie_mcp.api import OPERATION_CATALOG, LimaCharlieAPI, ValidationError
 
 
 OID = "263c19e9-bd4a-475a-8cd3-5403af446cb9"
@@ -2548,6 +2548,21 @@ def test_dr_rule_tools_use_hive_namespaces(tmp_path: Path) -> None:
     assert listed["operation"] == "dr_rule.list"
     assert fetched["operation"] == "dr_rule.get"
     assert fake.calls[2]["url"].endswith("/hive/dr-managed/" + OID + "/rule-1/data")
+
+
+def test_dr_rule_tools_reject_service_namespace(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    client = make_client(tmp_path, fake)
+
+    with pytest.raises(ValidationError, match="namespace must be general or managed"):
+        client.list_dr_rules(OID, namespace="service")
+
+    assert fake.calls == []
+
+
+def test_dr_rule_catalog_only_advertises_user_visible_namespaces() -> None:
+    assert OPERATION_CATALOG["dr_rule.list"]["bounds"]["namespace"] == ["general", "managed"]
+    assert OPERATION_CATALOG["dr_rule.get"]["bounds"]["namespace"] == ["general", "managed"]
 
 
 def test_audit_log_is_written_without_credentials(tmp_path: Path) -> None:

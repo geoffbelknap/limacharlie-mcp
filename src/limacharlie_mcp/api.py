@@ -141,6 +141,16 @@ UNSUPPORTED_CAPABILITIES: dict[str, dict[str, Any]] = {
 
 
 OPERATION_CATALOG: dict[str, dict[str, Any]] = {
+    "tool.catalog": {
+        "suite": "platform",
+        "tool": "lc_tool_catalog",
+        "action": "read",
+        "resource_type": "tool_surface",
+        "required_inputs": [],
+        "optional_inputs": [],
+        "side_effects": "none",
+        "notes": "Describes tools, inputs, bounds, side effects, unsupported capabilities, and intended use cases.",
+    },
     "auth.whoami": {
         "suite": "platform",
         "tool": "lc_auth_whoami",

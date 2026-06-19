@@ -1,0 +1,270 @@
+{
+  "schema_version": 1,
+  "source_indexes": [
+    "https://docs.limacharlie.io/llms.txt",
+    "https://github.com/refractionPOINT/documentation",
+    "https://github.com/refractionPOINT/python-limacharlie"
+  ],
+  "decision_values": {
+    "cover": "MCP should provide direct tool coverage.",
+    "cover_bounded": "MCP should cover the category only through bounded reads or preview/confirm mutations.",
+    "defer": "MCP should not implement this until a safer typed design is reviewed.",
+    "exclude": "MCP should intentionally not expose this capability.",
+    "reference_only": "No MCP API surface is expected; keep as docs or catalog metadata."
+  },
+  "categories": [
+    {
+      "id": "getting_started",
+      "title": "Getting Started",
+      "doc_sections": ["Getting Started"],
+      "decision": "reference_only",
+      "reason": "Onboarding concepts are documentation and setup flow, not LimaCharlie API tools. Auth and org discovery are covered in platform tools.",
+      "required_operations": ["auth.status", "auth.refresh", "auth.whoami", "org.list"],
+      "operation_keys": ["tool.catalog"],
+      "operation_prefixes": ["auth.", "org.list", "download."]
+    },
+    {
+      "id": "sensors_deployment",
+      "title": "Sensors, Adapters, And Deployment",
+      "doc_sections": ["Sensors"],
+      "decision": "cover_bounded",
+      "reason": "Inventory, tags, version policy, installation keys, payload metadata, and adapter configuration are useful to agents when bounded. Local installer execution and endpoint-agent CLI operation are not MCP responsibilities.",
+      "required_operations": [
+        "sensor.list",
+        "sensor.get",
+        "sensor.tag.list",
+        "sensor.version.set.preview",
+        "installation_key.list",
+        "payload.list",
+        "cloud_adapter.list",
+        "external_adapter.list"
+      ],
+      "operation_prefixes": [
+        "sensor.",
+        "tag.",
+        "download.sensor_targets.",
+        "download.adapter_targets.",
+        "installation_key.",
+        "payload.",
+        "cloud_adapter.",
+        "external_adapter."
+      ],
+      "excluded_capabilities": [
+        {
+          "id": "endpoint_agent_local_cli",
+          "reason": "Installing or controlling endpoint agents locally is host operations work, not a bounded LimaCharlie API MCP tool."
+        }
+      ]
+    },
+    {
+      "id": "detection_response",
+      "title": "Detection And Response",
+      "doc_sections": ["Detection & Response"],
+      "decision": "cover_bounded",
+      "reason": "D&R rules, false positives, replay dry-runs, YARA, managed content, MITRE coverage, and response actions are in scope when reads are bounded and writes use preview/confirm.",
+      "required_operations": [
+        "dr_rule.list",
+        "dr_rule.set.preview",
+        "fp_rule.list",
+        "replay.validate_rule",
+        "replay.run_dry",
+        "sensor.task.preview",
+        "reliable_task.send.preview",
+        "yara_rule.list"
+      ],
+      "operation_prefixes": [
+        "dr_rule.",
+        "fp_rule.",
+        "replay.",
+        "sensor.task.",
+        "reliable_task.",
+        "spotcheck.",
+        "mutation.",
+        "yara.",
+        "yara_",
+        "mitre.",
+        "usp."
+      ],
+      "deferred_capabilities": [
+        {
+          "id": "replay.non_dry_run",
+          "reason": "Non-dry-run replay can create operational effects and needs a dedicated preview/confirm design before exposure."
+        }
+      ]
+    },
+    {
+      "id": "data_queries",
+      "title": "Data And Queries",
+      "doc_sections": ["Data & Queries"],
+      "decision": "cover_bounded",
+      "reason": "Historical events, detections, LCQL, saved queries, artifacts, payloads, audit logs, and ARLs are useful when bounded by explicit limits, cursors, and time windows.",
+      "required_operations": [
+        "event.list",
+        "event.get",
+        "detection.list",
+        "search.validate",
+        "search.execute",
+        "search.poll",
+        "saved_query.list",
+        "artifact.list",
+        "audit.list"
+      ],
+      "operation_prefixes": [
+        "event.",
+        "detection.",
+        "search.",
+        "saved_query.",
+        "artifact.",
+        "payload.",
+        "audit.",
+        "arl.",
+        "insight.",
+        "ioc."
+      ],
+      "excluded_catalog_keys": ["telemetry.live_stream", "telemetry.firehose"]
+    },
+    {
+      "id": "integrations",
+      "title": "Integrations, Outputs, Extensions, And Services",
+      "doc_sections": ["Integrations"],
+      "decision": "cover_bounded",
+      "reason": "Outputs, extension subscriptions, service requests, cloud/external adapters, feedback, vulnerability reporting, config sync, and API integration config are in scope with bounded reads, redaction, and preview/confirm writes.",
+      "required_operations": [
+        "output.list",
+        "output.create.preview",
+        "extension.list_available",
+        "extension.request.preview",
+        "service.list",
+        "feedback.approval.preview",
+        "vulnerability.cve.list",
+        "config.fetch"
+      ],
+      "operation_prefixes": [
+        "output.",
+        "extension.",
+        "service.",
+        "job.",
+        "feedback.",
+        "vulnerability.",
+        "config.",
+        "case.",
+        "cloud_adapter.",
+        "external_adapter.",
+        "playbook.",
+        "exfil_",
+        "artifact_rule.",
+        "logging_rule.",
+        "integrity_rule."
+      ],
+      "excluded_capabilities": [
+        {
+          "id": "mcp_as_output_sink",
+          "reason": "The MCP runtime should not act as a live output receiver or telemetry sink."
+        },
+        {
+          "id": "cloud_cli_shell_execution",
+          "reason": "Cloud CLI extensions are execution environments and credential-heavy operational workflows, not deterministic API tools."
+        }
+      ]
+    },
+    {
+      "id": "developer_guide",
+      "title": "Developer Guide, SDKs, CLI, And Hosted MCP",
+      "doc_sections": ["Developer Guide"],
+      "decision": "reference_only",
+      "reason": "SDK and CLI docs inform parity checks, but this server should remain API-only and should not wrap CLI commands. Hosted MCP docs describe LimaCharlie's own remote MCP, not this local stdio runtime.",
+      "required_operations": ["tool.catalog", "auth.status"],
+      "operation_prefixes": ["auth.", "schema.", "hive.schema.", "extension.schema."],
+      "excluded_capabilities": [
+        {
+          "id": "cli_wrappers",
+          "reason": "The local MCP must use LimaCharlie APIs directly and must not shell out to lc CLI."
+        },
+        {
+          "id": "hosted_mcp_proxy",
+          "reason": "Proxying the hosted LimaCharlie MCP would duplicate trust and auth surfaces instead of making a reviewable local API implementation."
+        }
+      ]
+    },
+    {
+      "id": "administration",
+      "title": "Administration, Access, Billing, And Config Hive",
+      "doc_sections": ["Administration"],
+      "decision": "cover_bounded",
+      "reason": "Administration is a core MCP surface when org scope is explicit, secrets are redacted, and writes use preview/confirm.",
+      "required_operations": [
+        "org.get",
+        "org.stats",
+        "user.list",
+        "api_key.list",
+        "billing.status",
+        "secret.list",
+        "lookup.list",
+        "hive.record.list"
+      ],
+      "operation_prefixes": [
+        "org.",
+        "user.",
+        "group.",
+        "api_key.",
+        "installation_key.",
+        "ingestion_key.",
+        "billing.",
+        "secret.",
+        "lookup.",
+        "hive.",
+        "org_note.",
+        "sop.",
+        "case.config.",
+        "case.org."
+      ]
+    },
+    {
+      "id": "reference",
+      "title": "Reference Material",
+      "doc_sections": ["Reference"],
+      "decision": "cover_bounded",
+      "reason": "Reference pages should become compact discovery/read tools only where the upstream exposes structured API data. Static docs remain reference-only.",
+      "required_operations": ["schema.list", "event_type.list", "ontology.get", "arl.get"],
+      "operation_prefixes": ["schema.", "event_type.", "ontology.", "arl.", "mitre."],
+      "excluded_capabilities": [
+        {
+          "id": "static_reference_doc_mirror",
+          "reason": "The MCP should not mirror static documentation pages when the docs site is the better source."
+        }
+      ]
+    },
+    {
+      "id": "ai_sessions",
+      "title": "AI Sessions",
+      "doc_sections": ["AI Sessions"],
+      "decision": "cover_bounded",
+      "reason": "Governance, usage, memory, and skill state are in scope. Starting broad AI generation/chat sessions is intentionally not a parity target because the user is already operating through an agent.",
+      "required_operations": [
+        "ai.session.list",
+        "ai.session.get",
+        "ai.session.history",
+        "ai.session.terminate.preview",
+        "ai.usage.get",
+        "ai_skill.list",
+        "ai_memory.record.list"
+      ],
+      "operation_prefixes": ["ai.", "ai_", "ai_skill.", "ai_memory.", "ai_agent."],
+      "excluded_capabilities": [
+        {
+          "id": "broad_ai_generation_chat",
+          "reason": "Chat/generation wrappers are redundant and risk agent-on-agent confusion; deterministic governance and state tools are preferred."
+        }
+      ]
+    },
+    {
+      "id": "release_notes",
+      "title": "Release Notes",
+      "doc_sections": ["Release Notes"],
+      "decision": "reference_only",
+      "reason": "Release notes are documentation, not an API tool category. They are useful as an audit input when deciding whether categories have changed.",
+      "required_operations": [],
+      "operation_prefixes": []
+    }
+  ]
+}

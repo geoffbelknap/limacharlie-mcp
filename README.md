@@ -521,6 +521,13 @@ python -m pytest tests/ -q
 
 The tests do not require LimaCharlie credentials or network access.
 
+Run the category parity audit before claiming new LimaCharlie API/SDK coverage
+or adding a new tool family:
+
+```bash
+python tools/parity/audit_parity.py --fetch-current-docs --format markdown
+```
+
 ## Documentation Boundary
 
 User-facing setup and auth docs live in this repo. Internal coverage matrices,

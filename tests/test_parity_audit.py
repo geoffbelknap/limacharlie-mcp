@@ -29,11 +29,16 @@ def test_parity_manifest_covers_current_tool_catalog() -> None:
     report = audit.build_report(manifest, catalog, docs_index=None)
 
     assert report["ok"] is True
+    assert report["review"]["status"] == "reviewed_with_user"
     assert report["operation_count"] >= 289
     assert report["unsupported_capability_count"] == 2
     assert report["uncategorized_operations"] == []
     assert report["missing_required_operations"] == {}
     assert report["missing_excluded_catalog_keys"] == {}
+    policy_ids = {decision["id"] for decision in report["review"]["policy_decisions"]}
+    assert "endpoint_agent_local_operations" in policy_ids
+    assert "telemetry_streaming_firehose" in policy_ids
+    assert "broad_ai_chat_generation" in policy_ids
 
 
 def test_parity_audit_detects_new_unreviewed_operation() -> None:

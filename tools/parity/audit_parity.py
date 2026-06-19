@@ -161,6 +161,7 @@ def build_report(manifest: dict[str, Any], catalog: dict[str, Any], docs_index: 
     return {
         "ok": ok,
         "source_indexes": manifest.get("source_indexes", []),
+        "review": manifest.get("review", {}),
         "operation_count": len(operations),
         "unsupported_capability_count": len(unsupported),
         "category_count": len(categories),
@@ -182,9 +183,45 @@ def format_markdown(report: dict[str, Any], *, include_operations: bool = False)
         f"- Unsupported capabilities: {report['unsupported_capability_count']}",
         f"- Categories: {report['category_count']}",
         "",
-        "| Category | Decision | Docs | Ops | Missing Required | Exclusions Missing |",
-        "| --- | --- | ---: | ---: | --- | --- |",
     ]
+    review = report.get("review") or {}
+    if review:
+        lines.extend(
+            [
+                "## Review Status",
+                "",
+                f"- Status: `{review.get('status', 'unknown')}`",
+                f"- Reviewed at: `{review.get('reviewed_at', 'unknown')}`",
+                f"- Summary: {review.get('summary', '-')}",
+                "",
+            ]
+        )
+        policy_decisions = review.get("policy_decisions") or []
+        if policy_decisions:
+            lines.extend(
+                [
+                    "| Policy Decision | Category | Decision | Summary |",
+                    "| --- | --- | --- | --- |",
+                ]
+            )
+            for decision in policy_decisions:
+                lines.append(
+                    "| {id} | {category} | {decision} | {summary} |".format(
+                        id=decision["id"],
+                        category=decision["category_id"],
+                        decision=decision["decision"],
+                        summary=decision["summary"],
+                    )
+                )
+            lines.append("")
+    lines.extend(
+        [
+            "## Category Coverage",
+            "",
+            "| Category | Decision | Docs | Ops | Missing Required | Exclusions Missing |",
+            "| --- | --- | ---: | ---: | --- | --- |",
+        ]
+    )
     for category in report["categories"]:
         missing_required = ", ".join(category["missing_required_operations"]) or "-"
         missing_exclusions = ", ".join(category["missing_excluded_catalog_keys"]) or "-"

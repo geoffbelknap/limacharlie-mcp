@@ -5,6 +5,67 @@
     "https://github.com/refractionPOINT/documentation",
     "https://github.com/refractionPOINT/python-limacharlie"
   ],
+  "review": {
+    "status": "reviewed_with_user",
+    "reviewed_at": "2026-06-19",
+    "summary": "The category decisions and exclusions were reviewed with the project owner and accepted for now.",
+    "policy_decisions": [
+      {
+        "id": "endpoint_agent_local_operations",
+        "category_id": "sensors_deployment",
+        "decision": "exclude",
+        "summary": "Exclude endpoint-agent local CLI operations, installer execution, uninstall, service control, and host-local diagnostics. Cover only API-backed metadata and configuration."
+      },
+      {
+        "id": "telemetry_streaming_firehose",
+        "category_id": "data_queries",
+        "decision": "exclude",
+        "summary": "Exclude live telemetry streaming, spout-style pull loops, and firehose receiver behavior. Cover bounded historical events, detections, audit logs, search, replay dry-runs, and case telemetry references."
+      },
+      {
+        "id": "replay_non_dry_run",
+        "category_id": "detection_response",
+        "decision": "defer",
+        "summary": "Keep dry-run replay. Defer non-dry-run replay until it has a dedicated preview/confirm design with blast-radius summary."
+      },
+      {
+        "id": "cloud_cli_shell_execution",
+        "category_id": "integrations",
+        "decision": "exclude",
+        "summary": "Exclude shell-style cloud CLI execution. Cover deterministic API configuration and state surfaces with redaction and preview/confirm."
+      },
+      {
+        "id": "mcp_as_output_sink",
+        "category_id": "integrations",
+        "decision": "exclude",
+        "summary": "Do not run the MCP as an output receiver or telemetry sink. Output configuration can be covered with preview/confirm."
+      },
+      {
+        "id": "hosted_mcp_proxying",
+        "category_id": "developer_guide",
+        "decision": "exclude",
+        "summary": "Do not proxy LimaCharlie's hosted MCP. This server should remain a reviewable local API-only implementation."
+      },
+      {
+        "id": "cli_wrapping",
+        "category_id": "developer_guide",
+        "decision": "exclude",
+        "summary": "Do not wrap the LimaCharlie CLI. The MCP implementation must use API surfaces directly."
+      },
+      {
+        "id": "static_docs_mirroring",
+        "category_id": "reference",
+        "decision": "exclude",
+        "summary": "Do not mirror static documentation into MCP tools. Cover compact structured reference data where upstream exposes it."
+      },
+      {
+        "id": "broad_ai_chat_generation",
+        "category_id": "ai_sessions",
+        "decision": "exclude",
+        "summary": "Exclude broad AI chat/generation wrappers. Cover deterministic governance, usage, sessions, skills, and memory state."
+      }
+    ]
+  },
   "decision_values": {
     "cover": "MCP should provide direct tool coverage.",
     "cover_bounded": "MCP should cover the category only through bounded reads or preview/confirm mutations.",
@@ -53,6 +114,14 @@
         {
           "id": "endpoint_agent_local_cli",
           "reason": "Installing or controlling endpoint agents locally is host operations work, not a bounded LimaCharlie API MCP tool."
+        },
+        {
+          "id": "endpoint_agent_installer_execution",
+          "reason": "Running installers, uninstallers, or service-control operations is host-mutating and OS-specific; use MDM, RMM, scripts, or a separate host-management tool."
+        },
+        {
+          "id": "endpoint_agent_host_local_diagnostics",
+          "reason": "Host-local diagnostics through endpoint-agent CLI would require local process and filesystem access outside the LimaCharlie API boundary."
         }
       ]
     },

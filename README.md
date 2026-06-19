@@ -278,6 +278,9 @@ renaming tools.
 | `lc_preview_unseal_sensor` | Preview unsealing one sensor. |
 | `lc_preview_delete_sensor` | Preview deleting one sensor record. |
 | `lc_preview_delete_job` | Preview deleting one service job record. |
+| `lc_list_reliable_tasks` | List pending reliable-tasking extension tasks for an org. |
+| `lc_preview_reliable_task` | Preview queueing one reliable task through ext-reliable-tasking. |
+| `lc_preview_delete_reliable_task` | Preview cancelling one pending reliable task through ext-reliable-tasking. |
 | `lc_preview_add_sensor_tag` | Preview adding a tag to one sensor, optionally with TTL. |
 | `lc_preview_remove_sensor_tag` | Preview removing a tag from one sensor. |
 | `lc_confirm_mutation` | Execute the exact typed mutation bound to a preview token. |

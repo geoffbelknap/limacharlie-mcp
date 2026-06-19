@@ -48,6 +48,9 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
         "lc_preview_delete_sensor",
         "lc_wait_job",
         "lc_preview_delete_job",
+        "lc_list_reliable_tasks",
+        "lc_preview_reliable_task",
+        "lc_preview_delete_reliable_task",
         "lc_list_audit_logs",
         "lc_list_yara_rules",
         "lc_list_fp_rules",
@@ -234,6 +237,18 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
     task_schema = tools["lc_preview_sensor_task"]["inputSchema"]
     assert set(task_schema["required"]) == {"oid", "sensor_id", "tasks"}
     assert task_schema["properties"]["token_ttl_seconds"]["default"] == 300
+    reliable_list_schema = tools["lc_list_reliable_tasks"]["inputSchema"]
+    assert set(reliable_list_schema["required"]) == {"oid"}
+    reliable_task_schema = tools["lc_preview_reliable_task"]["inputSchema"]
+    assert set(reliable_task_schema["required"]) == {"oid", "task"}
+    assert reliable_task_schema["properties"]["sensor_id"]["default"] is None
+    assert reliable_task_schema["properties"]["selector"]["default"] is None
+    assert reliable_task_schema["properties"]["context"]["default"] is None
+    assert reliable_task_schema["properties"]["token_ttl_seconds"]["default"] == 300
+    reliable_delete_schema = tools["lc_preview_delete_reliable_task"]["inputSchema"]
+    assert set(reliable_delete_schema["required"]) == {"oid", "task_id"}
+    assert reliable_delete_schema["properties"]["sensor_id"]["default"] is None
+    assert reliable_delete_schema["properties"]["selector"]["default"] is None
     preview_tag_schema = tools["lc_preview_add_sensor_tag"]["inputSchema"]
     assert set(preview_tag_schema["required"]) == {"oid", "sensor_id", "tag"}
     assert preview_tag_schema["properties"]["ttl_seconds"]["default"] == 0

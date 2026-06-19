@@ -631,6 +631,39 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "side_effects": "none_until_confirmed",
         "notes": "Previews deleting one job record.",
     },
+    "reliable_task.list": {
+        "suite": "response",
+        "tool": "lc_list_reliable_tasks",
+        "action": "read",
+        "resource_type": "reliable_task_collection",
+        "required_inputs": ["oid"],
+        "optional_inputs": ["limit"],
+        "bounds": {"limit_min": 1, "limit_max": 500},
+        "side_effects": "none",
+        "notes": "Lists pending reliable-tasking extension tasks for an org.",
+    },
+    "reliable_task.send.preview": {
+        "suite": "response",
+        "tool": "lc_preview_reliable_task",
+        "action": "preview",
+        "resource_type": "reliable_task",
+        "required_inputs": ["oid", "task"],
+        "optional_inputs": ["sensor_id", "selector", "context", "ttl_seconds", "token_ttl_seconds"],
+        "bounds": {"ttl_min": 60, "ttl_max": 2592000, "token_ttl_min": 30, "token_ttl_max": 900},
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews queueing a reliable task through ext-reliable-tasking.",
+    },
+    "reliable_task.delete.preview": {
+        "suite": "response",
+        "tool": "lc_preview_delete_reliable_task",
+        "action": "preview",
+        "resource_type": "reliable_task",
+        "required_inputs": ["oid", "task_id"],
+        "optional_inputs": ["sensor_id", "selector", "token_ttl_seconds"],
+        "bounds": {"token_ttl_min": 30, "token_ttl_max": 900},
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews cancelling one pending reliable task through ext-reliable-tasking.",
+    },
     "audit.list": {
         "suite": "investigation",
         "tool": "lc_list_audit_logs",
@@ -2632,6 +2665,7 @@ _SUMMARY_LIST_KEYS = (
     "results",
     "sessions",
     "snapshots",
+    "tasks",
     "identities",
     "usage",
     "urls",
@@ -5481,6 +5515,95 @@ class LimaCharlieAPI:
             reversibility="Deletion is not generally reversible; list jobs again to verify current state.",
             side_effects=[{"type": "job_deleted", "resource": {"type": "job", "id": safe_job_id}}],
             token_ttl_seconds=token_ttl,
+        )
+
+    def list_reliable_tasks(self, oid: str, limit: int = 100) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        bounded_limit = require_limit(limit)
+        return self._request(
+            "POST",
+            "extension/request/ext-reliable-tasking",
+            operation="reliable_task.list",
+            oid=scoped_oid,
+            resource={"type": "reliable_task_collection", "id": scoped_oid, "parent": {"type": "organization", "id": scoped_oid}},
+            params=extension_request_params(scoped_oid, "list", {}),
+            limit=bounded_limit,
+        ).as_dict()
+
+    def preview_reliable_task(
+        self,
+        oid: str,
+        task: str,
+        sensor_id: str | None = None,
+        selector: str | None = None,
+        context: str | None = None,
+        ttl_seconds: int | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        if sensor_id and selector:
+            raise ValidationError("provide either sensor_id or selector, not both")
+        checked_tasks = require_sensor_tasks(task)
+        safe_task = checked_tasks[0]
+        request_data: dict[str, Any] = {"task": safe_task}
+        resource_id = scoped_oid
+        if sensor_id:
+            safe_sensor_id = require_oid(sensor_id)
+            request_data["selector"] = f"sid=='{safe_sensor_id}'"
+            resource_id = safe_sensor_id
+        if selector:
+            safe_selector = require_selector(selector)
+            request_data["selector"] = safe_selector
+            resource_id = safe_selector
+        if context:
+            request_data["context"] = require_token(context, "context")
+        if ttl_seconds is not None:
+            request_data["ttl"] = require_seconds(ttl_seconds, "ttl_seconds", minimum=60, maximum=2_592_000)
+        return self._preview_mutation(
+            operation="reliable_task.send",
+            oid=scoped_oid,
+            method="POST",
+            path="extension/request/ext-reliable-tasking",
+            resource_type="reliable_task",
+            resource_id=resource_id,
+            params=extension_request_params(scoped_oid, "task", request_data),
+            expected_effect="Queue one reliable task through ext-reliable-tasking.",
+            reversibility="Cancel the pending reliable task by task ID if the extension returns or lists it.",
+            side_effect_type="reliable_task_queued",
+            token_ttl_seconds=token_ttl_seconds,
+            parent_oid=scoped_oid,
+        )
+
+    def preview_delete_reliable_task(
+        self,
+        oid: str,
+        task_id: str,
+        sensor_id: str | None = None,
+        selector: str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        if sensor_id and selector:
+            raise ValidationError("provide either sensor_id or selector, not both")
+        safe_task_id = require_path_segment(task_id, "task_id")
+        request_data: dict[str, Any] = {"task_id": safe_task_id}
+        if sensor_id:
+            request_data["sid"] = require_oid(sensor_id)
+        if selector:
+            request_data["selector"] = require_selector(selector)
+        return self._preview_mutation(
+            operation="reliable_task.delete",
+            oid=scoped_oid,
+            method="POST",
+            path="extension/request/ext-reliable-tasking",
+            resource_type="reliable_task",
+            resource_id=safe_task_id,
+            params=extension_request_params(scoped_oid, "untask", request_data),
+            expected_effect=f"Cancel reliable task {safe_task_id}.",
+            reversibility="Recreate the reliable task if cancellation was unintended.",
+            side_effect_type="reliable_task_cancelled",
+            token_ttl_seconds=token_ttl_seconds,
+            parent_oid=scoped_oid,
         )
 
     def list_audit_logs(

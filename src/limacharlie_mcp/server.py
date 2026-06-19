@@ -1016,6 +1016,59 @@ def lc_preview_delete_job(oid: str, job_id: str, token_ttl_seconds: int = 300) -
 
 
 @mcp.tool()
+def lc_list_reliable_tasks(oid: str, limit: int = 100) -> dict:
+    """List pending reliable-tasking extension tasks for an org."""
+
+    return _call("reliable_task.list", lc.list_reliable_tasks, oid=oid, limit=limit)
+
+
+@mcp.tool()
+def lc_preview_reliable_task(
+    oid: str,
+    task: str,
+    sensor_id: str | None = None,
+    selector: str | None = None,
+    context: str | None = None,
+    ttl_seconds: int | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview queueing one reliable task through ext-reliable-tasking."""
+
+    return _call(
+        "reliable_task.send.preview",
+        lc.preview_reliable_task,
+        oid=oid,
+        task=task,
+        sensor_id=sensor_id,
+        selector=selector,
+        context=context,
+        ttl_seconds=ttl_seconds,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_preview_delete_reliable_task(
+    oid: str,
+    task_id: str,
+    sensor_id: str | None = None,
+    selector: str | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview cancelling one pending reliable task through ext-reliable-tasking."""
+
+    return _call(
+        "reliable_task.delete.preview",
+        lc.preview_delete_reliable_task,
+        oid=oid,
+        task_id=task_id,
+        sensor_id=sensor_id,
+        selector=selector,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
 def lc_list_audit_logs(
     oid: str,
     start: int,

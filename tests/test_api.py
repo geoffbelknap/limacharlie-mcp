@@ -92,6 +92,8 @@ def test_tool_catalog_exposes_operation_contracts(tmp_path: Path) -> None:
     assert result["data"]["operations"]["api_key.list"]["suite"] == "administration"
     assert result["data"]["operations"]["audit.list"]["suite"] == "investigation"
     assert result["data"]["operations"]["yara_rule.list"]["suite"] == "content"
+    assert result["data"]["operations"]["reliable_task.list"]["suite"] == "response"
+    assert result["data"]["operations"]["reliable_task.send.preview"]["required_inputs"] == ["oid", "task"]
     assert result["data"]["operations"]["billing.status"]["suite"] == "administration"
     assert result["data"]["operations"]["replay.validate_rule"]["suite"] == "content"
     assert result["data"]["operations"]["detection.list"]["bounds"]["time_format"] == "unix_seconds"
@@ -947,6 +949,55 @@ def test_preview_sensor_state_and_job_delete_endpoints(tmp_path: Path) -> None:
         f"https://api.limacharlie.io/v1/{SID}",
         f"https://api.limacharlie.io/v1/job/{OID}/job-1",
     ]
+
+
+def test_reliable_tasking_uses_extension_request_contract(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    extension_url = "https://api.limacharlie.io/v1/extension/request/ext-reliable-tasking"
+    fake.add("POST", extension_url, {"tasks": [{"task_id": "rt-1", "sensor_selector": f"sid=='{SID}'"}]})
+    client = make_client(tmp_path, fake)
+
+    listed = client.list_reliable_tasks(OID)
+    send = client.preview_reliable_task(OID, "os_version", sensor_id=SID, context="inv-1", ttl_seconds=3600)
+    delete = client.preview_delete_reliable_task(OID, "rt-1", sensor_id=SID)
+
+    with pytest.raises(ValidationError, match="either sensor_id or selector"):
+        client.preview_reliable_task(OID, "os_version", sensor_id=SID, selector="plat==windows")
+
+    assert listed["ok"] is True
+    assert_ax_envelope(listed, "reliable_task.list")
+    assert send["ok"] is True
+    assert send["data"]["params"]["action"] == "task"
+    assert send["data"]["params"]["gzdata"]["decoded_redacted"] == {
+        "task": "os_version",
+        "selector": f"sid=='{SID}'",
+        "context": "inv-1",
+        "ttl": 3600,
+    }
+
+    confirmed_send = client.confirm_mutation(send["data"]["confirmation_token"])
+    confirmed_delete = client.confirm_mutation(delete["data"]["confirmation_token"])
+
+    assert confirmed_send["ok"] is True
+    assert confirmed_send["data"]["confirmed_operation"] == "reliable_task.send"
+    assert confirmed_send["side_effects"][0]["type"] == "reliable_task_queued"
+    assert confirmed_delete["ok"] is True
+    assert confirmed_delete["data"]["confirmed_operation"] == "reliable_task.delete"
+    assert confirmed_delete["side_effects"][0]["type"] == "reliable_task_cancelled"
+
+    calls = [call for call in fake.calls if call["url"] != "https://jwt.limacharlie.io"]
+    assert [call["url"] for call in calls] == [extension_url, extension_url, extension_url]
+    assert calls[0]["params"]["action"] == "list"
+    assert decode_gzdata(calls[0]["params"]["gzdata"]) == {}
+    assert calls[1]["params"]["action"] == "task"
+    assert decode_gzdata(calls[1]["params"]["gzdata"]) == {
+        "task": "os_version",
+        "selector": f"sid=='{SID}'",
+        "context": "inv-1",
+        "ttl": 3600,
+    }
+    assert calls[2]["params"]["action"] == "untask"
+    assert decode_gzdata(calls[2]["params"]["gzdata"]) == {"task_id": "rt-1", "sid": SID}
 
 
 def test_schema_ontology_and_mitre_tools_use_expected_paths(tmp_path: Path) -> None:

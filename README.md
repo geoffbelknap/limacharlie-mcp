@@ -439,19 +439,25 @@ pip install -e ".[dev]"
 ```
 
 Configure stable API-key credentials through Vault. Users do not need to
-generate or paste JWTs; the MCP server handles LimaCharlie JWT exchange and
-refresh in memory.
+generate or paste JWTs, and they should not put the LimaCharlie API key in a
+`.env` file. The MCP server handles LimaCharlie JWT exchange and refresh in
+memory.
+
+If you already have a Vault token file from `vault login`, Vault Agent, or your
+platform secret mount, use the bootstrap helper. It prompts for the
+LimaCharlie API key without echoing it, writes the key to Vault, and prints a
+nonsecret MCP env block.
 
 ```bash
-export LC_SECRET_PROVIDER="vault"
-export LC_VAULT_ADDR="https://vault.example.com"
-export LC_VAULT_TOKEN_FILE="/run/secrets/vault-token"
-export LC_API_KEY_REF="vault://secret/data/limacharlie/mcp#api_key"
+limacharlie-mcp-vault-bootstrap \
+  --vault-addr "https://vault.example.com" \
+  --token-file "/run/secrets/vault-token"
 ```
 
 Store the LimaCharlie API key in Vault KV v2 at
-`secret/data/limacharlie/mcp`, field `api_key`. For local development only,
-you can use `LC_SECRET_PROVIDER=env` with `LC_API_KEY`.
+`secret/data/limacharlie/mcp`, field `api_key`. For unattended setup, pass
+`--api-key-stdin` and pipe the key from an approved secret manager. For local
+development only, you can use `LC_SECRET_PROVIDER=env` with `LC_API_KEY`.
 
 Org-scoped tools always require an explicit `oid`. Discovery tools
 (`lc_list_orgs`, unscoped `lc_auth_whoami`) use LimaCharlie's minimal JWT org
@@ -488,7 +494,7 @@ credential rotation or auth troubleshooting.
 | `LC_SECRET_PROVIDER` | `vault` when `LC_API_KEY` is unset | Credential provider. Supported values: `vault`, `env`. |
 | `LC_API_KEY_REF` | `vault://secret/data/limacharlie/mcp#api_key` | Vault reference for the LimaCharlie API key. |
 | `LC_VAULT_ADDR` | unset | Vault server URL. Required for the Vault provider. |
-| `LC_VAULT_TOKEN_FILE` | unset | File containing a Vault token. Preferred for deployment. |
+| `LC_VAULT_TOKEN_FILE` | unset | File containing a Vault token from Vault Agent, platform secret mount, or `vault login`. Preferred for deployment. |
 | `LC_VAULT_TOKEN` | unset | Vault token value. Useful for local tests; avoid in shared configs. |
 | `LC_VAULT_NAMESPACE` | unset | Optional Vault Enterprise namespace. |
 | `LC_API_KEY` | unset | Local-development fallback when `LC_SECRET_PROVIDER=env`, or direct override when explicitly set. |

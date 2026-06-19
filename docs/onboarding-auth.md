@@ -13,13 +13,29 @@ API keys are a local-development fallback, not the recommended runtime model.
 1. In LimaCharlie, open the organization.
 2. Go to Access Management -> REST API.
 3. Create an API key with the minimum permissions needed for the workflows.
-4. Store the key in Vault KV v2, for example at
-   `secret/data/limacharlie/mcp`, field `api_key`.
-5. Configure the MCP runtime with `LC_SECRET_PROVIDER=vault`,
-   `LC_VAULT_ADDR`, `LC_VAULT_TOKEN_FILE`, and `LC_API_KEY_REF`.
+4. Run `limacharlie-mcp-vault-bootstrap` with a Vault token file. The helper
+   reads the LimaCharlie key through a hidden prompt, writes it to Vault KV v2,
+   and prints a nonsecret MCP env block.
+5. Put only that nonsecret env block in the MCP client config.
 6. Start the MCP server.
 7. Call `lc_auth_status`.
 8. Call `lc_list_orgs` or an org-scoped read such as `lc_list_sensors`.
+
+```bash
+limacharlie-mcp-vault-bootstrap \
+  --vault-addr "https://vault.example.com" \
+  --token-file "/run/secrets/vault-token"
+```
+
+For unattended setup, pipe the key from an approved secret manager:
+
+```bash
+approved-secret-manager read limacharlie/mcp/api-key \
+  | limacharlie-mcp-vault-bootstrap \
+      --vault-addr "https://vault.example.com" \
+      --token-file "/run/secrets/vault-token" \
+      --api-key-stdin
+```
 
 Example stdio config:
 
@@ -46,12 +62,16 @@ export LC_SECRET_PROVIDER=env
 export LC_API_KEY=your-organization-api-key
 ```
 
+Do not use `.env` files for production LimaCharlie API keys.
+
 ## What Happens Internally
 
 LimaCharlie REST authentication uses short-lived JWTs. This MCP hides that from
 the user:
 
 - Vault stores the stable LimaCharlie API key.
+- `limacharlie-mcp-vault-bootstrap` writes the key to Vault without echoing or
+  returning it.
 - The server reads the API key from the configured Vault reference only when it
   needs a new LimaCharlie JWT.
 - The server exchanges that API key for a LimaCharlie JWT.

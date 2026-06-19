@@ -15,6 +15,9 @@ to any external product runtime or schema.
 - Treat Vault as the default deployment credential provider. Prefer Vault
   references over raw environment API keys in runtime design and user-facing
   setup docs.
+- Do not guide users to put production LimaCharlie API keys in `.env` files.
+  Use the Vault bootstrap helper, Vault Agent, or an approved secret manager
+  path instead.
 - Do not expose live telemetry streaming, spout, or firehose tools. This MCP is
   not a SIEM ingestion path and should not encourage streaming unbounded
   telemetry into an LLM.

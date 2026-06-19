@@ -3913,7 +3913,7 @@ class LimaCharlieAPI:
         if not self.vault_token_file:
             return None
         try:
-            token = Path(self.vault_token_file).read_text(encoding="utf-8").strip()
+            token = Path(self.vault_token_file).expanduser().read_text(encoding="utf-8").strip()
         except OSError as exc:
             raise RuntimeError("Vault token file is not readable") from exc
         return token or None

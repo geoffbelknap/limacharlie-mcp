@@ -37,9 +37,45 @@ example:
 uvx --from git+https://github.com/geoffbelknap/limacharlie-mcp limacharlie-mcp-review
 ```
 
-Configure credentials through Vault for deployment before starting profile
-servers. See [Onboarding And Auth](docs/onboarding-auth.md) for the full
-Vault-first setup and local development fallback.
+## First-Time Auth Setup
+
+Use an organization API key first. User API keys are only needed for multi-org
+account discovery.
+
+1. Open LimaCharlie and select the organization you want the MCP to manage or
+   review.
+2. Copy the organization ID from either place:
+   - Browser URL: `https://app.limacharlie.io/orgs/<org-id>/...`
+   - Organization Settings -> Access Management -> REST API -> `OID`
+3. On the same REST API page, click `Create API Key`.
+4. Name it something recognizable, such as `limacharlie-mcp`.
+5. Grant only the permissions needed for your first workflow. For a basic
+   read-only smoke test, use `org.get`, `sensor.list`, and `sensor.get`.
+6. Copy the API key secret when LimaCharlie shows it. It is shown once.
+7. Run this command and paste the API key into the hidden prompt:
+
+```bash
+uvx --from git+https://github.com/geoffbelknap/limacharlie-mcp \
+  limacharlie-mcp-configure \
+  --oid "paste-your-org-id-here"
+```
+
+That command starts a managed local Vault for the MCP, stores the API key
+there, and writes nonsecret config to
+`~/.config/limacharlie-mcp/config.json`.
+
+Then start with the review profile and check auth:
+
+```bash
+uvx --from git+https://github.com/geoffbelknap/limacharlie-mcp \
+  limacharlie-mcp-review
+```
+
+In your MCP client, call `lc_auth_status`, then `lc_tool_catalog`, then one
+safe read such as `lc_review_org_posture`.
+
+For screenshots, user API key mode, external Vault, reauth, and permission
+troubleshooting, see [Onboarding And Auth](docs/onboarding-auth.md).
 
 ## Tool Surface
 
@@ -508,23 +544,13 @@ python -m venv .venv
 pip install -e ".[dev]"
 ```
 
-Configure stable API-key credentials through managed local Vault. Users do not
-need to generate or paste JWTs, know Vault details, or put the LimaCharlie API
-key in a `.env` file. The MCP server handles LimaCharlie JWT exchange and
-refresh in memory.
+Configure stable API-key credentials with the short checklist near the top of
+this README. The setup path stores the LimaCharlie API key in managed local
+Vault, writes nonsecret runtime config, and keeps JWT exchange hidden from the
+user.
 
-Run configure once. It starts and initializes a local Vault instance on
-`127.0.0.1`, prompts for the LimaCharlie API key without echoing it, stores the
-key in Vault, and writes a nonsecret config file at
-`~/.config/limacharlie-mcp/config.json`.
-
-```bash
-limacharlie-mcp-configure \
-  --oid "263c19e9-bd4a-475a-8cd3-5403af446cb9"
-```
-
-For existing Vault automation, pass `--external-vault` and the Vault details,
-or use the lower-level bootstrap helper:
+For existing external Vault automation, pass `--external-vault` and the Vault
+details:
 
 ```bash
 limacharlie-mcp-configure \
@@ -535,10 +561,9 @@ limacharlie-mcp-configure \
   --runtime-token-file "/run/secrets/limacharlie-mcp-vault-token"
 ```
 
-Both helpers store the LimaCharlie API key in Vault KV v2 at
-`secret/data/limacharlie/mcp`, field `api_key`. For unattended setup, pass
-`--api-key-stdin` and pipe the key from an approved secret manager. For local
-development only, you can use `LC_SECRET_PROVIDER=env` with `LC_API_KEY`.
+For unattended setup, pass `--api-key-stdin` and pipe the key from an approved
+secret manager. For local development only, you can use
+`LC_SECRET_PROVIDER=env` with `LC_API_KEY`.
 
 Org-scoped tools always require an explicit `oid`. Discovery tools
 (`lc_list_orgs`, unscoped `lc_auth_whoami`) use LimaCharlie's minimal JWT org

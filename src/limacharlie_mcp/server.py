@@ -1603,6 +1603,48 @@ def lc_preview_delete_ai_memory_record(
 
 
 @mcp.tool()
+def lc_list_ai_sessions(oid: str, status: str | None = None, cursor: str | None = None, limit: int = 100) -> dict:
+    """List org-scoped AI sessions for governance and cost visibility."""
+
+    return _call("ai.session.list", lc.list_ai_sessions, oid=oid, status=status, cursor=cursor, limit=limit)
+
+
+@mcp.tool()
+def lc_get_ai_session(oid: str, session_id: str) -> dict:
+    """Fetch one org-scoped AI session."""
+
+    return _call("ai.session.get", lc.get_ai_session, oid=oid, session_id=session_id)
+
+
+@mcp.tool()
+def lc_get_ai_session_history(oid: str, session_id: str, limit: int = 100) -> dict:
+    """Fetch bounded conversation history for one org-scoped AI session."""
+
+    return _call("ai.session.history", lc.get_ai_session_history, oid=oid, session_id=session_id, limit=limit)
+
+
+@mcp.tool()
+def lc_preview_terminate_ai_session(oid: str, session_id: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview terminating a running AI session."""
+
+    return _call("ai.session.terminate.preview", lc.preview_terminate_ai_session, oid=oid, session_id=session_id, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_list_ai_usage_identities(oid: str, limit: int = 100) -> dict:
+    """List API key identities with AI-session usage data."""
+
+    return _call("ai.usage.identity.list", lc.list_ai_usage_identities, oid=oid, limit=limit)
+
+
+@mcp.tool()
+def lc_get_ai_usage(oid: str, identity: str, limit: int = 100) -> dict:
+    """Fetch bounded token and cost usage for one AI usage identity."""
+
+    return _call("ai.usage.get", lc.get_ai_usage, oid=oid, identity=identity, limit=limit)
+
+
+@mcp.tool()
 def lc_list_schemas(oid: str, platform: str | None = None, limit: int = 100) -> dict:
     """List event schemas for an org, optionally filtered by platform."""
 

@@ -1429,6 +1429,42 @@ def test_ai_memory_tools_use_hive_partial_merge_requests(tmp_path: Path) -> None
     assert calls[-1]["method"] == "DELETE"
 
 
+def test_ai_session_governance_tools_use_ai_root_and_org_header(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("GET", "https://ai.limacharlie.io/v1/org/sessions", {"sessions": [{"id": "session-1"}], "next_cursor": "cursor-2"})
+    fake.add("GET", "https://ai.limacharlie.io/v1/org/sessions/session-1", {"session": {"id": "session-1", "status": "running"}})
+    fake.add("GET", "https://ai.limacharlie.io/v1/org/sessions/session-1/history", {"messages": [{"role": "assistant"}, {"role": "user"}]})
+    fake.add("GET", "https://ai.limacharlie.io/v1/org/usage/identities", {"identities": ["reader"]})
+    fake.add("GET", "https://ai.limacharlie.io/v1/org/usage/identities/reader", {"identity": "reader", "usage": [{"cost_usd": 0.1}]})
+    fake.add("DELETE", "https://ai.limacharlie.io/v1/org/sessions/session-1", {"terminated": True})
+    client = make_client(tmp_path, fake)
+
+    sessions = client.list_ai_sessions(OID, status="running", limit=1)
+    session = client.get_ai_session(OID, "session-1")
+    history = client.get_ai_session_history(OID, "session-1", limit=1)
+    identities = client.list_ai_usage_identities(OID)
+    usage = client.get_ai_usage(OID, "reader")
+    terminate = client.preview_terminate_ai_session(OID, "session-1")
+    confirmed = client.confirm_mutation(terminate["data"]["confirmation_token"])
+
+    assert sessions["operation"] == "ai.session.list"
+    assert sessions["data"]["sessions"] == [{"id": "session-1"}]
+    assert session["data"]["session"]["status"] == "running"
+    assert history["meta"]["truncated"] is True
+    assert identities["data"]["identities"] == ["reader"]
+    assert usage["data"]["usage"][0]["cost_usd"] == 0.1
+    assert terminate["operation"] == "ai.session.terminate.preview"
+    assert terminate["data"]["headers"] == {"X-LC-OID": OID}
+    assert confirmed["data"]["confirmed_operation"] == "ai.session.terminate"
+
+    calls = [call for call in fake.calls if call["url"] != "https://jwt.limacharlie.io"]
+    assert calls[0]["url"] == "https://ai.limacharlie.io/v1/org/sessions"
+    assert calls[0]["params"] == {"limit": 1, "status": "running"}
+    assert calls[0]["headers"]["X-LC-OID"] == OID
+    assert calls[-1]["method"] == "DELETE"
+    assert calls[-1]["headers"]["X-LC-OID"] == OID
+
+
 def test_hive_rule_previews_confirm_encoded_params(tmp_path: Path) -> None:
     fake = FakeHTTP()
     fake.add("POST", f"https://api.limacharlie.io/v1/hive/dr-managed/{OID}/rule-1/data", {"ok": True})

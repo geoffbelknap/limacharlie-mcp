@@ -206,6 +206,12 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
         "lc_preview_set_ai_memory",
         "lc_preview_delete_ai_memory",
         "lc_preview_delete_ai_memory_record",
+        "lc_list_ai_sessions",
+        "lc_get_ai_session",
+        "lc_get_ai_session_history",
+        "lc_preview_terminate_ai_session",
+        "lc_list_ai_usage_identities",
+        "lc_get_ai_usage",
         "lc_preview_yara_scan",
         "lc_preview_set_yara_rule",
         "lc_preview_delete_yara_rule",
@@ -320,6 +326,12 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
     assert set(ai_memory_set_schema["required"]) == {"oid", "agent", "memory_name", "content"}
     ai_memory_get_schema = tools["lc_get_ai_memory"]["inputSchema"]
     assert set(ai_memory_get_schema["required"]) == {"oid", "agent", "memory_name"}
+    ai_session_get_schema = tools["lc_get_ai_session"]["inputSchema"]
+    assert set(ai_session_get_schema["required"]) == {"oid", "session_id"}
+    ai_session_terminate_schema = tools["lc_preview_terminate_ai_session"]["inputSchema"]
+    assert set(ai_session_terminate_schema["required"]) == {"oid", "session_id"}
+    ai_usage_schema = tools["lc_get_ai_usage"]["inputSchema"]
+    assert set(ai_usage_schema["required"]) == {"oid", "identity"}
     artifact_set_schema = tools["lc_preview_set_artifact_rule"]["inputSchema"]
     assert set(artifact_set_schema["required"]) == {"oid", "name", "platforms", "patterns"}
     assert artifact_set_schema["properties"]["retention_days"]["default"] == 30

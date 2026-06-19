@@ -82,6 +82,7 @@ class PendingMutation:
     params: dict[str, Any] | None
     data: dict[str, Any] | None
     json_body: Any | None
+    extra_headers: dict[str, str] | None
     expected_effect: str
     reversibility: str
     side_effects: list[dict[str, Any]]
@@ -2461,6 +2462,70 @@ OPERATION_CATALOG.update(
             "side_effects": "none_until_confirmed",
             "notes": "Previews deleting an entire ai_memory record.",
         },
+        "ai.session.list": {
+            "suite": "administration",
+            "tool": "lc_list_ai_sessions",
+            "action": "read",
+            "resource_type": "ai_session_collection",
+            "required_inputs": ["oid"],
+            "optional_inputs": ["status", "cursor", "limit"],
+            "bounds": {"limit_min": 1, "limit_max": 200},
+            "side_effects": "none",
+            "notes": "Lists org-scoped AI sessions for governance and cost visibility. Does not start AI work.",
+        },
+        "ai.session.get": {
+            "suite": "administration",
+            "tool": "lc_get_ai_session",
+            "action": "read",
+            "resource_type": "ai_session",
+            "required_inputs": ["oid", "session_id"],
+            "optional_inputs": [],
+            "side_effects": "none",
+            "notes": "Fetches one org-scoped AI session record.",
+        },
+        "ai.session.history": {
+            "suite": "administration",
+            "tool": "lc_get_ai_session_history",
+            "action": "read",
+            "resource_type": "ai_session_history",
+            "required_inputs": ["oid", "session_id"],
+            "optional_inputs": ["limit"],
+            "bounds": {"limit_min": 1, "limit_max": 500},
+            "side_effects": "none",
+            "notes": "Fetches bounded conversation history for one org-scoped AI session.",
+        },
+        "ai.session.terminate.preview": {
+            "suite": "administration",
+            "tool": "lc_preview_terminate_ai_session",
+            "action": "preview",
+            "resource_type": "ai_session",
+            "required_inputs": ["oid", "session_id"],
+            "optional_inputs": ["token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews terminating a running AI session. Does not start AI work.",
+        },
+        "ai.usage.identity.list": {
+            "suite": "administration",
+            "tool": "lc_list_ai_usage_identities",
+            "action": "read",
+            "resource_type": "ai_usage_identity_collection",
+            "required_inputs": ["oid"],
+            "optional_inputs": ["limit"],
+            "bounds": {"limit_min": 1, "limit_max": 500},
+            "side_effects": "none",
+            "notes": "Lists API key identities with AI-session usage data.",
+        },
+        "ai.usage.get": {
+            "suite": "administration",
+            "tool": "lc_get_ai_usage",
+            "action": "read",
+            "resource_type": "ai_usage",
+            "required_inputs": ["oid", "identity"],
+            "optional_inputs": ["limit"],
+            "bounds": {"limit_min": 1, "limit_max": 500},
+            "side_effects": "none",
+            "notes": "Fetches bounded hourly token and cost usage for one AI usage identity.",
+        },
     }
 )
 
@@ -2482,6 +2547,7 @@ _VULN_SEARCH_OPS = {"is", "contains"}
 _VULN_RESOLUTIONS = {"mitigated", "accepted", "false_positive"}
 _VULN_SCOPES = {"org", "host"}
 _VULN_SEVERITIES = {"critical", "high", "medium", "low"}
+_AI_SESSION_STATUSES = {"running", "ended", "starting", "failed"}
 _KNOWN_HIVE_TYPES = (
     "dr-general",
     "dr-managed",
@@ -2548,6 +2614,7 @@ _SUMMARY_LIST_KEYS = (
     "events",
     "endpoints",
     "artifacts",
+    "messages",
     "history",
     "jobs",
     "packages",
@@ -2563,7 +2630,10 @@ _SUMMARY_LIST_KEYS = (
     "records",
     "resolutions",
     "results",
+    "sessions",
     "snapshots",
+    "identities",
+    "usage",
     "urls",
 )
 REDACTED = "[redacted]"
@@ -3353,6 +3423,7 @@ class LimaCharlieAPI:
         api_root: str | None = None,
         jwt_root: str | None = None,
         cases_root: str | None = None,
+        ai_root: str | None = None,
         timeout_seconds: float | None = None,
         audit_path: Path | None = None,
         http_client: HttpClient | None = None,
@@ -3362,6 +3433,7 @@ class LimaCharlieAPI:
         self.api_root = (api_root or os.environ.get("LC_API_ROOT") or "https://api.limacharlie.io").rstrip("/")
         self.jwt_root = (jwt_root or os.environ.get("LC_JWT_ROOT") or "https://jwt.limacharlie.io").rstrip("/")
         self.cases_root = (cases_root or os.environ.get("LC_CASES_API_ROOT") or "https://cases.limacharlie.io").rstrip("/")
+        self.ai_root = (ai_root or os.environ.get("LC_AI_SESSIONS_ROOT") or "https://ai.limacharlie.io").rstrip("/")
         self.timeout_seconds = timeout_seconds or float(os.environ.get("LC_MCP_TIMEOUT_SECONDS", "30"))
         self.audit_path = audit_path or Path(os.environ.get("LC_MCP_AUDIT_LOG", default_audit_path()))
         self.http: HttpClient = http_client or httpx.Client()
@@ -6451,6 +6523,131 @@ class LimaCharlieAPI:
             token_ttl_seconds=require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900),
         )
 
+    def _ai_headers(self, oid: str) -> dict[str, str]:
+        return {"X-LC-OID": require_oid(oid)}
+
+    def _ai_request(
+        self,
+        method: str,
+        path: str,
+        *,
+        operation: str,
+        oid: str,
+        resource: dict[str, Any],
+        params: dict[str, Any] | None = None,
+        limit: int = 100,
+        side_effects: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        return self._request(
+            method,
+            path,
+            operation=operation,
+            oid=scoped_oid,
+            resource=resource,
+            params=params,
+            limit=limit,
+            base_url=self.ai_root,
+            extra_headers=self._ai_headers(scoped_oid),
+            side_effects=side_effects,
+        ).as_dict()
+
+    def list_ai_sessions(
+        self,
+        oid: str,
+        status: str | None = None,
+        cursor: str | None = None,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        bounded_limit = require_limit(limit, maximum=200)
+        params: dict[str, Any] = {"limit": bounded_limit}
+        if status is not None:
+            checked_status = str(status).lower()
+            if checked_status not in _AI_SESSION_STATUSES:
+                raise ValidationError("status must be running, ended, starting, or failed")
+            params["status"] = checked_status
+        if cursor is not None:
+            params["cursor"] = require_token(cursor, "cursor")
+        return self._ai_request(
+            "GET",
+            "v1/org/sessions",
+            operation="ai.session.list",
+            oid=scoped_oid,
+            resource={"type": "ai_session_collection", "id": scoped_oid},
+            params=params,
+            limit=bounded_limit,
+        )
+
+    def get_ai_session(self, oid: str, session_id: str) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_session_id = require_path_segment(session_id, "session_id")
+        return self._ai_request(
+            "GET",
+            f"v1/org/sessions/{quote(safe_session_id, safe='')}",
+            operation="ai.session.get",
+            oid=scoped_oid,
+            resource={"type": "ai_session", "id": safe_session_id, "parent": {"type": "organization", "id": scoped_oid}},
+        )
+
+    def get_ai_session_history(self, oid: str, session_id: str, limit: int = 100) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_session_id = require_path_segment(session_id, "session_id")
+        bounded_limit = require_limit(limit)
+        return self._ai_request(
+            "GET",
+            f"v1/org/sessions/{quote(safe_session_id, safe='')}/history",
+            operation="ai.session.history",
+            oid=scoped_oid,
+            resource={"type": "ai_session_history", "id": safe_session_id, "parent": {"type": "organization", "id": scoped_oid}},
+            limit=bounded_limit,
+        )
+
+    def preview_terminate_ai_session(self, oid: str, session_id: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_session_id = require_path_segment(session_id, "session_id")
+        return self._create_mutation_preview(
+            operation="ai.session.terminate",
+            oid=scoped_oid,
+            method="DELETE",
+            path=f"v1/org/sessions/{quote(safe_session_id, safe='')}",
+            resource={"type": "ai_session", "id": safe_session_id, "parent": {"type": "organization", "id": scoped_oid}},
+            base_url=self.ai_root,
+            params=None,
+            data=None,
+            json_body=None,
+            extra_headers=self._ai_headers(scoped_oid),
+            expected_effect=f"Terminate AI session {safe_session_id}.",
+            reversibility="Termination cannot be undone; create a new session if more AI work is needed.",
+            side_effects=[{"type": "ai_session_terminated", "resource": {"type": "ai_session", "id": safe_session_id}}],
+            token_ttl_seconds=require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900),
+        )
+
+    def list_ai_usage_identities(self, oid: str, limit: int = 100) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        bounded_limit = require_limit(limit)
+        return self._ai_request(
+            "GET",
+            "v1/org/usage/identities",
+            operation="ai.usage.identity.list",
+            oid=scoped_oid,
+            resource={"type": "ai_usage_identity_collection", "id": scoped_oid},
+            limit=bounded_limit,
+        )
+
+    def get_ai_usage(self, oid: str, identity: str, limit: int = 100) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_identity = require_token(identity, "identity")
+        bounded_limit = require_limit(limit)
+        return self._ai_request(
+            "GET",
+            f"v1/org/usage/identities/{quote(safe_identity, safe='')}",
+            operation="ai.usage.get",
+            oid=scoped_oid,
+            resource={"type": "ai_usage", "id": safe_identity, "parent": {"type": "organization", "id": scoped_oid}},
+            limit=bounded_limit,
+        )
+
     def list_schemas(self, oid: str, platform: str | None = None, limit: int = 100) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         bounded_limit = require_limit(limit)
@@ -8387,6 +8584,7 @@ class LimaCharlieAPI:
             params=mutation.params,
             data=mutation.data,
             json_body=mutation.json_body,
+            extra_headers=mutation.extra_headers,
             side_effects=mutation.side_effects,
         ).as_dict()
         response["data"] = {
@@ -8479,6 +8677,7 @@ class LimaCharlieAPI:
         base_url: str | None = None,
         side_effects: list[dict[str, Any]] | None = None,
         no_auth: bool = False,
+        extra_headers: dict[str, str] | None = None,
     ) -> ToolResponse:
         started = time.time()
         request_id = f"req_{uuid.uuid4().hex}"
@@ -8490,6 +8689,8 @@ class LimaCharlieAPI:
                 token_oid = oid or os.environ.get("LC_OID")
                 token = self._get_jwt(token_oid)
                 headers["Authorization"] = f"Bearer {token}"
+            if extra_headers:
+                headers.update(extra_headers)
             response = self.http.request(
                 method,
                 url,
@@ -8860,6 +9061,7 @@ class LimaCharlieAPI:
         token_ttl_seconds: int,
         params: dict[str, Any] | None = None,
         base_url: str | None = None,
+        extra_headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         self._prune_expired_mutations()
         token = f"mut_{uuid.uuid4().hex}"
@@ -8875,6 +9077,7 @@ class LimaCharlieAPI:
             params=params,
             data=data,
             json_body=json_body,
+            extra_headers=extra_headers,
             expected_effect=expected_effect,
             reversibility=reversibility,
             side_effects=side_effects,
@@ -8912,6 +9115,7 @@ class LimaCharlieAPI:
             "params": redact_preview_data(mutation.params),
             "data": redact_preview_data(mutation.data),
             "json_body": redact_preview_data(mutation.json_body),
+            "headers": redact_preview_data(mutation.extra_headers),
             "expected_effect": mutation.expected_effect,
             "reversibility": mutation.reversibility,
             "expected_side_effects": mutation.side_effects,

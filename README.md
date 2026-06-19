@@ -192,6 +192,12 @@ renaming tools.
 | `lc_get_extension_schema` | Fetch extension schema for an org context. |
 | `lc_preview_extension_request` | Preview a generic extension request. |
 | `lc_list_ingestion_keys` | List ingestion key metadata. |
+| `lc_list_ai_sessions` | List org-scoped AI sessions for governance and cost visibility. |
+| `lc_get_ai_session` | Fetch one org-scoped AI session. |
+| `lc_get_ai_session_history` | Fetch bounded history for one org-scoped AI session. |
+| `lc_preview_terminate_ai_session` | Preview terminating a running AI session. |
+| `lc_list_ai_usage_identities` | List API key identities with AI-session usage data. |
+| `lc_get_ai_usage` | Fetch bounded token and cost usage for one AI identity. |
 
 ### Content Review
 
@@ -292,11 +298,11 @@ and private/client keys are redacted from MCP responses and audit excerpts.
 Local preview confirmation tokens remain visible in preview responses because
 they are required to execute the explicit confirmation step.
 
-Broad AI-generation wrappers are not a default parity target. This MCP focuses
-on deterministic LimaCharlie administration, investigation, content, response,
-feedback, and evidence workflows; AI-adjacent tools should be added only where
-they create auditable LimaCharlie state or evidence with cost and credential
-guardrails.
+Broad AI-generation and chat wrappers are not a default parity target. This MCP
+focuses on deterministic LimaCharlie administration, investigation, content,
+response, feedback, and evidence workflows. AI-adjacent coverage is limited to
+auditable state, memory, session governance, and usage visibility with cost and
+credential guardrails.
 
 ## Agent Experience Contract
 
@@ -408,6 +414,7 @@ credential rotation or auth troubleshooting.
 | `LC_API_ROOT` | `https://api.limacharlie.io` | LimaCharlie API root. |
 | `LC_JWT_ROOT` | `https://jwt.limacharlie.io` | JWT exchange root. |
 | `LC_CASES_API_ROOT` | `https://cases.limacharlie.io` | Cases API root. |
+| `LC_AI_SESSIONS_ROOT` | `https://ai.limacharlie.io` | AI-session governance API root. |
 | `LC_MCP_TIMEOUT_SECONDS` | `30` | Per-command timeout. |
 | `LC_MCP_AUDIT_LOG` | platform cache dir | JSONL audit log path. |
 

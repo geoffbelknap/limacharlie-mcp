@@ -66,6 +66,8 @@ renaming tools.
 | `lc_get_artifact_url` | Request original artifact payload or signed export URL. |
 | `lc_list_payloads` | List payload metadata without downloading payload bytes. |
 | `lc_get_payload_download_url` | Request payload metadata including a signed download URL when returned. |
+| `lc_preview_payload_upload_url` | Preview requesting a signed payload upload URL. |
+| `lc_preview_delete_payload` | Preview deleting a payload. |
 | `lc_get_arl` | Resolve a LimaCharlie authenticated resource locator. |
 | `lc_list_jobs` | List service jobs for an explicit org and time window. |
 | `lc_get_job` | Fetch one service job. |
@@ -222,6 +224,23 @@ renaming tools.
 | `lc_preview_set_integrity_rule` | Preview creating or updating an integrity monitoring rule. |
 | `lc_preview_delete_integrity_rule` | Preview deleting an integrity monitoring rule. |
 | `lc_validate_usp_mapping` | Validate USP mapping/input configuration. |
+| `lc_list_hive_types` | List known LimaCharlie Hive type names. |
+| `lc_list_hive_records` | List records from a Hive partition. |
+| `lc_get_hive_record` | Fetch one Hive record data payload. |
+| `lc_get_hive_record_metadata` | Fetch one Hive record metadata payload. |
+| `lc_get_hive_schema` | Fetch the JSON Schema for a typed Hive. |
+| `lc_validate_hive_record` | Validate a Hive record without saving it. |
+| `lc_preview_set_hive_record` | Preview creating or updating a generic Hive record. |
+| `lc_preview_delete_hive_record` | Preview deleting a generic Hive record. |
+| `lc_preview_rename_hive_record` | Preview renaming a generic Hive record. |
+| `lc_preview_set_hive_record_enabled` | Preview toggling a Hive record's enabled metadata. |
+| `lc_list_ai_memory_records` | List ai_memory Hive records. |
+| `lc_get_ai_memory_record` | Fetch the full ai_memory record for an agent. |
+| `lc_list_ai_memories` | List memory entries for an ai_memory agent record. |
+| `lc_get_ai_memory` | Fetch one memory entry from an ai_memory agent record. |
+| `lc_preview_set_ai_memory` | Preview setting one ai_memory entry. |
+| `lc_preview_delete_ai_memory` | Preview deleting one ai_memory entry. |
+| `lc_preview_delete_ai_memory_record` | Preview deleting an entire ai_memory agent record. |
 | `lc_list_yara_rules` | List YARA scanning rules. |
 | `lc_preview_yara_scan` | Preview running an ad-hoc YARA scan on one sensor. |
 | `lc_preview_set_yara_rule` | Preview creating or updating a YARA scanning rule. |
@@ -261,7 +280,8 @@ renaming tools.
 Mutations are available only through the preview/confirm contract. Current
 typed previews cover sensor response actions, job deletion, sensor tags,
 sensor version policy, case lifecycle/investigation/config/tag changes,
-administration writes, extension/service/config-sync/feedback requests, and
+administration writes, extension/service/config-sync/feedback requests,
+generic Hive records, AI-memory records, payload metadata, and
 artifact/logging/D&R/false-positive/integrity/YARA/exfil content changes.
 Remaining specialized streaming and multi-request helper surfaces stay gated
 until they have typed preview/confirm tools or bounded read contracts with

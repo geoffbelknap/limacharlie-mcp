@@ -955,6 +955,20 @@ def lc_get_payload_download_url(oid: str, name: str) -> dict:
 
 
 @mcp.tool()
+def lc_preview_payload_upload_url(oid: str, name: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview requesting a signed payload upload URL without uploading bytes."""
+
+    return _call("payload.upload_url.preview", lc.preview_payload_upload_url, oid=oid, name=name, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_delete_payload(oid: str, name: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview deleting a payload."""
+
+    return _call("payload.delete.preview", lc.preview_delete_payload, oid=oid, name=name, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
 def lc_get_arl(oid: str, arl_url: str, limit: int = 100) -> dict:
     """Resolve a LimaCharlie authenticated resource locator."""
 
@@ -1371,6 +1385,221 @@ def lc_preview_feedback_question(
         timeout_content=timeout_content,
         token_ttl_seconds=token_ttl_seconds,
     )
+
+
+@mcp.tool()
+def lc_list_hive_types() -> dict:
+    """List known LimaCharlie hive type names."""
+
+    return lc.list_hive_types()
+
+
+@mcp.tool()
+def lc_list_hive_records(oid: str, hive_name: str, partition_key: str | None = None, limit: int = 100) -> dict:
+    """List records from a Hive partition."""
+
+    return _call("hive.record.list", lc.list_hive_records, oid=oid, hive_name=hive_name, partition_key=partition_key, limit=limit)
+
+
+@mcp.tool()
+def lc_get_hive_record(oid: str, hive_name: str, key: str, partition_key: str | None = None) -> dict:
+    """Fetch one Hive record's data payload."""
+
+    return _call("hive.record.get", lc.get_hive_record, oid=oid, hive_name=hive_name, key=key, partition_key=partition_key)
+
+
+@mcp.tool()
+def lc_get_hive_record_metadata(oid: str, hive_name: str, key: str, partition_key: str | None = None) -> dict:
+    """Fetch one Hive record's metadata."""
+
+    return _call("hive.record.metadata.get", lc.get_hive_record_metadata, oid=oid, hive_name=hive_name, key=key, partition_key=partition_key)
+
+
+@mcp.tool()
+def lc_get_hive_schema(hive_name: str) -> dict:
+    """Fetch the JSON Schema for a typed Hive."""
+
+    return _call("hive.schema.get", lc.get_hive_schema, hive_name=hive_name)
+
+
+@mcp.tool()
+def lc_validate_hive_record(
+    oid: str,
+    hive_name: str,
+    key: str,
+    data: Any,
+    partition_key: str | None = None,
+    arl_url: str | None = None,
+    enabled: bool | None = None,
+    tags: list[str] | str | None = None,
+    comment: str | None = None,
+    expiry: int | None = None,
+    etag: str | None = None,
+    ui_actions: list[dict[str, Any]] | None = None,
+) -> dict:
+    """Validate a Hive record without saving it."""
+
+    return _call(
+        "hive.record.validate",
+        lc.validate_hive_record,
+        oid=oid,
+        hive_name=hive_name,
+        key=key,
+        data=data,
+        partition_key=partition_key,
+        arl_url=arl_url,
+        enabled=enabled,
+        tags=tags,
+        comment=comment,
+        expiry=expiry,
+        etag=etag,
+        ui_actions=ui_actions,
+    )
+
+
+@mcp.tool()
+def lc_preview_set_hive_record(
+    oid: str,
+    hive_name: str,
+    key: str,
+    data: Any | None = None,
+    partition_key: str | None = None,
+    arl_url: str | None = None,
+    enabled: bool | None = None,
+    tags: list[str] | str | None = None,
+    comment: str | None = None,
+    expiry: int | None = None,
+    etag: str | None = None,
+    ui_actions: list[dict[str, Any]] | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview creating or updating a generic Hive record."""
+
+    return _call(
+        "hive.record.set.preview",
+        lc.preview_set_hive_record,
+        oid=oid,
+        hive_name=hive_name,
+        key=key,
+        data=data,
+        partition_key=partition_key,
+        arl_url=arl_url,
+        enabled=enabled,
+        tags=tags,
+        comment=comment,
+        expiry=expiry,
+        etag=etag,
+        ui_actions=ui_actions,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_preview_delete_hive_record(
+    oid: str,
+    hive_name: str,
+    key: str,
+    partition_key: str | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview deleting a generic Hive record."""
+
+    return _call("hive.record.delete.preview", lc.preview_delete_hive_record, oid=oid, hive_name=hive_name, key=key, partition_key=partition_key, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_rename_hive_record(
+    oid: str,
+    hive_name: str,
+    key: str,
+    new_name: str,
+    partition_key: str | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview renaming a generic Hive record."""
+
+    return _call("hive.record.rename.preview", lc.preview_rename_hive_record, oid=oid, hive_name=hive_name, key=key, new_name=new_name, partition_key=partition_key, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_set_hive_record_enabled(
+    oid: str,
+    hive_name: str,
+    key: str,
+    enabled: bool,
+    partition_key: str | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview setting a Hive record's enabled metadata while preserving existing metadata."""
+
+    return _call("hive.record.enabled.set.preview", lc.preview_set_hive_record_enabled, oid=oid, hive_name=hive_name, key=key, enabled=enabled, partition_key=partition_key, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_list_ai_memory_records(oid: str, partition_key: str | None = None, limit: int = 100) -> dict:
+    """List ai_memory Hive records."""
+
+    return _call("ai_memory.record.list", lc.list_ai_memory_records, oid=oid, partition_key=partition_key, limit=limit)
+
+
+@mcp.tool()
+def lc_get_ai_memory_record(oid: str, agent: str, partition_key: str | None = None) -> dict:
+    """Fetch the full ai_memory record for an agent."""
+
+    return _call("ai_memory.record.get", lc.get_ai_memory_record, oid=oid, agent=agent, partition_key=partition_key)
+
+
+@mcp.tool()
+def lc_list_ai_memories(oid: str, agent: str, partition_key: str | None = None) -> dict:
+    """List memory entries for an ai_memory agent record."""
+
+    return _call("ai_memory.list", lc.list_ai_memories, oid=oid, agent=agent, partition_key=partition_key)
+
+
+@mcp.tool()
+def lc_get_ai_memory(oid: str, agent: str, memory_name: str, partition_key: str | None = None) -> dict:
+    """Fetch one memory entry from an ai_memory agent record."""
+
+    return _call("ai_memory.get", lc.get_ai_memory, oid=oid, agent=agent, memory_name=memory_name, partition_key=partition_key)
+
+
+@mcp.tool()
+def lc_preview_set_ai_memory(
+    oid: str,
+    agent: str,
+    memory_name: str,
+    content: str,
+    partition_key: str | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview setting one ai_memory entry through the partial-merge hook."""
+
+    return _call("ai_memory.set.preview", lc.preview_set_ai_memory, oid=oid, agent=agent, memory_name=memory_name, content=content, partition_key=partition_key, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_delete_ai_memory(
+    oid: str,
+    agent: str,
+    memory_name: str,
+    partition_key: str | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview deleting one ai_memory entry through the partial-merge hook."""
+
+    return _call("ai_memory.delete.preview", lc.preview_delete_ai_memory, oid=oid, agent=agent, memory_name=memory_name, partition_key=partition_key, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_delete_ai_memory_record(
+    oid: str,
+    agent: str,
+    partition_key: str | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview deleting an entire ai_memory agent record."""
+
+    return _call("ai_memory.record.delete.preview", lc.preview_delete_ai_memory_record, oid=oid, agent=agent, partition_key=partition_key, token_ttl_seconds=token_ttl_seconds)
 
 
 @mcp.tool()

@@ -739,19 +739,31 @@ def test_payload_and_arl_read_tools_use_expected_paths(tmp_path: Path) -> None:
     fake = FakeHTTP()
     fake.add("GET", f"https://api.limacharlie.io/v1/payload/{OID}", {"payloads": [{"name": "p1"}]})
     fake.add("GET", f"https://api.limacharlie.io/v1/payload/{OID}/p1", {"get_url": "https://signed"})
+    fake.add("POST", f"https://api.limacharlie.io/v1/payload/{OID}/p1", {"put_url": "https://signed-put"})
+    fake.add("DELETE", f"https://api.limacharlie.io/v1/payload/{OID}/p1", {"ok": True})
     fake.add("GET", f"https://api.limacharlie.io/v1/arl/{OID}", {"data": [{"id": "resolved"}]})
     client = make_client(tmp_path, fake)
 
     payloads = client.list_payloads(OID)
     payload = client.get_payload_download_url(OID, "p1")
+    upload = client.preview_payload_upload_url(OID, "p1")
+    delete_payload = client.preview_delete_payload(OID, "p1")
     arl = client.get_arl(OID, "lc://example/resource", limit=1)
+    upload_confirmed = client.confirm_mutation(upload["data"]["confirmation_token"])
+    delete_confirmed = client.confirm_mutation(delete_payload["data"]["confirmation_token"])
 
     assert payloads["operation"] == "payload.list"
     assert payloads["data"]["payloads"][0]["name"] == "p1"
     assert payload["operation"] == "payload.get_url"
     assert payload["data"]["get_url"] == "https://signed"
+    assert upload["operation"] == "payload.upload_url.preview"
+    assert upload_confirmed["data"]["confirmed_operation"] == "payload.upload_url"
+    assert delete_confirmed["data"]["confirmed_operation"] == "payload.delete"
     assert arl["operation"] == "arl.get"
-    assert fake.calls[3]["params"] == {"arl": "lc://example/resource"}
+    calls = [call for call in fake.calls if call["url"] != "https://jwt.limacharlie.io"]
+    assert calls[2]["params"] == {"arl": "lc://example/resource"}
+    assert calls[3]["method"] == "POST"
+    assert calls[4]["method"] == "DELETE"
 
 
 def test_wait_job_returns_terminal_state(tmp_path: Path) -> None:
@@ -1312,6 +1324,109 @@ def test_feedback_tools_preview_extension_and_hive_requests(tmp_path: Path) -> N
     assert decode_gzdata(calls[3]["params"]["gzdata"])["playbook_name"] == "handoff"
     assert calls[4]["params"]["action"] == "request_question"
     assert decode_gzdata(calls[4]["params"]["gzdata"])["timeout_content"] == {"answer": "timeout"}
+
+
+def test_generic_hive_tools_redact_secret_preview_and_audit_params(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add(
+        "GET",
+        f"https://api.limacharlie.io/v1/hive/lookup/{OID}",
+        {"rec-1": {"data": json.dumps({"lookup_data": {"1.1.1.1": {}}}), "usr_mtd": {}, "sys_mtd": {"etag": "etag-1"}}},
+    )
+    fake.add(
+        "GET",
+        f"https://api.limacharlie.io/v1/hive/secret/{OID}/secret-1/data",
+        {"data": {"secret": "super-secret"}, "usr_mtd": {}, "sys_mtd": {"etag": "secret-etag"}},
+    )
+    fake.add(
+        "GET",
+        f"https://api.limacharlie.io/v1/hive/lookup/{OID}/rec-1/mtd",
+        {"data": {}, "usr_mtd": {"tags": ["prod"], "comment": "keep"}, "sys_mtd": {"etag": "etag-1"}},
+    )
+    fake.add("GET", "https://api.limacharlie.io/v1/hive/lookup/schema", {"schema": {"type": "object"}})
+    fake.add("POST", f"https://api.limacharlie.io/v1/hive/lookup/{OID}/rec-1/validate", {"ok": True})
+    fake.add("POST", f"https://api.limacharlie.io/v1/hive/secret/{OID}/secret-1/data", {"ok": True})
+    fake.add("DELETE", f"https://api.limacharlie.io/v1/hive/lookup/{OID}/rec-1", {"ok": True})
+    fake.add("POST", f"https://api.limacharlie.io/v1/hive/lookup/{OID}/rec-1/rename", {"ok": True})
+    fake.add("POST", f"https://api.limacharlie.io/v1/hive/lookup/{OID}/rec-1/mtd", {"ok": True})
+    client = make_client(tmp_path, fake)
+
+    assert "secret" in client.list_hive_types()["data"]["hive_types"]
+    assert client.list_hive_records(OID, "lookup")["operation"] == "hive.record.list"
+    secret = client.get_hive_record(OID, "secret", "secret-1")
+    assert secret["data"]["data"]["secret"] == "[redacted]"
+    assert client.get_hive_record_metadata(OID, "lookup", "rec-1")["data"]["sys_mtd"]["etag"] == "etag-1"
+    assert client.get_hive_schema("lookup")["data"]["schema"]["type"] == "object"
+    assert client.validate_hive_record(OID, "lookup", "rec-1", {"lookup_data": {"1.1.1.1": {}}})["ok"] is True
+
+    set_preview = client.preview_set_hive_record(
+        OID,
+        "secret",
+        "secret-1",
+        data={"secret": "super-secret"},
+        enabled=True,
+        tags=["prod"],
+        etag="secret-etag",
+    )
+    delete_preview = client.preview_delete_hive_record(OID, "lookup", "rec-1")
+    rename_preview = client.preview_rename_hive_record(OID, "lookup", "rec-1", "rec-2")
+    enabled_preview = client.preview_set_hive_record_enabled(OID, "lookup", "rec-1", False)
+
+    assert set_preview["operation"] == "hive.record.set.preview"
+    assert set_preview["data"]["params"]["data"]["secret"] == "[redacted]"
+    assert set_preview["data"]["params"]["usr_mtd"]["enabled"] is True
+    assert enabled_preview["data"]["params"]["usr_mtd"]["tags"] == ["prod"]
+    assert enabled_preview["data"]["params"]["usr_mtd"]["comment"] == "keep"
+    assert enabled_preview["data"]["params"]["usr_mtd"]["enabled"] is False
+
+    for preview in [set_preview, delete_preview, rename_preview, enabled_preview]:
+        client.confirm_mutation(preview["data"]["confirmation_token"])
+
+    calls = [call for call in fake.calls if call["url"] != "https://jwt.limacharlie.io"]
+    set_call = next(call for call in calls if call["url"].endswith("/secret-1/data") and call["method"] == "POST")
+    assert json.loads(set_call["params"]["data"]) == {"secret": "super-secret"}
+    enabled_call = next(call for call in calls if call["url"].endswith("/rec-1/mtd") and call["method"] == "POST")
+    assert json.loads(enabled_call["params"]["usr_mtd"]) == {"tags": ["prod"], "comment": "keep", "enabled": False}
+    assert enabled_call["params"]["etag"] == "etag-1"
+    audit_text = (tmp_path / "audit.jsonl").read_text()
+    assert "super-secret" not in audit_text
+
+
+def test_ai_memory_tools_use_hive_partial_merge_requests(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add(
+        "GET",
+        f"https://api.limacharlie.io/v1/hive/ai_memory/{OID}",
+        {"agent-1": {"data": json.dumps({"memories": {"notes/today": "kept"}}), "usr_mtd": {}, "sys_mtd": {"etag": "etag-1"}}},
+    )
+    fake.add(
+        "GET",
+        f"https://api.limacharlie.io/v1/hive/ai_memory/{OID}/agent-1/data",
+        {"data": {"memories": {"notes/today": "kept"}}},
+    )
+    fake.add("POST", f"https://api.limacharlie.io/v1/hive/ai_memory/{OID}/agent-1/data", {"ok": True})
+    fake.add("DELETE", f"https://api.limacharlie.io/v1/hive/ai_memory/{OID}/agent-1", {"ok": True})
+    client = make_client(tmp_path, fake)
+
+    assert client.list_ai_memory_records(OID)["operation"] == "ai_memory.record.list"
+    assert client.get_ai_memory_record(OID, "agent-1")["operation"] == "ai_memory.record.get"
+    assert client.list_ai_memories(OID, "agent-1")["data"]["memories"] == {"notes/today": "kept"}
+    assert client.get_ai_memory(OID, "agent-1", "notes/today")["data"]["content"] == "kept"
+    set_preview = client.preview_set_ai_memory(OID, "agent-1", "notes/today", "updated")
+    delete_preview = client.preview_delete_ai_memory(OID, "agent-1", "notes/today")
+    record_delete_preview = client.preview_delete_ai_memory_record(OID, "agent-1")
+
+    assert set_preview["operation"] == "ai_memory.set.preview"
+    assert delete_preview["operation"] == "ai_memory.delete.preview"
+    assert record_delete_preview["operation"] == "ai_memory.record.delete.preview"
+    for preview in [set_preview, delete_preview, record_delete_preview]:
+        client.confirm_mutation(preview["data"]["confirmation_token"])
+
+    calls = [call for call in fake.calls if call["url"] != "https://jwt.limacharlie.io"]
+    post_calls = [call for call in calls if call["method"] == "POST" and call["url"].endswith("/agent-1/data")]
+    assert json.loads(post_calls[0]["params"]["data"]) == {"memories": {"notes/today": "updated"}}
+    assert json.loads(post_calls[1]["params"]["data"]) == {"memories": {"notes/today": None}}
+    assert calls[-1]["method"] == "DELETE"
 
 
 def test_hive_rule_previews_confirm_encoded_params(tmp_path: Path) -> None:

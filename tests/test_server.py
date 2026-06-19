@@ -173,6 +173,8 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
         "lc_replay_dry_run",
         "lc_list_payloads",
         "lc_get_payload_download_url",
+        "lc_preview_payload_upload_url",
+        "lc_preview_delete_payload",
         "lc_get_arl",
         "lc_preview_set_artifact_rule",
         "lc_preview_delete_artifact_rule",
@@ -187,6 +189,23 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
         "lc_preview_set_integrity_rule",
         "lc_preview_delete_integrity_rule",
         "lc_validate_usp_mapping",
+        "lc_list_hive_types",
+        "lc_list_hive_records",
+        "lc_get_hive_record",
+        "lc_get_hive_record_metadata",
+        "lc_get_hive_schema",
+        "lc_validate_hive_record",
+        "lc_preview_set_hive_record",
+        "lc_preview_delete_hive_record",
+        "lc_preview_rename_hive_record",
+        "lc_preview_set_hive_record_enabled",
+        "lc_list_ai_memory_records",
+        "lc_get_ai_memory_record",
+        "lc_list_ai_memories",
+        "lc_get_ai_memory",
+        "lc_preview_set_ai_memory",
+        "lc_preview_delete_ai_memory",
+        "lc_preview_delete_ai_memory_record",
         "lc_preview_yara_scan",
         "lc_preview_set_yara_rule",
         "lc_preview_delete_yara_rule",
@@ -287,6 +306,20 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
     assert set(billing_invoice_schema["required"]) == {"oid", "year", "month"}
     usp_schema = tools["lc_validate_usp_mapping"]["inputSchema"]
     assert set(usp_schema["required"]) == {"oid", "platform"}
+    payload_upload_schema = tools["lc_preview_payload_upload_url"]["inputSchema"]
+    assert set(payload_upload_schema["required"]) == {"oid", "name"}
+    hive_get_schema = tools["lc_get_hive_record"]["inputSchema"]
+    assert set(hive_get_schema["required"]) == {"oid", "hive_name", "key"}
+    hive_validate_schema = tools["lc_validate_hive_record"]["inputSchema"]
+    assert set(hive_validate_schema["required"]) == {"oid", "hive_name", "key", "data"}
+    hive_rename_schema = tools["lc_preview_rename_hive_record"]["inputSchema"]
+    assert set(hive_rename_schema["required"]) == {"oid", "hive_name", "key", "new_name"}
+    hive_enabled_schema = tools["lc_preview_set_hive_record_enabled"]["inputSchema"]
+    assert set(hive_enabled_schema["required"]) == {"oid", "hive_name", "key", "enabled"}
+    ai_memory_set_schema = tools["lc_preview_set_ai_memory"]["inputSchema"]
+    assert set(ai_memory_set_schema["required"]) == {"oid", "agent", "memory_name", "content"}
+    ai_memory_get_schema = tools["lc_get_ai_memory"]["inputSchema"]
+    assert set(ai_memory_get_schema["required"]) == {"oid", "agent", "memory_name"}
     artifact_set_schema = tools["lc_preview_set_artifact_rule"]["inputSchema"]
     assert set(artifact_set_schema["required"]) == {"oid", "name", "platforms", "patterns"}
     assert artifact_set_schema["properties"]["retention_days"]["default"] == 30

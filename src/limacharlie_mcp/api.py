@@ -556,6 +556,26 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "side_effects": "none",
         "notes": "Returns the API response containing a signed payload download URL when available; does not fetch binary bytes.",
     },
+    "payload.upload_url.preview": {
+        "suite": "content",
+        "tool": "lc_preview_payload_upload_url",
+        "action": "preview",
+        "resource_type": "payload",
+        "required_inputs": ["oid", "name"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews requesting a signed payload upload URL. Does not upload binary bytes.",
+    },
+    "payload.delete.preview": {
+        "suite": "content",
+        "tool": "lc_preview_delete_payload",
+        "action": "preview",
+        "resource_type": "payload",
+        "required_inputs": ["oid", "name"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews deleting a payload record.",
+    },
     "arl.get": {
         "suite": "investigation",
         "tool": "lc_get_arl",
@@ -2267,6 +2287,183 @@ OPERATION_CATALOG.update(
     }
 )
 
+OPERATION_CATALOG.update(
+    {
+        "hive.type.list": {
+            "suite": "content",
+            "tool": "lc_list_hive_types",
+            "action": "read",
+            "resource_type": "hive_type_collection",
+            "required_inputs": [],
+            "optional_inputs": [],
+            "side_effects": "none",
+            "notes": "Lists known LimaCharlie hive names for generic hive tools.",
+        },
+        "hive.record.list": {
+            "suite": "content",
+            "tool": "lc_list_hive_records",
+            "action": "read",
+            "resource_type": "hive_record_collection",
+            "required_inputs": ["oid", "hive_name"],
+            "optional_inputs": ["partition_key", "limit"],
+            "bounds": {"limit_min": 1, "limit_max": 500},
+            "side_effects": "none",
+            "notes": "Lists records in a hive partition. Secret-shaped fields are redacted.",
+        },
+        "hive.record.get": {
+            "suite": "content",
+            "tool": "lc_get_hive_record",
+            "action": "read",
+            "resource_type": "hive_record",
+            "required_inputs": ["oid", "hive_name", "key"],
+            "optional_inputs": ["partition_key"],
+            "side_effects": "none",
+            "notes": "Fetches one hive record data payload. Secret-shaped fields are redacted.",
+        },
+        "hive.record.metadata.get": {
+            "suite": "content",
+            "tool": "lc_get_hive_record_metadata",
+            "action": "read",
+            "resource_type": "hive_record_metadata",
+            "required_inputs": ["oid", "hive_name", "key"],
+            "optional_inputs": ["partition_key"],
+            "side_effects": "none",
+            "notes": "Fetches one hive record's metadata endpoint.",
+        },
+        "hive.schema.get": {
+            "suite": "content",
+            "tool": "lc_get_hive_schema",
+            "action": "read",
+            "resource_type": "hive_schema",
+            "required_inputs": ["hive_name"],
+            "optional_inputs": [],
+            "side_effects": "none",
+            "notes": "Fetches the JSON Schema for a typed hive when LimaCharlie exposes one.",
+        },
+        "hive.record.validate": {
+            "suite": "content",
+            "tool": "lc_validate_hive_record",
+            "action": "validate",
+            "resource_type": "hive_record",
+            "required_inputs": ["oid", "hive_name", "key", "data"],
+            "optional_inputs": ["partition_key", "arl_url", "enabled", "tags", "comment", "expiry", "etag", "ui_actions"],
+            "side_effects": "none",
+            "notes": "Validates a hive record payload without saving it.",
+        },
+        "hive.record.set.preview": {
+            "suite": "content",
+            "tool": "lc_preview_set_hive_record",
+            "action": "preview",
+            "resource_type": "hive_record",
+            "required_inputs": ["oid", "hive_name", "key"],
+            "optional_inputs": ["data", "partition_key", "arl_url", "enabled", "tags", "comment", "expiry", "etag", "ui_actions", "token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews creating or updating a generic hive record.",
+        },
+        "hive.record.delete.preview": {
+            "suite": "content",
+            "tool": "lc_preview_delete_hive_record",
+            "action": "preview",
+            "resource_type": "hive_record",
+            "required_inputs": ["oid", "hive_name", "key"],
+            "optional_inputs": ["partition_key", "token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews deleting a generic hive record.",
+        },
+        "hive.record.rename.preview": {
+            "suite": "content",
+            "tool": "lc_preview_rename_hive_record",
+            "action": "preview",
+            "resource_type": "hive_record",
+            "required_inputs": ["oid", "hive_name", "key", "new_name"],
+            "optional_inputs": ["partition_key", "token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews renaming a hive record key while preserving the record.",
+        },
+        "hive.record.enabled.set.preview": {
+            "suite": "content",
+            "tool": "lc_preview_set_hive_record_enabled",
+            "action": "preview",
+            "resource_type": "hive_record_metadata",
+            "required_inputs": ["oid", "hive_name", "key", "enabled"],
+            "optional_inputs": ["partition_key", "token_ttl_seconds"],
+            "side_effects": "metadata_read_before_preview_then_none_until_confirmed",
+            "notes": "Reads current metadata, then previews changing only usr_mtd.enabled with etag preservation.",
+        },
+        "ai_memory.record.list": {
+            "suite": "content",
+            "tool": "lc_list_ai_memory_records",
+            "action": "read",
+            "resource_type": "ai_memory_record_collection",
+            "required_inputs": ["oid"],
+            "optional_inputs": ["partition_key", "limit"],
+            "bounds": {"limit_min": 1, "limit_max": 500},
+            "side_effects": "none",
+            "notes": "Lists ai_memory hive records.",
+        },
+        "ai_memory.record.get": {
+            "suite": "content",
+            "tool": "lc_get_ai_memory_record",
+            "action": "read",
+            "resource_type": "ai_memory_record",
+            "required_inputs": ["oid", "agent"],
+            "optional_inputs": ["partition_key"],
+            "side_effects": "none",
+            "notes": "Fetches the full ai_memory record for an agent.",
+        },
+        "ai_memory.list": {
+            "suite": "content",
+            "tool": "lc_list_ai_memories",
+            "action": "read",
+            "resource_type": "ai_memory_collection",
+            "required_inputs": ["oid", "agent"],
+            "optional_inputs": ["partition_key"],
+            "side_effects": "none",
+            "notes": "Returns the memory-name to content map from an ai_memory record.",
+        },
+        "ai_memory.get": {
+            "suite": "content",
+            "tool": "lc_get_ai_memory",
+            "action": "read",
+            "resource_type": "ai_memory",
+            "required_inputs": ["oid", "agent", "memory_name"],
+            "optional_inputs": ["partition_key"],
+            "side_effects": "none",
+            "notes": "Fetches a single memory value from an ai_memory record.",
+        },
+        "ai_memory.set.preview": {
+            "suite": "content",
+            "tool": "lc_preview_set_ai_memory",
+            "action": "preview",
+            "resource_type": "ai_memory",
+            "required_inputs": ["oid", "agent", "memory_name", "content"],
+            "optional_inputs": ["partition_key", "token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews an ai_memory partial merge that sets one memory entry.",
+        },
+        "ai_memory.delete.preview": {
+            "suite": "content",
+            "tool": "lc_preview_delete_ai_memory",
+            "action": "preview",
+            "resource_type": "ai_memory",
+            "required_inputs": ["oid", "agent", "memory_name"],
+            "optional_inputs": ["partition_key", "token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews an ai_memory partial merge that deletes one memory entry.",
+        },
+        "ai_memory.record.delete.preview": {
+            "suite": "content",
+            "tool": "lc_preview_delete_ai_memory_record",
+            "action": "preview",
+            "resource_type": "ai_memory_record",
+            "required_inputs": ["oid", "agent"],
+            "optional_inputs": ["partition_key", "token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews deleting an entire ai_memory record.",
+        },
+    }
+)
+
 
 _SAFE_DETECT_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,160}$")
 _SAFE_CASE_NUMBER = re.compile(r"^[0-9]{1,20}$")
@@ -2285,6 +2482,25 @@ _VULN_SEARCH_OPS = {"is", "contains"}
 _VULN_RESOLUTIONS = {"mitigated", "accepted", "false_positive"}
 _VULN_SCOPES = {"org", "host"}
 _VULN_SEVERITIES = {"critical", "high", "medium", "low"}
+_KNOWN_HIVE_TYPES = (
+    "dr-general",
+    "dr-managed",
+    "dr-service",
+    "fp",
+    "cloud_sensor",
+    "extension_config",
+    "yara",
+    "lookup",
+    "secret",
+    "query",
+    "playbook",
+    "ai_agent",
+    "ai_skill",
+    "ai_memory",
+    "external_adapter",
+    "sop",
+    "org_notes",
+)
 _ORG_USER_ROLES = {"Owner", "Administrator", "Operator", "Viewer", "Basic"}
 _CASE_STATUSES = {"new", "in_progress", "resolved", "closed"}
 _CASE_SEVERITIES = {"critical", "high", "medium", "low", "info"}
@@ -2382,6 +2598,9 @@ _SENSITIVE_RESPONSE_KEYS = frozenset(
     }
 )
 _AUDIT_ONLY_SENSITIVE_KEYS = frozenset({"confirmation", "confirmation_token", "confirmationtoken"})
+_BASE64_JSON_PREVIEW_KEYS = frozenset({"request_data"})
+_GZIP_BASE64_JSON_PREVIEW_KEYS = frozenset({"gzdata"})
+_JSON_STRING_PREVIEW_KEYS = frozenset({"config", "data", "usr_mtd"})
 _SENSITIVE_TEXT_RE = re.compile(
     r"(?i)\b(api[_-]?key|authorization|client[_-]?secret|credential|jwt|password|private[_-]?key|refresh[_-]?token|secret|session[_-]?token|token)"
     r"([\"']?\s*[:=]\s*[\"']?)([^\"'\s,}]+)"
@@ -2485,6 +2704,20 @@ def require_extension_name(value: str) -> str:
     if not isinstance(value, str) or not _SAFE_EXTENSION_NAME.match(value):
         raise ValidationError("extension_name contains unsupported characters")
     return value
+
+
+def require_hive_name(value: str) -> str:
+    return require_path_segment(value, "hive_name")
+
+
+def require_hive_partition(value: str | None, oid: str) -> str:
+    if value is None:
+        return oid
+    return require_path_segment(value, "partition_key")
+
+
+def require_hive_record_key(value: str, name: str = "key") -> str:
+    return require_token(value, name)
 
 
 def require_token(value: str, name: str) -> str:
@@ -2935,6 +3168,63 @@ def redacted_response_excerpt(data: Any, raw_text: str) -> str:
         except (TypeError, ValueError):
             pass
     return redact_text(raw_text or str(redacted or ""))[:500]
+
+
+def _preview_key_kind(key: str) -> str:
+    normalized, compact = _sensitive_key_variants(key)
+    if normalized in _BASE64_JSON_PREVIEW_KEYS or compact in _BASE64_JSON_PREVIEW_KEYS:
+        return "base64_json"
+    if normalized in _GZIP_BASE64_JSON_PREVIEW_KEYS or compact in _GZIP_BASE64_JSON_PREVIEW_KEYS:
+        return "gzip_base64_json"
+    if normalized in _JSON_STRING_PREVIEW_KEYS or compact in _JSON_STRING_PREVIEW_KEYS:
+        return "json_string"
+    return ""
+
+
+def _redact_json_string_preview(value: str) -> Any:
+    try:
+        parsed = json.loads(value)
+    except (TypeError, ValueError):
+        return redact_text(str(value))
+    return redact_sensitive(parsed)
+
+
+def _redact_base64_json_preview(value: str) -> Any:
+    try:
+        parsed = json.loads(base64.b64decode(value).decode())
+    except Exception:
+        return REDACTED
+    return {"encoding": "base64-json", "decoded_redacted": redact_sensitive(parsed)}
+
+
+def _redact_gzip_base64_json_preview(value: str) -> Any:
+    try:
+        parsed = json.loads(gzip.decompress(base64.b64decode(value)).decode())
+    except Exception:
+        return REDACTED
+    return {"encoding": "gzip+base64-json", "decoded_redacted": redact_sensitive(parsed)}
+
+
+def redact_preview_data(data: Any) -> Any:
+    if isinstance(data, dict):
+        redacted: dict[str, Any] = {}
+        for key, value in data.items():
+            if is_sensitive_response_key(str(key)) and value is not None:
+                redacted[key] = REDACTED
+                continue
+            kind = _preview_key_kind(str(key))
+            if kind == "json_string" and isinstance(value, str):
+                redacted[key] = _redact_json_string_preview(value)
+            elif kind == "base64_json" and isinstance(value, str):
+                redacted[key] = _redact_base64_json_preview(value)
+            elif kind == "gzip_base64_json" and isinstance(value, str):
+                redacted[key] = _redact_gzip_base64_json_preview(value)
+            else:
+                redacted[key] = redact_preview_data(value)
+        return redacted
+    if isinstance(data, list):
+        return [redact_preview_data(item) for item in data]
+    return data
 
 
 def observed_at() -> str:
@@ -4941,6 +5231,40 @@ class LimaCharlieAPI:
             resource={"type": "payload", "id": safe_name, "parent": {"type": "organization", "id": scoped_oid}},
         ).as_dict()
 
+    def preview_payload_upload_url(self, oid: str, name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_name = require_token(name, "name")
+        return self._preview_mutation(
+            operation="payload.upload_url",
+            oid=scoped_oid,
+            method="POST",
+            path=f"payload/{scoped_oid}/{quote(safe_name, safe='')}",
+            resource_type="payload",
+            resource_id=safe_name,
+            expected_effect=f"Request a signed upload URL for payload {safe_name!r}. Binary bytes are not uploaded by this MCP tool.",
+            reversibility="No payload bytes are uploaded by this operation; discard the signed URL if it was requested unintentionally.",
+            side_effect_type="payload_upload_url_requested",
+            token_ttl_seconds=token_ttl_seconds,
+            parent_oid=scoped_oid,
+        )
+
+    def preview_delete_payload(self, oid: str, name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_name = require_token(name, "name")
+        return self._preview_mutation(
+            operation="payload.delete",
+            oid=scoped_oid,
+            method="DELETE",
+            path=f"payload/{scoped_oid}/{quote(safe_name, safe='')}",
+            resource_type="payload",
+            resource_id=safe_name,
+            expected_effect=f"Delete payload {safe_name!r}.",
+            reversibility="Re-upload the payload from a known-good binary if deletion was unintended.",
+            side_effect_type="payload_deleted",
+            token_ttl_seconds=token_ttl_seconds,
+            parent_oid=scoped_oid,
+        )
+
     def get_arl(self, oid: str, arl_url: str, limit: int = 100) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         bounded_limit = require_limit(limit)
@@ -5690,6 +6014,441 @@ class LimaCharlieAPI:
             data=data,
             resource_id=f"{data['channel']}:question",
             token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def _hive_context(self, oid: str, hive_name: str, partition_key: str | None) -> tuple[str, str, str]:
+        scoped_oid = require_oid(oid)
+        safe_hive = require_hive_name(hive_name)
+        partition = require_hive_partition(partition_key, scoped_oid)
+        return scoped_oid, safe_hive, partition
+
+    def _hive_record_params(
+        self,
+        *,
+        data: Any | None = None,
+        arl_url: str | None = None,
+        enabled: bool | None = None,
+        tags: list[str] | str | None = None,
+        comment: str | None = None,
+        expiry: int | None = None,
+        etag: str | None = None,
+        ui_actions: list[dict[str, Any]] | None = None,
+        data_required: bool = False,
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {}
+        if data is not None:
+            params["data"] = json.dumps(require_json_size(data, "data"))
+        elif data_required:
+            raise ValidationError("data is required")
+        if arl_url is not None:
+            params["arl"] = require_arl(arl_url)
+        usr_mtd: dict[str, Any] = {}
+        if enabled is not None:
+            usr_mtd["enabled"] = require_bool_or_none(enabled, "enabled")
+        checked_tags = require_string_list(tags, "tags")
+        if checked_tags is not None:
+            usr_mtd["tags"] = checked_tags
+        if comment is not None:
+            checked_comment = require_case_text(comment, "comment", maximum=1000, required=False)
+            if checked_comment is not None:
+                usr_mtd["comment"] = checked_comment
+        if expiry is not None:
+            usr_mtd["expiry"] = require_unix_seconds(expiry, "expiry")
+        checked_ui_actions = require_dict_list(ui_actions, "ui_actions", maximum=50)
+        if checked_ui_actions is not None:
+            usr_mtd["ui_actions"] = checked_ui_actions
+        if usr_mtd:
+            params["usr_mtd"] = json.dumps(usr_mtd)
+        if etag is not None:
+            params["etag"] = require_token(etag, "etag")
+        return params
+
+    def _hive_record_resource(self, hive_name: str, partition: str, key: str) -> dict[str, Any]:
+        return {"type": "hive_record", "id": f"{hive_name}:{partition}:{key}"}
+
+    def list_hive_types(self) -> dict[str, Any]:
+        return self._local_response(
+            "hive.type.list",
+            {"hive_types": list(_KNOWN_HIVE_TYPES)},
+            resource={"type": "hive_type_collection", "id": "known"},
+        )
+
+    def list_hive_records(
+        self,
+        oid: str,
+        hive_name: str,
+        partition_key: str | None = None,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        scoped_oid, safe_hive, partition = self._hive_context(oid, hive_name, partition_key)
+        bounded_limit = require_limit(limit)
+        return self._request(
+            "GET",
+            f"hive/{quote(safe_hive, safe='')}/{quote(partition, safe='')}",
+            operation="hive.record.list",
+            oid=scoped_oid,
+            resource={"type": "hive_record_collection", "id": f"{safe_hive}:{partition}"},
+            limit=bounded_limit,
+        ).as_dict()
+
+    def get_hive_record(
+        self,
+        oid: str,
+        hive_name: str,
+        key: str,
+        partition_key: str | None = None,
+    ) -> dict[str, Any]:
+        scoped_oid, safe_hive, partition = self._hive_context(oid, hive_name, partition_key)
+        safe_key = require_hive_record_key(key)
+        return self._request(
+            "GET",
+            f"hive/{quote(safe_hive, safe='')}/{quote(partition, safe='')}/{quote(safe_key, safe='')}/data",
+            operation="hive.record.get",
+            oid=scoped_oid,
+            resource=self._hive_record_resource(safe_hive, partition, safe_key),
+        ).as_dict()
+
+    def get_hive_record_metadata(
+        self,
+        oid: str,
+        hive_name: str,
+        key: str,
+        partition_key: str | None = None,
+    ) -> dict[str, Any]:
+        scoped_oid, safe_hive, partition = self._hive_context(oid, hive_name, partition_key)
+        safe_key = require_hive_record_key(key)
+        return self._request(
+            "GET",
+            f"hive/{quote(safe_hive, safe='')}/{quote(partition, safe='')}/{quote(safe_key, safe='')}/mtd",
+            operation="hive.record.metadata.get",
+            oid=scoped_oid,
+            resource={"type": "hive_record_metadata", "id": f"{safe_hive}:{partition}:{safe_key}"},
+        ).as_dict()
+
+    def get_hive_schema(self, hive_name: str) -> dict[str, Any]:
+        safe_hive = require_hive_name(hive_name)
+        return self._request(
+            "GET",
+            f"hive/{quote(safe_hive, safe='')}/schema",
+            operation="hive.schema.get",
+            oid="-",
+            resource={"type": "hive_schema", "id": safe_hive},
+        ).as_dict()
+
+    def validate_hive_record(
+        self,
+        oid: str,
+        hive_name: str,
+        key: str,
+        data: Any,
+        partition_key: str | None = None,
+        arl_url: str | None = None,
+        enabled: bool | None = None,
+        tags: list[str] | str | None = None,
+        comment: str | None = None,
+        expiry: int | None = None,
+        etag: str | None = None,
+        ui_actions: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        scoped_oid, safe_hive, partition = self._hive_context(oid, hive_name, partition_key)
+        safe_key = require_hive_record_key(key)
+        return self._request(
+            "POST",
+            f"hive/{quote(safe_hive, safe='')}/{quote(partition, safe='')}/{quote(safe_key, safe='')}/validate",
+            operation="hive.record.validate",
+            oid=scoped_oid,
+            resource=self._hive_record_resource(safe_hive, partition, safe_key),
+            params=self._hive_record_params(
+                data=data,
+                arl_url=arl_url,
+                enabled=enabled,
+                tags=tags,
+                comment=comment,
+                expiry=expiry,
+                etag=etag,
+                ui_actions=ui_actions,
+                data_required=True,
+            ),
+        ).as_dict()
+
+    def preview_set_hive_record(
+        self,
+        oid: str,
+        hive_name: str,
+        key: str,
+        data: Any | None = None,
+        partition_key: str | None = None,
+        arl_url: str | None = None,
+        enabled: bool | None = None,
+        tags: list[str] | str | None = None,
+        comment: str | None = None,
+        expiry: int | None = None,
+        etag: str | None = None,
+        ui_actions: list[dict[str, Any]] | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid, safe_hive, partition = self._hive_context(oid, hive_name, partition_key)
+        safe_key = require_hive_record_key(key)
+        params = self._hive_record_params(
+            data=data,
+            arl_url=arl_url,
+            enabled=enabled,
+            tags=tags,
+            comment=comment,
+            expiry=expiry,
+            etag=etag,
+            ui_actions=ui_actions,
+        )
+        if not params:
+            raise ValidationError("at least one of data, arl_url, enabled, tags, comment, expiry, etag, or ui_actions is required")
+        target = "data" if data is not None or arl_url is not None else "mtd"
+        return self._create_mutation_preview(
+            operation="hive.record.set",
+            oid=scoped_oid,
+            method="POST",
+            path=f"hive/{quote(safe_hive, safe='')}/{quote(partition, safe='')}/{quote(safe_key, safe='')}/{target}",
+            resource=self._hive_record_resource(safe_hive, partition, safe_key),
+            params=params,
+            data=None,
+            json_body=None,
+            expected_effect=f"Create or update hive record {safe_hive}/{partition}/{safe_key}.",
+            reversibility="Restore the prior hive record value or delete this record if it was newly created.",
+            side_effects=[{"type": "hive_record_set", "resource": self._hive_record_resource(safe_hive, partition, safe_key)}],
+            token_ttl_seconds=require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900),
+        )
+
+    def preview_delete_hive_record(
+        self,
+        oid: str,
+        hive_name: str,
+        key: str,
+        partition_key: str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid, safe_hive, partition = self._hive_context(oid, hive_name, partition_key)
+        safe_key = require_hive_record_key(key)
+        return self._create_mutation_preview(
+            operation="hive.record.delete",
+            oid=scoped_oid,
+            method="DELETE",
+            path=f"hive/{quote(safe_hive, safe='')}/{quote(partition, safe='')}/{quote(safe_key, safe='')}",
+            resource=self._hive_record_resource(safe_hive, partition, safe_key),
+            params=None,
+            data=None,
+            json_body=None,
+            expected_effect=f"Delete hive record {safe_hive}/{partition}/{safe_key}.",
+            reversibility="Recreate the hive record from a known-good backup if deletion was unintended.",
+            side_effects=[{"type": "hive_record_deleted", "resource": self._hive_record_resource(safe_hive, partition, safe_key)}],
+            token_ttl_seconds=require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900),
+        )
+
+    def preview_rename_hive_record(
+        self,
+        oid: str,
+        hive_name: str,
+        key: str,
+        new_name: str,
+        partition_key: str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid, safe_hive, partition = self._hive_context(oid, hive_name, partition_key)
+        safe_key = require_hive_record_key(key)
+        safe_new_name = require_hive_record_key(new_name, "new_name")
+        return self._create_mutation_preview(
+            operation="hive.record.rename",
+            oid=scoped_oid,
+            method="POST",
+            path=f"hive/{quote(safe_hive, safe='')}/{quote(partition, safe='')}/{quote(safe_key, safe='')}/rename",
+            resource=self._hive_record_resource(safe_hive, partition, safe_key),
+            params={"new_name": safe_new_name},
+            data=None,
+            json_body=None,
+            expected_effect=f"Rename hive record {safe_hive}/{partition}/{safe_key} to {safe_new_name}.",
+            reversibility="Rename the record back to its previous key if no conflicting record exists.",
+            side_effects=[
+                {
+                    "type": "hive_record_renamed",
+                    "resource": self._hive_record_resource(safe_hive, partition, safe_key),
+                    "new_name": safe_new_name,
+                }
+            ],
+            token_ttl_seconds=require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900),
+        )
+
+    def preview_set_hive_record_enabled(
+        self,
+        oid: str,
+        hive_name: str,
+        key: str,
+        enabled: bool,
+        partition_key: str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid, safe_hive, partition = self._hive_context(oid, hive_name, partition_key)
+        safe_key = require_hive_record_key(key)
+        checked_enabled = require_bool_or_none(enabled, "enabled")
+        metadata_result = self.get_hive_record_metadata(scoped_oid, safe_hive, safe_key, partition_key=partition)
+        if not metadata_result.get("ok"):
+            metadata_result["operation"] = "hive.record.enabled.set.preview"
+            return metadata_result
+        metadata = metadata_result.get("data") if isinstance(metadata_result.get("data"), dict) else {}
+        usr_mtd = dict(metadata.get("usr_mtd") or {}) if isinstance(metadata, dict) else {}
+        sys_mtd = metadata.get("sys_mtd") if isinstance(metadata, dict) else {}
+        usr_mtd["enabled"] = checked_enabled
+        params = {"usr_mtd": json.dumps(usr_mtd)}
+        if isinstance(sys_mtd, dict) and sys_mtd.get("etag"):
+            params["etag"] = require_token(str(sys_mtd["etag"]), "etag")
+        return self._create_mutation_preview(
+            operation="hive.record.enabled.set",
+            oid=scoped_oid,
+            method="POST",
+            path=f"hive/{quote(safe_hive, safe='')}/{quote(partition, safe='')}/{quote(safe_key, safe='')}/mtd",
+            resource={"type": "hive_record_metadata", "id": f"{safe_hive}:{partition}:{safe_key}"},
+            params=params,
+            data=None,
+            json_body=None,
+            expected_effect=f"Set enabled={checked_enabled} on hive record {safe_hive}/{partition}/{safe_key}, preserving current metadata.",
+            reversibility="Preview and confirm the opposite enabled value if this change was unintended.",
+            side_effects=[{"type": "hive_record_metadata_set", "resource": self._hive_record_resource(safe_hive, partition, safe_key)}],
+            token_ttl_seconds=require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900),
+        )
+
+    def _extract_ai_memories(self, record: Any) -> dict[str, str]:
+        if not isinstance(record, dict):
+            return {}
+        payload = record.get("data")
+        if isinstance(payload, str):
+            try:
+                payload = json.loads(payload)
+            except ValueError:
+                return {}
+        if not isinstance(payload, dict):
+            return {}
+        memories = payload.get("memories")
+        if not isinstance(memories, dict):
+            return {}
+        return {str(key): value for key, value in memories.items() if isinstance(value, str)}
+
+    def list_ai_memory_records(self, oid: str, partition_key: str | None = None, limit: int = 100) -> dict[str, Any]:
+        result = self.list_hive_records(oid, "ai_memory", partition_key=partition_key, limit=limit)
+        result["operation"] = "ai_memory.record.list"
+        if result.get("resource"):
+            result["resource"]["type"] = "ai_memory_record_collection"
+        return result
+
+    def get_ai_memory_record(self, oid: str, agent: str, partition_key: str | None = None) -> dict[str, Any]:
+        safe_agent = require_hive_record_key(agent, "agent")
+        result = self.get_hive_record(oid, "ai_memory", safe_agent, partition_key=partition_key)
+        result["operation"] = "ai_memory.record.get"
+        if result.get("resource"):
+            result["resource"]["type"] = "ai_memory_record"
+        return result
+
+    def list_ai_memories(self, oid: str, agent: str, partition_key: str | None = None) -> dict[str, Any]:
+        safe_agent = require_hive_record_key(agent, "agent")
+        record = self.get_ai_memory_record(oid, safe_agent, partition_key=partition_key)
+        if not record.get("ok"):
+            record["operation"] = "ai_memory.list"
+            return record
+        memories = self._extract_ai_memories(record.get("data"))
+        return self._local_response(
+            "ai_memory.list",
+            {"agent": safe_agent, "memories": memories},
+            resource={"type": "ai_memory_collection", "id": safe_agent},
+        )
+
+    def get_ai_memory(self, oid: str, agent: str, memory_name: str, partition_key: str | None = None) -> dict[str, Any]:
+        safe_agent = require_hive_record_key(agent, "agent")
+        safe_memory_name = require_hive_record_key(memory_name, "memory_name")
+        memories_result = self.list_ai_memories(oid, safe_agent, partition_key=partition_key)
+        if not memories_result.get("ok"):
+            memories_result["operation"] = "ai_memory.get"
+            return memories_result
+        memories = memories_result.get("data", {}).get("memories", {})
+        return self._local_response(
+            "ai_memory.get",
+            {"agent": safe_agent, "memory_name": safe_memory_name, "content": memories.get(safe_memory_name)},
+            resource={"type": "ai_memory", "id": f"{safe_agent}:{safe_memory_name}"},
+            state={"current": "present" if safe_memory_name in memories else "missing"},
+        )
+
+    def preview_set_ai_memory(
+        self,
+        oid: str,
+        agent: str,
+        memory_name: str,
+        content: str,
+        partition_key: str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        safe_agent = require_hive_record_key(agent, "agent")
+        safe_memory_name = require_hive_record_key(memory_name, "memory_name")
+        checked_content = require_case_text(content, "content", maximum=200_000, required=True)
+        scoped_oid, _, partition = self._hive_context(oid, "ai_memory", partition_key)
+        assert checked_content is not None
+        return self._create_mutation_preview(
+            operation="ai_memory.set",
+            oid=scoped_oid,
+            method="POST",
+            path=f"hive/ai_memory/{quote(partition, safe='')}/{quote(safe_agent, safe='')}/data",
+            resource={"type": "ai_memory", "id": f"{safe_agent}:{safe_memory_name}"},
+            params={"data": json.dumps({"memories": {safe_memory_name: checked_content}})},
+            data=None,
+            json_body=None,
+            expected_effect=f"Set ai_memory entry {safe_agent}/{safe_memory_name} through the hive partial-merge hook.",
+            reversibility="Preview and confirm ai_memory.delete for the same memory entry if this was unintended.",
+            side_effects=[{"type": "ai_memory_set", "resource": {"type": "ai_memory", "id": f"{safe_agent}:{safe_memory_name}"}}],
+            token_ttl_seconds=require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900),
+        )
+
+    def preview_delete_ai_memory(
+        self,
+        oid: str,
+        agent: str,
+        memory_name: str,
+        partition_key: str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        safe_agent = require_hive_record_key(agent, "agent")
+        safe_memory_name = require_hive_record_key(memory_name, "memory_name")
+        scoped_oid, _, partition = self._hive_context(oid, "ai_memory", partition_key)
+        return self._create_mutation_preview(
+            operation="ai_memory.delete",
+            oid=scoped_oid,
+            method="POST",
+            path=f"hive/ai_memory/{quote(partition, safe='')}/{quote(safe_agent, safe='')}/data",
+            resource={"type": "ai_memory", "id": f"{safe_agent}:{safe_memory_name}"},
+            params={"data": json.dumps({"memories": {safe_memory_name: None}})},
+            data=None,
+            json_body=None,
+            expected_effect=f"Delete ai_memory entry {safe_agent}/{safe_memory_name} through the hive partial-merge hook.",
+            reversibility="Set the memory entry again if deletion was unintended.",
+            side_effects=[{"type": "ai_memory_deleted", "resource": {"type": "ai_memory", "id": f"{safe_agent}:{safe_memory_name}"}}],
+            token_ttl_seconds=require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900),
+        )
+
+    def preview_delete_ai_memory_record(
+        self,
+        oid: str,
+        agent: str,
+        partition_key: str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        safe_agent = require_hive_record_key(agent, "agent")
+        scoped_oid, _, partition = self._hive_context(oid, "ai_memory", partition_key)
+        return self._create_mutation_preview(
+            operation="ai_memory.record.delete",
+            oid=scoped_oid,
+            method="DELETE",
+            path=f"hive/ai_memory/{quote(partition, safe='')}/{quote(safe_agent, safe='')}",
+            resource={"type": "ai_memory_record", "id": safe_agent},
+            params=None,
+            data=None,
+            json_body=None,
+            expected_effect=f"Delete entire ai_memory record {safe_agent}.",
+            reversibility="Recreate the ai_memory record from a known-good backup if deletion was unintended.",
+            side_effects=[{"type": "ai_memory_record_deleted", "resource": {"type": "ai_memory_record", "id": safe_agent}}],
+            token_ttl_seconds=require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900),
         )
 
     def list_schemas(self, oid: str, platform: str | None = None, limit: int = 100) -> dict[str, Any]:
@@ -8150,9 +8909,9 @@ class LimaCharlieAPI:
             "endpoint": f"{root.rstrip('/')}/{mutation.path.lstrip('/')}",
             "oid": mutation.oid,
             "resource": mutation.resource,
-            "params": mutation.params,
-            "data": mutation.data,
-            "json_body": mutation.json_body,
+            "params": redact_preview_data(mutation.params),
+            "data": redact_preview_data(mutation.data),
+            "json_body": redact_preview_data(mutation.json_body),
             "expected_effect": mutation.expected_effect,
             "reversibility": mutation.reversibility,
             "expected_side_effects": mutation.side_effects,
@@ -8383,7 +9142,7 @@ class LimaCharlieAPI:
             "oid": oid,
             "method": method,
             "url": url,
-            "params": params or {},
+            "params": redact_preview_data(params or {}),
             "status_code": status_code,
             "duration_ms": duration_ms,
             "response_bytes": response_bytes,

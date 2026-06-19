@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import gzip
 import json
 import os
 import re
@@ -643,6 +644,114 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "side_effects": "none",
         "notes": "Fetches extension schema for an org context.",
     },
+    "vulnerability.cve.list": {
+        "suite": "investigation",
+        "tool": "lc_list_vulnerability_cves",
+        "action": "read",
+        "resource_type": "vulnerability_cve_collection",
+        "required_inputs": ["oid"],
+        "optional_inputs": ["cursor", "limit", "sort_by", "sort_asc", "filters", "search", "include_tags", "include_enrichment", "filter_via_state"],
+        "bounds": {"limit_min": 1, "limit_max": 500},
+        "side_effects": "none",
+        "notes": "Paginated CVE rollup from ext-vulnerability-reporting.",
+    },
+    "vulnerability.cve.get": {
+        "suite": "investigation",
+        "tool": "lc_get_vulnerability_cve",
+        "action": "read",
+        "resource_type": "vulnerability_cve",
+        "required_inputs": ["oid", "cve"],
+        "optional_inputs": ["include_enrichment"],
+        "side_effects": "none",
+        "notes": "Single-CVE details, optionally including KEV, EPSS, and exploit refs.",
+    },
+    "vulnerability.cve.hosts": {
+        "suite": "investigation",
+        "tool": "lc_list_vulnerability_cve_hosts",
+        "action": "read",
+        "resource_type": "vulnerability_host_collection",
+        "required_inputs": ["oid", "cve"],
+        "optional_inputs": ["cursor", "limit", "sort_by", "sort_asc", "filters", "search", "include_tags", "filter_via_state", "normalized_package_name"],
+        "bounds": {"limit_min": 1, "limit_max": 500},
+        "side_effects": "none",
+        "notes": "Lists endpoints affected by one CVE.",
+    },
+    "vulnerability.cve.packages": {
+        "suite": "investigation",
+        "tool": "lc_list_vulnerability_cve_packages",
+        "action": "read",
+        "resource_type": "vulnerability_package_collection",
+        "required_inputs": ["oid", "cve"],
+        "optional_inputs": ["cursor", "limit", "sort_by", "sort_asc", "include_enrichment"],
+        "bounds": {"limit_min": 1, "limit_max": 500},
+        "side_effects": "none",
+        "notes": "Lists package/version pairs affected by one CVE.",
+    },
+    "vulnerability.endpoint.list": {
+        "suite": "investigation",
+        "tool": "lc_list_vulnerability_endpoints",
+        "action": "read",
+        "resource_type": "vulnerability_endpoint_collection",
+        "required_inputs": ["oid"],
+        "optional_inputs": ["cursor", "limit", "sort_by", "sort_asc", "filters", "search", "include_tags", "filter_via_state"],
+        "bounds": {"limit_min": 1, "limit_max": 500},
+        "side_effects": "none",
+        "notes": "Lists endpoints with vulnerability counts.",
+    },
+    "vulnerability.host.packages": {
+        "suite": "investigation",
+        "tool": "lc_list_vulnerability_host_packages",
+        "action": "read",
+        "resource_type": "vulnerability_package_collection",
+        "required_inputs": ["oid", "sensor_id"],
+        "optional_inputs": ["cursor", "limit", "sort_by", "sort_asc", "filters", "search", "include_tags", "include_enrichment", "filter_via_state", "rollup_subpackages"],
+        "bounds": {"limit_min": 1, "limit_max": 500},
+        "side_effects": "none",
+        "notes": "Lists vulnerable packages and CVEs on one sensor.",
+    },
+    "vulnerability.dashboard": {
+        "suite": "investigation",
+        "tool": "lc_get_vulnerability_dashboard",
+        "action": "read",
+        "resource_type": "vulnerability_dashboard",
+        "required_inputs": ["oid"],
+        "optional_inputs": ["sort_asc"],
+        "side_effects": "none",
+        "notes": "Dashboard graph data from ext-vulnerability-reporting.",
+    },
+    "vulnerability.resolution.list": {
+        "suite": "investigation",
+        "tool": "lc_list_vulnerability_resolutions",
+        "action": "read",
+        "resource_type": "vulnerability_resolution_collection",
+        "required_inputs": ["oid"],
+        "optional_inputs": ["scope", "resolutions", "cursor", "limit"],
+        "bounds": {"limit_min": 1, "limit_max": 500, "scope": ["org", "host"]},
+        "side_effects": "none",
+        "notes": "Lists stored finding resolution overlays. Missing rows imply open findings.",
+    },
+    "vulnerability.snapshot.list": {
+        "suite": "investigation",
+        "tool": "lc_list_vulnerability_snapshots",
+        "action": "read",
+        "resource_type": "vulnerability_snapshot_collection",
+        "required_inputs": ["oid"],
+        "optional_inputs": ["days", "severities"],
+        "bounds": {"days_min": 1, "days_max": 365},
+        "side_effects": "none",
+        "notes": "Daily open-finding counts for burndown views.",
+    },
+    "vulnerability.epss_history": {
+        "suite": "investigation",
+        "tool": "lc_get_vulnerability_epss_history",
+        "action": "read",
+        "resource_type": "vulnerability_epss_history",
+        "required_inputs": ["oid", "cve"],
+        "optional_inputs": ["days"],
+        "bounds": {"days_min": 1, "days_max": 365},
+        "side_effects": "none",
+        "notes": "Per-day EPSS score and percentile history for one CVE.",
+    },
     "artifact_rule.list": {
         "suite": "content",
         "tool": "lc_list_artifact_rules",
@@ -816,6 +925,11 @@ _UNSAFE_SELECTOR = re.compile(r"[\x00-\x1f;&|`$]")
 _IOC_TYPES = {"domain", "ip", "file_hash", "file_path", "file_name", "user", "service_name", "package_name"}
 _INFO_TYPES = {"summary", "locations"}
 _DR_NAMESPACES = {"general", "managed", "service"}
+_SAFE_CVE = re.compile(r"^CVE-[0-9]{4}-[0-9]{4,}$", re.IGNORECASE)
+_VULN_SEARCH_OPS = {"is", "contains"}
+_VULN_RESOLUTIONS = {"mitigated", "accepted", "false_positive"}
+_VULN_SCOPES = {"org", "host"}
+_VULN_SEVERITIES = {"critical", "high", "medium", "low"}
 _SUMMARY_LIST_KEYS = (
     "data",
     "items",
@@ -825,8 +939,11 @@ _SUMMARY_LIST_KEYS = (
     "cases",
     "orgs",
     "events",
+    "endpoints",
     "artifacts",
+    "history",
     "jobs",
+    "packages",
     "users",
     "api_keys",
     "keys",
@@ -837,6 +954,9 @@ _SUMMARY_LIST_KEYS = (
     "logs",
     "rules",
     "records",
+    "resolutions",
+    "results",
+    "snapshots",
     "urls",
 )
 
@@ -941,6 +1061,77 @@ def require_info_type(info: str) -> str:
     return info
 
 
+def require_cve(value: str) -> str:
+    if not isinstance(value, str) or not _SAFE_CVE.match(value):
+        raise ValidationError("cve must look like CVE-YYYY-NNNN")
+    return value.upper()
+
+
+def require_days(value: int, *, maximum: int = 365) -> int:
+    if not isinstance(value, int):
+        raise ValidationError("days must be an integer")
+    if value < 1 or value > maximum:
+        raise ValidationError(f"days must be between 1 and {maximum}")
+    return value
+
+
+def require_bool_or_none(value: bool | None, name: str) -> bool | None:
+    if value is None or isinstance(value, bool):
+        return value
+    raise ValidationError(f"{name} must be a boolean")
+
+
+def require_vuln_search(search: dict[str, Any] | None) -> dict[str, Any] | None:
+    if search is None:
+        return None
+    if not isinstance(search, dict):
+        raise ValidationError("search must be an object")
+    field = require_token(str(search.get("field", "")), "search.field")
+    op = str(search.get("op", "")).lower()
+    if op not in _VULN_SEARCH_OPS:
+        raise ValidationError("search.op must be is or contains")
+    value = search.get("value")
+    if not isinstance(value, str) or not value or len(value) > 300 or "\x00" in value:
+        raise ValidationError("search.value must be a non-empty string under 300 characters")
+    return {"field": field, "op": op, "value": value}
+
+
+def require_vuln_filters(filters: dict[str, list[str]] | None) -> dict[str, list[str]] | None:
+    if filters is None:
+        return None
+    if not isinstance(filters, dict):
+        raise ValidationError("filters must be an object of field names to string arrays")
+    checked: dict[str, list[str]] = {}
+    for key, values in filters.items():
+        safe_key = require_token(str(key), "filter key")
+        if not isinstance(values, list) or not values:
+            raise ValidationError("each filter value must be a non-empty list")
+        checked[safe_key] = [require_token(str(value), f"filter {safe_key}") for value in values]
+    return checked
+
+
+def require_vuln_resolutions(resolutions: list[str] | None) -> list[str] | None:
+    if resolutions is None:
+        return None
+    if not isinstance(resolutions, list) or not resolutions:
+        raise ValidationError("resolutions must be a non-empty list")
+    checked = [str(value).lower() for value in resolutions]
+    if any(value not in _VULN_RESOLUTIONS for value in checked):
+        raise ValidationError("resolutions must contain only mitigated, accepted, or false_positive")
+    return checked
+
+
+def require_vuln_severities(severities: list[str] | None) -> list[str] | None:
+    if severities is None:
+        return None
+    if not isinstance(severities, list) or not severities:
+        raise ValidationError("severities must be a non-empty list")
+    checked = [str(value).lower() for value in severities]
+    if any(value not in _VULN_SEVERITIES for value in checked):
+        raise ValidationError("severities must contain only critical, high, medium, or low")
+    return checked
+
+
 def require_dr_namespace(namespace: str | None) -> str:
     value = namespace or "general"
     if value not in _DR_NAMESPACES:
@@ -972,6 +1163,14 @@ def service_request_params(data: dict[str, Any], *, is_async: bool = False) -> d
     return {
         "request_data": base64.b64encode(json.dumps(data).encode()).decode(),
         "is_async": is_async,
+    }
+
+
+def extension_request_params(oid: str, action: str, data: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "oid": oid,
+        "action": action,
+        "gzdata": base64.b64encode(gzip.compress(json.dumps(data).encode())).decode(),
     }
 
 
@@ -2075,6 +2274,277 @@ class LimaCharlieAPI:
             params={"oid": scoped_oid},
         ).as_dict()
 
+    def list_vulnerability_cves(
+        self,
+        oid: str,
+        cursor: str | None = None,
+        limit: int = 100,
+        sort_by: str | None = None,
+        sort_asc: bool | None = None,
+        filters: dict[str, list[str]] | None = None,
+        search: dict[str, Any] | None = None,
+        include_tags: bool | None = None,
+        include_enrichment: bool | None = None,
+        filter_via_state: bool | None = None,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        bounded_limit = require_limit(limit)
+        data = self._vulnerability_query(
+            cursor=cursor,
+            limit=bounded_limit,
+            sort_by=sort_by,
+            sort_asc=sort_asc,
+            filters=filters,
+            search=search,
+            include_tags=include_tags,
+            include_enrichment=include_enrichment,
+            filter_via_state=filter_via_state,
+        )
+        return self._extension_request(
+            scoped_oid,
+            "query_cves",
+            data,
+            operation="vulnerability.cve.list",
+            resource={"type": "vulnerability_cve_collection", "id": scoped_oid},
+            limit=bounded_limit,
+        )
+
+    def get_vulnerability_cve(
+        self,
+        oid: str,
+        cve: str,
+        include_enrichment: bool | None = None,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        data: dict[str, Any] = {"cve_id": require_cve(cve)}
+        if include_enrichment is not None:
+            data["include_enrichment"] = require_bool_or_none(include_enrichment, "include_enrichment")
+        return self._extension_request(
+            scoped_oid,
+            "query_cve",
+            data,
+            operation="vulnerability.cve.get",
+            resource={"type": "vulnerability_cve", "id": data["cve_id"], "parent": {"type": "organization", "id": scoped_oid}},
+        )
+
+    def list_vulnerability_cve_hosts(
+        self,
+        oid: str,
+        cve: str,
+        cursor: str | None = None,
+        limit: int = 100,
+        sort_by: str | None = None,
+        sort_asc: bool | None = None,
+        filters: dict[str, list[str]] | None = None,
+        search: dict[str, Any] | None = None,
+        include_tags: bool | None = None,
+        filter_via_state: bool | None = None,
+        normalized_package_name: str | None = None,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        bounded_limit = require_limit(limit)
+        safe_cve = require_cve(cve)
+        data = self._vulnerability_query(
+            cursor=cursor,
+            limit=bounded_limit,
+            sort_by=sort_by,
+            sort_asc=sort_asc,
+            filters=filters,
+            search=search,
+            include_tags=include_tags,
+            filter_via_state=filter_via_state,
+        )
+        data["cve"] = safe_cve
+        if normalized_package_name:
+            data["normalized_package_name"] = require_token(normalized_package_name, "normalized_package_name")
+        return self._extension_request(
+            scoped_oid,
+            "query_cve_vuln_hosts",
+            data,
+            operation="vulnerability.cve.hosts",
+            resource={"type": "vulnerability_host_collection", "id": safe_cve, "parent": {"type": "organization", "id": scoped_oid}},
+            limit=bounded_limit,
+        )
+
+    def list_vulnerability_cve_packages(
+        self,
+        oid: str,
+        cve: str,
+        cursor: str | None = None,
+        limit: int = 100,
+        sort_by: str | None = None,
+        sort_asc: bool | None = None,
+        include_enrichment: bool | None = None,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        bounded_limit = require_limit(limit)
+        safe_cve = require_cve(cve)
+        data: dict[str, Any] = {"cve": safe_cve, "limit": bounded_limit}
+        if cursor is not None:
+            data["cursor"] = require_token(cursor, "cursor")
+        if sort_by is not None:
+            data["sort_by"] = require_token(sort_by, "sort_by")
+        if sort_asc is not None:
+            data["sort_asc"] = require_bool_or_none(sort_asc, "sort_asc")
+        if include_enrichment is not None:
+            data["include_enrichment"] = require_bool_or_none(include_enrichment, "include_enrichment")
+        return self._extension_request(
+            scoped_oid,
+            "query_cve_vuln_packages",
+            data,
+            operation="vulnerability.cve.packages",
+            resource={"type": "vulnerability_package_collection", "id": safe_cve, "parent": {"type": "organization", "id": scoped_oid}},
+            limit=bounded_limit,
+        )
+
+    def list_vulnerability_endpoints(
+        self,
+        oid: str,
+        cursor: str | None = None,
+        limit: int = 100,
+        sort_by: str | None = None,
+        sort_asc: bool | None = None,
+        filters: dict[str, list[str]] | None = None,
+        search: dict[str, Any] | None = None,
+        include_tags: bool | None = None,
+        filter_via_state: bool | None = None,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        bounded_limit = require_limit(limit)
+        data = self._vulnerability_query(
+            cursor=cursor,
+            limit=bounded_limit,
+            sort_by=sort_by,
+            sort_asc=sort_asc,
+            filters=filters,
+            search=search,
+            include_tags=include_tags,
+            filter_via_state=filter_via_state,
+        )
+        return self._extension_request(
+            scoped_oid,
+            "query_endpoints",
+            data,
+            operation="vulnerability.endpoint.list",
+            resource={"type": "vulnerability_endpoint_collection", "id": scoped_oid},
+            limit=bounded_limit,
+        )
+
+    def list_vulnerability_host_packages(
+        self,
+        oid: str,
+        sensor_id: str,
+        cursor: str | None = None,
+        limit: int = 100,
+        sort_by: str | None = None,
+        sort_asc: bool | None = None,
+        filters: dict[str, list[str]] | None = None,
+        search: dict[str, Any] | None = None,
+        include_tags: bool | None = None,
+        include_enrichment: bool | None = None,
+        filter_via_state: bool | None = None,
+        rollup_subpackages: bool | None = None,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_sensor_id = require_oid(sensor_id)
+        bounded_limit = require_limit(limit)
+        data = self._vulnerability_query(
+            cursor=cursor,
+            limit=bounded_limit,
+            sort_by=sort_by,
+            sort_asc=sort_asc,
+            filters=filters,
+            search=search,
+            include_tags=include_tags,
+            include_enrichment=include_enrichment,
+            filter_via_state=filter_via_state,
+        )
+        data["sid"] = safe_sensor_id
+        if rollup_subpackages is not None:
+            data["rollup_subpackages"] = require_bool_or_none(rollup_subpackages, "rollup_subpackages")
+        return self._extension_request(
+            scoped_oid,
+            "query_host_vuln_packages",
+            data,
+            operation="vulnerability.host.packages",
+            resource={"type": "vulnerability_package_collection", "id": safe_sensor_id, "parent": {"type": "organization", "id": scoped_oid}},
+            limit=bounded_limit,
+        )
+
+    def get_vulnerability_dashboard(self, oid: str, sort_asc: bool | None = None) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        data: dict[str, Any] = {}
+        if sort_asc is not None:
+            data["sort_asc"] = require_bool_or_none(sort_asc, "sort_asc")
+        return self._extension_request(
+            scoped_oid,
+            "query_dashboard",
+            data,
+            operation="vulnerability.dashboard",
+            resource={"type": "vulnerability_dashboard", "id": scoped_oid},
+        )
+
+    def list_vulnerability_resolutions(
+        self,
+        oid: str,
+        scope: str | None = None,
+        resolutions: list[str] | None = None,
+        cursor: str | None = None,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        bounded_limit = require_limit(limit)
+        data: dict[str, Any] = {"limit": bounded_limit}
+        if scope is not None:
+            checked_scope = str(scope).lower()
+            if checked_scope not in _VULN_SCOPES:
+                raise ValidationError("scope must be org or host")
+            data["scope"] = checked_scope
+        checked_resolutions = require_vuln_resolutions(resolutions)
+        if checked_resolutions is not None:
+            data["resolutions"] = checked_resolutions
+        if cursor is not None:
+            data["cursor"] = require_token(cursor, "cursor")
+        return self._extension_request(
+            scoped_oid,
+            "list_finding_resolutions",
+            data,
+            operation="vulnerability.resolution.list",
+            resource={"type": "vulnerability_resolution_collection", "id": scoped_oid},
+            limit=bounded_limit,
+        )
+
+    def list_vulnerability_snapshots(
+        self,
+        oid: str,
+        days: int = 30,
+        severities: list[str] | None = None,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        data: dict[str, Any] = {"days": require_days(days)}
+        checked_severities = require_vuln_severities(severities)
+        if checked_severities is not None:
+            data["severities"] = checked_severities
+        return self._extension_request(
+            scoped_oid,
+            "query_daily_snapshots",
+            data,
+            operation="vulnerability.snapshot.list",
+            resource={"type": "vulnerability_snapshot_collection", "id": scoped_oid},
+        )
+
+    def get_vulnerability_epss_history(self, oid: str, cve: str, days: int = 90) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_cve = require_cve(cve)
+        data = {"cve": safe_cve, "days": require_days(days)}
+        return self._extension_request(
+            scoped_oid,
+            "query_epss_history",
+            data,
+            operation="vulnerability.epss_history",
+            resource={"type": "vulnerability_epss_history", "id": safe_cve, "parent": {"type": "organization", "id": scoped_oid}},
+        )
+
     def list_artifact_rules(self, oid: str, limit: int = 100) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         bounded_limit = require_limit(limit)
@@ -2341,6 +2811,73 @@ class LimaCharlieAPI:
         }
         response["meta"]["summary"]["confirmed_operation"] = mutation.operation
         return response
+
+    def _vulnerability_query(
+        self,
+        *,
+        cursor: str | None = None,
+        limit: int | None = None,
+        sort_by: str | None = None,
+        sort_asc: bool | None = None,
+        filters: dict[str, list[str]] | None = None,
+        search: dict[str, Any] | None = None,
+        include_tags: bool | None = None,
+        include_enrichment: bool | None = None,
+        filter_via_state: bool | None = None,
+    ) -> dict[str, Any]:
+        data: dict[str, Any] = {}
+        if cursor is not None:
+            data["cursor"] = require_token(cursor, "cursor")
+        if limit is not None:
+            data["limit"] = limit
+        if sort_by is not None:
+            data["sort_by"] = require_token(sort_by, "sort_by")
+        if sort_asc is not None:
+            data["sort_asc"] = require_bool_or_none(sort_asc, "sort_asc")
+        checked_filters = require_vuln_filters(filters)
+        if checked_filters is not None:
+            data["filters"] = checked_filters
+        checked_search = require_vuln_search(search)
+        if checked_search is not None:
+            data["search"] = checked_search
+        if include_tags is not None:
+            data["include_tags"] = require_bool_or_none(include_tags, "include_tags")
+        if include_enrichment is not None:
+            data["include_enrichment"] = require_bool_or_none(include_enrichment, "include_enrichment")
+        if filter_via_state is not None:
+            data["filter_via_state"] = require_bool_or_none(filter_via_state, "filter_via_state")
+        return data
+
+    def _extension_request(
+        self,
+        oid: str,
+        action: str,
+        data: dict[str, Any],
+        *,
+        operation: str,
+        resource: dict[str, Any],
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        result = self._request(
+            "POST",
+            "extension/request/ext-vulnerability-reporting",
+            operation=operation,
+            oid=oid,
+            resource=resource,
+            params=extension_request_params(oid, action, data),
+            limit=limit,
+        ).as_dict()
+        payload = result.get("data")
+        if result.get("ok") and isinstance(payload, dict) and "data" in payload:
+            unwrapped, truncated = bound_output(payload["data"], limit)
+            result["data"] = unwrapped
+            result["meta"]["truncated"] = bool(result["meta"].get("truncated") or truncated)
+            result["meta"]["summary"] = summarize_data(unwrapped)
+            if truncated:
+                result["meta"]["suggested_next_actions"] = [
+                    "Repeat with a lower limit, narrower filters, or a pagination cursor."
+                ]
+        return result
 
     def _request(
         self,

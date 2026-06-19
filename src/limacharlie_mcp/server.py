@@ -521,6 +521,214 @@ def lc_get_extension_schema(oid: str, extension_name: str) -> dict:
 
 
 @mcp.tool()
+def lc_list_vulnerability_cves(
+    oid: str,
+    cursor: str | None = None,
+    limit: int = 100,
+    sort_by: str | None = None,
+    sort_asc: bool | None = None,
+    filters: dict[str, list[str]] | None = None,
+    search: dict[str, Any] | None = None,
+    include_tags: bool | None = None,
+    include_enrichment: bool | None = None,
+    filter_via_state: bool | None = None,
+) -> dict:
+    """List CVEs observed across the org's sensors through ext-vulnerability-reporting."""
+
+    return _call(
+        "vulnerability.cve.list",
+        lc.list_vulnerability_cves,
+        oid=oid,
+        cursor=cursor,
+        limit=limit,
+        sort_by=sort_by,
+        sort_asc=sort_asc,
+        filters=filters,
+        search=search,
+        include_tags=include_tags,
+        include_enrichment=include_enrichment,
+        filter_via_state=filter_via_state,
+    )
+
+
+@mcp.tool()
+def lc_get_vulnerability_cve(oid: str, cve: str, include_enrichment: bool | None = None) -> dict:
+    """Fetch details for one CVE through ext-vulnerability-reporting."""
+
+    return _call(
+        "vulnerability.cve.get",
+        lc.get_vulnerability_cve,
+        oid=oid,
+        cve=cve,
+        include_enrichment=include_enrichment,
+    )
+
+
+@mcp.tool()
+def lc_list_vulnerability_cve_hosts(
+    oid: str,
+    cve: str,
+    cursor: str | None = None,
+    limit: int = 100,
+    sort_by: str | None = None,
+    sort_asc: bool | None = None,
+    filters: dict[str, list[str]] | None = None,
+    search: dict[str, Any] | None = None,
+    include_tags: bool | None = None,
+    filter_via_state: bool | None = None,
+    normalized_package_name: str | None = None,
+) -> dict:
+    """List endpoints affected by one CVE."""
+
+    return _call(
+        "vulnerability.cve.hosts",
+        lc.list_vulnerability_cve_hosts,
+        oid=oid,
+        cve=cve,
+        cursor=cursor,
+        limit=limit,
+        sort_by=sort_by,
+        sort_asc=sort_asc,
+        filters=filters,
+        search=search,
+        include_tags=include_tags,
+        filter_via_state=filter_via_state,
+        normalized_package_name=normalized_package_name,
+    )
+
+
+@mcp.tool()
+def lc_list_vulnerability_cve_packages(
+    oid: str,
+    cve: str,
+    cursor: str | None = None,
+    limit: int = 100,
+    sort_by: str | None = None,
+    sort_asc: bool | None = None,
+    include_enrichment: bool | None = None,
+) -> dict:
+    """List package/version pairs affected by one CVE."""
+
+    return _call(
+        "vulnerability.cve.packages",
+        lc.list_vulnerability_cve_packages,
+        oid=oid,
+        cve=cve,
+        cursor=cursor,
+        limit=limit,
+        sort_by=sort_by,
+        sort_asc=sort_asc,
+        include_enrichment=include_enrichment,
+    )
+
+
+@mcp.tool()
+def lc_list_vulnerability_endpoints(
+    oid: str,
+    cursor: str | None = None,
+    limit: int = 100,
+    sort_by: str | None = None,
+    sort_asc: bool | None = None,
+    filters: dict[str, list[str]] | None = None,
+    search: dict[str, Any] | None = None,
+    include_tags: bool | None = None,
+    filter_via_state: bool | None = None,
+) -> dict:
+    """List endpoints with vulnerability counts."""
+
+    return _call(
+        "vulnerability.endpoint.list",
+        lc.list_vulnerability_endpoints,
+        oid=oid,
+        cursor=cursor,
+        limit=limit,
+        sort_by=sort_by,
+        sort_asc=sort_asc,
+        filters=filters,
+        search=search,
+        include_tags=include_tags,
+        filter_via_state=filter_via_state,
+    )
+
+
+@mcp.tool()
+def lc_list_vulnerability_host_packages(
+    oid: str,
+    sensor_id: str,
+    cursor: str | None = None,
+    limit: int = 100,
+    sort_by: str | None = None,
+    sort_asc: bool | None = None,
+    filters: dict[str, list[str]] | None = None,
+    search: dict[str, Any] | None = None,
+    include_tags: bool | None = None,
+    include_enrichment: bool | None = None,
+    filter_via_state: bool | None = None,
+    rollup_subpackages: bool | None = None,
+) -> dict:
+    """List vulnerable packages and CVEs on one sensor."""
+
+    return _call(
+        "vulnerability.host.packages",
+        lc.list_vulnerability_host_packages,
+        oid=oid,
+        sensor_id=sensor_id,
+        cursor=cursor,
+        limit=limit,
+        sort_by=sort_by,
+        sort_asc=sort_asc,
+        filters=filters,
+        search=search,
+        include_tags=include_tags,
+        include_enrichment=include_enrichment,
+        filter_via_state=filter_via_state,
+        rollup_subpackages=rollup_subpackages,
+    )
+
+
+@mcp.tool()
+def lc_get_vulnerability_dashboard(oid: str, sort_asc: bool | None = None) -> dict:
+    """Fetch vulnerability dashboard graph data."""
+
+    return _call("vulnerability.dashboard", lc.get_vulnerability_dashboard, oid=oid, sort_asc=sort_asc)
+
+
+@mcp.tool()
+def lc_list_vulnerability_resolutions(
+    oid: str,
+    scope: str | None = None,
+    resolutions: list[str] | None = None,
+    cursor: str | None = None,
+    limit: int = 100,
+) -> dict:
+    """List stored vulnerability finding resolution overlays."""
+
+    return _call(
+        "vulnerability.resolution.list",
+        lc.list_vulnerability_resolutions,
+        oid=oid,
+        scope=scope,
+        resolutions=resolutions,
+        cursor=cursor,
+        limit=limit,
+    )
+
+
+@mcp.tool()
+def lc_list_vulnerability_snapshots(oid: str, days: int = 30, severities: list[str] | None = None) -> dict:
+    """List daily open-finding counts for vulnerability burndown views."""
+
+    return _call("vulnerability.snapshot.list", lc.list_vulnerability_snapshots, oid=oid, days=days, severities=severities)
+
+
+@mcp.tool()
+def lc_get_vulnerability_epss_history(oid: str, cve: str, days: int = 90) -> dict:
+    """Fetch EPSS score and percentile history for one CVE."""
+
+    return _call("vulnerability.epss_history", lc.get_vulnerability_epss_history, oid=oid, cve=cve, days=days)
+
+
+@mcp.tool()
 def lc_list_artifact_rules(oid: str, limit: int = 100) -> dict:
     """List artifact collection rules for an org."""
 

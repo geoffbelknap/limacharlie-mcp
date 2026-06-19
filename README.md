@@ -57,6 +57,16 @@ renaming tools.
 | `lc_list_jobs` | List service jobs for an explicit org and time window. |
 | `lc_get_job` | Fetch one service job. |
 | `lc_wait_job` | Poll one service job until terminal state or bounded timeout. |
+| `lc_list_vulnerability_cves` | List CVE rollups from the Vulnerability Reporting extension. |
+| `lc_get_vulnerability_cve` | Fetch one CVE detail record, optionally with enrichment. |
+| `lc_list_vulnerability_cve_hosts` | List endpoints affected by one CVE. |
+| `lc_list_vulnerability_cve_packages` | List package/version pairs affected by one CVE. |
+| `lc_list_vulnerability_endpoints` | List endpoints with vulnerability counts. |
+| `lc_list_vulnerability_host_packages` | List vulnerable packages and CVEs on one sensor. |
+| `lc_get_vulnerability_dashboard` | Fetch vulnerability dashboard graph data. |
+| `lc_list_vulnerability_resolutions` | List stored finding resolution overlays. |
+| `lc_list_vulnerability_snapshots` | List daily open-finding counts. |
+| `lc_get_vulnerability_epss_history` | Fetch EPSS score history for one CVE. |
 | `lc_list_audit_logs` | List one bounded page of audit logs for a time window. |
 | `lc_list_tags` | List tags observed across sensors in an org. |
 | `lc_find_sensors_by_tag` | Find sensors with a specific tag. |

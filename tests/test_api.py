@@ -20,6 +20,10 @@ def compressed_json(payload: Any) -> str:
     return base64.b64encode(gzip.compress(json.dumps(payload).encode())).decode()
 
 
+def decode_gzdata(value: str) -> Any:
+    return json.loads(gzip.decompress(base64.b64decode(value)).decode())
+
+
 class FakeHTTP:
     def __init__(self) -> None:
         self.calls: list[dict[str, Any]] = []
@@ -528,6 +532,102 @@ def test_extension_artifact_and_ingestion_read_tools_use_expected_paths(tmp_path
     assert fake.calls[3]["params"] == {"oid": OID}
     assert client.list_artifact_rules(OID)["data"]["rules"][0]["name"] == "collect"
     assert client.list_ingestion_keys(OID)["data"]["keys"][0]["name"] == "log"
+
+
+def test_vulnerability_cve_list_uses_extension_request_and_unwraps_data(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add(
+        "POST",
+        "https://api.limacharlie.io/v1/extension/request/ext-vulnerability-reporting",
+        {"data": {"results": [{"cve": "CVE-2024-12345"}], "next_cursor": "c2"}},
+    )
+    client = make_client(tmp_path, fake)
+
+    result = client.list_vulnerability_cves(
+        OID,
+        limit=1,
+        sort_by="lc_risk",
+        sort_asc=False,
+        filters={"severity": ["critical"]},
+        search={"field": "cve", "op": "contains", "value": "2024"},
+        include_enrichment=True,
+    )
+
+    assert result["ok"] is True
+    assert_ax_envelope(result, "vulnerability.cve.list")
+    assert result["data"]["results"] == [{"cve": "CVE-2024-12345"}]
+    assert result["meta"]["summary"]["results_count"] == 1
+    params = fake.calls[1]["params"]
+    assert params["oid"] == OID
+    assert params["action"] == "query_cves"
+    assert decode_gzdata(params["gzdata"]) == {
+        "limit": 1,
+        "sort_by": "lc_risk",
+        "sort_asc": False,
+        "filters": {"severity": ["critical"]},
+        "search": {"field": "cve", "op": "contains", "value": "2024"},
+        "include_enrichment": True,
+    }
+
+
+def test_vulnerability_drilldown_tools_use_expected_actions(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("POST", "https://api.limacharlie.io/v1/extension/request/ext-vulnerability-reporting", {"data": {"ok": True}})
+    client = make_client(tmp_path, fake)
+
+    assert client.get_vulnerability_cve(OID, "cve-2024-12345")["operation"] == "vulnerability.cve.get"
+    assert client.list_vulnerability_cve_hosts(OID, "CVE-2024-12345", normalized_package_name="openssl")["operation"] == "vulnerability.cve.hosts"
+    assert client.list_vulnerability_cve_packages(OID, "CVE-2024-12345")["operation"] == "vulnerability.cve.packages"
+    assert client.list_vulnerability_endpoints(OID, include_tags=True)["operation"] == "vulnerability.endpoint.list"
+    assert client.list_vulnerability_host_packages(OID, SID, rollup_subpackages=True)["operation"] == "vulnerability.host.packages"
+    assert client.get_vulnerability_dashboard(OID)["operation"] == "vulnerability.dashboard"
+
+    actions = [call["params"].get("action") for call in fake.calls if call["url"].endswith("/extension/request/ext-vulnerability-reporting")]
+    assert actions == [
+        "query_cve",
+        "query_cve_vuln_hosts",
+        "query_cve_vuln_packages",
+        "query_endpoints",
+        "query_host_vuln_packages",
+        "query_dashboard",
+    ]
+    cve_detail = decode_gzdata(fake.calls[1]["params"]["gzdata"])
+    assert cve_detail == {"cve_id": "CVE-2024-12345"}
+    cve_hosts = decode_gzdata(fake.calls[2]["params"]["gzdata"])
+    assert cve_hosts["normalized_package_name"] == "openssl"
+    host_packages = decode_gzdata(fake.calls[5]["params"]["gzdata"])
+    assert host_packages["sid"] == SID
+    assert host_packages["rollup_subpackages"] is True
+
+
+def test_vulnerability_history_and_resolution_read_tools_use_expected_actions(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("POST", "https://api.limacharlie.io/v1/extension/request/ext-vulnerability-reporting", {"data": {"snapshots": []}})
+    client = make_client(tmp_path, fake)
+
+    resolutions = client.list_vulnerability_resolutions(OID, scope="host", resolutions=["mitigated"], limit=25)
+    snapshots = client.list_vulnerability_snapshots(OID, days=30, severities=["critical", "high"])
+    epss = client.get_vulnerability_epss_history(OID, "CVE-2024-12345", days=90)
+
+    assert resolutions["operation"] == "vulnerability.resolution.list"
+    assert snapshots["operation"] == "vulnerability.snapshot.list"
+    assert epss["operation"] == "vulnerability.epss_history"
+    actions = [call["params"].get("action") for call in fake.calls if call["url"].endswith("/extension/request/ext-vulnerability-reporting")]
+    assert actions == ["list_finding_resolutions", "query_daily_snapshots", "query_epss_history"]
+    assert decode_gzdata(fake.calls[1]["params"]["gzdata"]) == {
+        "limit": 25,
+        "scope": "host",
+        "resolutions": ["mitigated"],
+    }
+    assert decode_gzdata(fake.calls[2]["params"]["gzdata"]) == {"days": 30, "severities": ["critical", "high"]}
+    assert decode_gzdata(fake.calls[3]["params"]["gzdata"]) == {"cve": "CVE-2024-12345", "days": 90}
+
+
+def test_vulnerability_tools_validate_cve_ids(tmp_path: Path) -> None:
+    client = make_client(tmp_path, FakeHTTP())
+
+    with pytest.raises(ValidationError, match="CVE"):
+        client.get_vulnerability_cve(OID, "not-a-cve")
 
 
 def test_fp_yara_and_logging_read_tools_use_expected_paths(tmp_path: Path) -> None:

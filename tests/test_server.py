@@ -52,6 +52,16 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
         "lc_list_groups",
         "lc_get_group",
         "lc_list_group_logs",
+        "lc_list_vulnerability_cves",
+        "lc_get_vulnerability_cve",
+        "lc_list_vulnerability_cve_hosts",
+        "lc_list_vulnerability_cve_packages",
+        "lc_list_vulnerability_endpoints",
+        "lc_list_vulnerability_host_packages",
+        "lc_get_vulnerability_dashboard",
+        "lc_list_vulnerability_resolutions",
+        "lc_list_vulnerability_snapshots",
+        "lc_get_vulnerability_epss_history",
         "lc_list_pending_mutations",
         "lc_preview_add_sensor_tag",
         "lc_preview_remove_sensor_tag",
@@ -75,5 +85,13 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
     assert runtime_schema["properties"]["limit"]["default"] == 100
     group_schema = tools["lc_get_group"]["inputSchema"]
     assert set(group_schema["required"]) == {"group_id"}
+    vuln_cves_schema = tools["lc_list_vulnerability_cves"]["inputSchema"]
+    assert set(vuln_cves_schema["required"]) == {"oid"}
+    assert vuln_cves_schema["properties"]["limit"]["default"] == 100
+    vuln_cve_schema = tools["lc_get_vulnerability_cve"]["inputSchema"]
+    assert set(vuln_cve_schema["required"]) == {"oid", "cve"}
+    vuln_host_schema = tools["lc_list_vulnerability_host_packages"]["inputSchema"]
+    assert set(vuln_host_schema["required"]) == {"oid", "sensor_id"}
+    assert vuln_host_schema["properties"]["rollup_subpackages"]["default"] is None
     confirm_schema = tools["lc_confirm_mutation"]["inputSchema"]
     assert set(confirm_schema["required"]) == {"confirmation_token"}

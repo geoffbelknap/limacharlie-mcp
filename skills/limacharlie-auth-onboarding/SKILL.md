@@ -1,17 +1,17 @@
 ---
 name: limacharlie-auth-onboarding
-description: Set up or troubleshoot LimaCharlie MCP authentication with secure local credential storage, org API keys, JWT refresh, UID confusion, onboarding smoke tests, and reauth. Use when users need to configure LimaCharlie MCP auth, verify credentials, rotate keys, diagnose missing_credentials or permission errors, or avoid pasting API keys/JWTs into env files.
+description: Set up or troubleshoot LimaCharlie MCP authentication with managed local Vault, org API keys, JWT refresh, UID confusion, onboarding smoke tests, and reauth. Use when users need to configure LimaCharlie MCP auth, verify credentials, rotate keys, diagnose missing_credentials or permission errors, or avoid pasting API keys/JWTs into env files.
 ---
 
 # LimaCharlie Auth Onboarding
 
 ## Workflow
 
-Use the default configure helper as the normal credential setup path. Do not
-ask users to bring a credential-store instance, paste production LimaCharlie
-API keys into `.env` files, or put keys in chat. If a local test must use
-direct environment variables, label it as temporary and prefer the default
-configure helper for real use.
+Use the default configure helper as the normal credential setup path. It uses
+managed local Vault so users do not need to bring a Vault instance, paste
+production LimaCharlie API keys into `.env` files, or put keys in chat. If a
+local test must use direct environment variables, label it as temporary and
+prefer the default configure helper for real use.
 
 1. Identify the intended org and key type:
    - Prefer an organization API key for MCP runtime access.

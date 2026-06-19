@@ -4,6 +4,11 @@ This MCP should make LimaCharlie authentication feel like a normal local
 credential setup. Users should not manually create, paste, rotate, or re-paste
 JWTs.
 
+The default setup uses a managed local Vault. That is a good thing for users:
+it protects the stable LimaCharlie API key on the local machine, keeps it out
+of chat history, `.env` files, MCP client configuration, and audit logs, and
+lets the MCP use short-lived LimaCharlie JWTs for API calls.
+
 ## Choose The Right Auth Mode
 
 Most deployments should use organization API key mode. User API key mode exists
@@ -39,15 +44,15 @@ details.
 ## Recommended Setup
 
 Use an Organization API key for the org you want the MCP to access. The setup
-stores the key securely on the local machine and keeps JWT refresh hidden from
-the user. Raw environment API keys are a local-development fallback, not the
+stores the key in managed local Vault and keeps JWT refresh hidden from the
+user. Raw environment API keys are a local-development fallback, not the
 recommended runtime model.
 
 1. In LimaCharlie, open the organization.
 2. Go to Access Management -> REST API.
 3. Create an API key with the minimum permissions needed for the workflows.
 4. Run `limacharlie-mcp-configure` with the org ID. The helper reads the
-   LimaCharlie key through a hidden prompt and stores it securely.
+   LimaCharlie key through a hidden prompt and stores it in local Vault.
 5. Point the MCP client at a profile command. If the config file is in the
    default location, no auth env block is needed.
 6. Start the MCP server.
@@ -153,7 +158,7 @@ LimaCharlie REST authentication uses short-lived JWTs. This MCP handles that
 refresh work for the user:
 
 - `limacharlie-mcp-configure` asks for the LimaCharlie API key through a hidden
-  prompt.
+  prompt and stores it in managed local Vault.
 - MCP tools never return API keys or JWTs.
 - API keys and JWTs are not written to the audit log.
 - Expired or near-expired JWTs refresh automatically during later tool calls.

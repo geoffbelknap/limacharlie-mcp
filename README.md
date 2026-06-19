@@ -33,6 +33,11 @@ The easiest agent-facing install path is the `geoffs-plugins` marketplace:
 The plugin handles running the MCP server. Configure auth once before calling
 LimaCharlie tools.
 
+By default, the setup uses a managed local Vault so the long-lived
+LimaCharlie API key is not stored in chat history, `.env` files, MCP client
+configuration, or audit logs. The MCP uses that protected key to mint
+short-lived LimaCharlie JWTs when tools need API access.
+
 ## First-Time Auth Setup
 
 You need two values from LimaCharlie: an organization ID and an organization

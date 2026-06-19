@@ -2,14 +2,15 @@
 
 This project deploys as a local stdio MCP server. It intentionally does not
 ship Docker artifacts. Install it as a Python package and run it from an MCP
-client. The default setup stores credentials securely on the local machine;
-existing external Vault deployments remain supported as an advanced path.
+client. The default setup uses managed local Vault to store credentials on the
+local machine; existing external Vault deployments remain supported as an
+advanced path.
 
 ## Model
 
 - The MCP process runs one profile command from a Python virtual environment.
-- `limacharlie-mcp-configure` stores the LimaCharlie API key without echoing it
-  and writes nonsecret runtime settings locally.
+- `limacharlie-mcp-configure` stores the LimaCharlie API key in managed local
+  Vault without echoing it and writes nonsecret runtime settings locally.
 - The MCP client starts a profile command. It only needs `LC_MCP_CONFIG` when
   the config file is not in the default location.
 - The MCP exchanges the LimaCharlie API key for short-lived JWTs in memory.
@@ -65,8 +66,8 @@ limacharlie-mcp-configure \
 ```
 
 The helper prompts for the LimaCharlie API key without echoing it, stores the
-key securely, writes local runtime settings, and runs an auth doctor check.
-Users should not need to edit generated credential files.
+key in managed local Vault, writes local runtime settings, and runs an auth
+doctor check. Users should not need to edit generated credential files.
 
 ## External Vault
 

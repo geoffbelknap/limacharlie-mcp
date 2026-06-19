@@ -56,13 +56,44 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
         "lc_get_org_urls",
         "lc_get_runtime_metadata",
         "lc_get_quota_usage",
+        "lc_preview_set_org_quota",
+        "lc_preview_rename_org",
         "lc_get_billing_status",
         "lc_get_billing_details",
         "lc_get_billing_invoice_url",
         "lc_list_billing_plans",
         "lc_list_groups",
+        "lc_preview_create_group",
         "lc_get_group",
+        "lc_preview_delete_group",
         "lc_list_group_logs",
+        "lc_preview_add_group_member",
+        "lc_preview_remove_group_member",
+        "lc_preview_add_group_owner",
+        "lc_preview_remove_group_owner",
+        "lc_preview_set_group_permissions",
+        "lc_preview_add_group_org",
+        "lc_preview_remove_group_org",
+        "lc_preview_invite_user",
+        "lc_preview_remove_user",
+        "lc_preview_add_user_permission",
+        "lc_preview_remove_user_permission",
+        "lc_preview_set_user_role",
+        "lc_preview_create_api_key",
+        "lc_preview_delete_api_key",
+        "lc_preview_create_installation_key",
+        "lc_preview_delete_installation_key",
+        "lc_preview_create_ingestion_key",
+        "lc_preview_delete_ingestion_key",
+        "lc_preview_create_output",
+        "lc_preview_delete_output",
+        "lc_preview_subscribe_extension",
+        "lc_preview_unsubscribe_extension",
+        "lc_preview_rekey_extension",
+        "lc_preview_create_extension",
+        "lc_preview_update_extension",
+        "lc_preview_delete_extension",
+        "lc_preview_extension_request",
         "lc_list_sensor_download_targets",
         "lc_list_adapter_download_targets",
         "lc_batch_search_iocs",
@@ -133,6 +164,20 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
     assert runtime_schema["properties"]["limit"]["default"] == 100
     group_schema = tools["lc_get_group"]["inputSchema"]
     assert set(group_schema["required"]) == {"group_id"}
+    create_group_schema = tools["lc_preview_create_group"]["inputSchema"]
+    assert set(create_group_schema["required"]) == {"name"}
+    group_member_schema = tools["lc_preview_add_group_member"]["inputSchema"]
+    assert set(group_member_schema["required"]) == {"group_id", "email"}
+    invite_schema = tools["lc_preview_invite_user"]["inputSchema"]
+    assert set(invite_schema["required"]) == {"oid", "email"}
+    role_schema = tools["lc_preview_set_user_role"]["inputSchema"]
+    assert set(role_schema["required"]) == {"oid", "email", "role"}
+    api_key_schema = tools["lc_preview_create_api_key"]["inputSchema"]
+    assert set(api_key_schema["required"]) == {"oid", "name", "permissions"}
+    output_schema = tools["lc_preview_create_output"]["inputSchema"]
+    assert set(output_schema["required"]) == {"oid", "name", "module", "data_type"}
+    extension_request_schema = tools["lc_preview_extension_request"]["inputSchema"]
+    assert set(extension_request_schema["required"]) == {"oid", "extension_name", "action"}
     vuln_cves_schema = tools["lc_list_vulnerability_cves"]["inputSchema"]
     assert set(vuln_cves_schema["required"]) == {"oid"}
     assert vuln_cves_schema["properties"]["limit"]["default"] == 100

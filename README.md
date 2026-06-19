@@ -97,23 +97,54 @@ renaming tools.
 | `lc_get_org_urls` | Fetch service URLs for sensors, adapters, webhooks, replay, and related connectivity. |
 | `lc_get_runtime_metadata` | Fetch runtime metadata, optionally filtered by entity type/name. |
 | `lc_get_quota_usage` | Fetch enforced quota usage for capacity checks. |
+| `lc_preview_set_org_quota` | Preview setting an org sensor quota. |
+| `lc_preview_rename_org` | Preview renaming an org. |
 | `lc_get_billing_status` | Fetch current billing status. |
 | `lc_get_billing_details` | Fetch detailed billing information. |
 | `lc_get_billing_invoice_url` | Fetch an invoice URL for a specific billing month. |
 | `lc_list_billing_plans` | List available billing plans. |
 | `lc_list_groups` | List organization groups accessible to the authenticated identity. |
+| `lc_preview_create_group` | Preview creating an organization group. |
 | `lc_get_group` | Fetch one organization group definition. |
+| `lc_preview_delete_group` | Preview deleting an organization group. |
 | `lc_list_group_logs` | List audit logs for one organization group. |
+| `lc_preview_add_group_member` | Preview adding a group member. |
+| `lc_preview_remove_group_member` | Preview removing a group member. |
+| `lc_preview_add_group_owner` | Preview adding a group owner. |
+| `lc_preview_remove_group_owner` | Preview removing a group owner. |
+| `lc_preview_set_group_permissions` | Preview replacing group permissions. |
+| `lc_preview_add_group_org` | Preview adding an org to a group. |
+| `lc_preview_remove_group_org` | Preview removing an org from a group. |
 | `lc_list_users` | List org users. |
+| `lc_preview_invite_user` | Preview inviting a user to an org. |
+| `lc_preview_remove_user` | Preview removing a user from an org. |
 | `lc_list_user_permissions` | List org user permission mappings. |
+| `lc_preview_add_user_permission` | Preview granting one user permission. |
+| `lc_preview_remove_user_permission` | Preview revoking one user permission. |
+| `lc_preview_set_user_role` | Preview setting a user's predefined role. |
 | `lc_list_api_keys` | List org API key metadata. |
+| `lc_preview_create_api_key` | Preview creating an org API key. |
+| `lc_preview_delete_api_key` | Preview deleting an org API key. |
 | `lc_list_installation_keys` | List installation key metadata. |
 | `lc_get_installation_key` | Fetch one installation key. |
+| `lc_preview_create_installation_key` | Preview creating an installation key. |
+| `lc_preview_delete_installation_key` | Preview deleting an installation key. |
 | `lc_list_outputs` | List configured output integrations. |
+| `lc_preview_create_ingestion_key` | Preview creating an ingestion key. |
+| `lc_preview_delete_ingestion_key` | Preview deleting an ingestion key. |
+| `lc_preview_create_output` | Preview creating an output integration. |
+| `lc_preview_delete_output` | Preview deleting an output integration. |
 | `lc_list_extension_subscriptions` | List extension subscriptions for an org. |
+| `lc_preview_subscribe_extension` | Preview subscribing an org to an extension. |
+| `lc_preview_unsubscribe_extension` | Preview unsubscribing an org from an extension. |
+| `lc_preview_rekey_extension` | Preview rotating an extension subscription key. |
 | `lc_list_available_extensions` | List globally available extension definitions. |
 | `lc_get_extension` | Fetch one extension definition. |
+| `lc_preview_create_extension` | Preview creating an extension definition. |
+| `lc_preview_update_extension` | Preview updating an extension definition. |
+| `lc_preview_delete_extension` | Preview deleting an extension definition. |
 | `lc_get_extension_schema` | Fetch extension schema for an org context. |
+| `lc_preview_extension_request` | Preview a generic extension request. |
 | `lc_list_ingestion_keys` | List ingestion key metadata. |
 
 ### Content Review
@@ -174,10 +205,11 @@ renaming tools.
 | `lc_cancel_mutation` | Cancel a pending local mutation preview without calling LimaCharlie. |
 
 Mutations are available only through the preview/confirm contract. Current
-typed previews cover sensor response actions, job deletion, sensor tags, and
-artifact/logging/D&R/false-positive/integrity/YARA content changes. Remaining
-administration and case write surfaces stay gated until they have typed
-preview/confirm tools with request-shape tests.
+typed previews cover sensor response actions, job deletion, sensor tags,
+administration writes, extension requests, and artifact/logging/D&R/
+false-positive/integrity/YARA content changes. Remaining case and specialized
+streaming/sync surfaces stay gated until they have typed preview/confirm tools
+or bounded read contracts with request-shape tests.
 
 ## Agent Experience Contract
 

@@ -702,6 +702,20 @@ def lc_get_quota_usage(oid: str) -> dict:
 
 
 @mcp.tool()
+def lc_preview_set_org_quota(oid: str, quota: int, token_ttl_seconds: int = 300) -> dict:
+    """Preview setting the sensor quota for an org."""
+
+    return _call("org.quota.set.preview", lc.preview_set_org_quota, oid=oid, quota=quota, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_rename_org(oid: str, new_name: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview renaming an org."""
+
+    return _call("org.rename.preview", lc.preview_rename_org, oid=oid, new_name=new_name, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
 def lc_get_billing_status(oid: str) -> dict:
     """Fetch current billing status for an org."""
 
@@ -737,10 +751,24 @@ def lc_list_groups(limit: int = 100) -> dict:
 
 
 @mcp.tool()
+def lc_preview_create_group(name: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview creating an organization group."""
+
+    return _call("group.create.preview", lc.preview_create_group, name=name, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
 def lc_get_group(group_id: str) -> dict:
     """Fetch one organization group definition."""
 
     return _call("group.get", lc.get_group, group_id=group_id)
+
+
+@mcp.tool()
+def lc_preview_delete_group(group_id: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview deleting an organization group."""
+
+    return _call("group.delete.preview", lc.preview_delete_group, group_id=group_id, token_ttl_seconds=token_ttl_seconds)
 
 
 @mcp.tool()
@@ -751,10 +779,73 @@ def lc_list_group_logs(group_id: str, limit: int = 100) -> dict:
 
 
 @mcp.tool()
+def lc_preview_add_group_member(group_id: str, email: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview adding a user as a group member."""
+
+    return _call("group.member.add.preview", lc.preview_add_group_member, group_id=group_id, email=email, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_remove_group_member(group_id: str, email: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview removing a user from group members."""
+
+    return _call("group.member.remove.preview", lc.preview_remove_group_member, group_id=group_id, email=email, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_add_group_owner(group_id: str, email: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview adding a user as a group owner."""
+
+    return _call("group.owner.add.preview", lc.preview_add_group_owner, group_id=group_id, email=email, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_remove_group_owner(group_id: str, email: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview removing a user from group owners."""
+
+    return _call("group.owner.remove.preview", lc.preview_remove_group_owner, group_id=group_id, email=email, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_set_group_permissions(group_id: str, permissions: list[str] | str, token_ttl_seconds: int = 300) -> dict:
+    """Preview replacing a group's permission list."""
+
+    return _call("group.permissions.set.preview", lc.preview_set_group_permissions, group_id=group_id, permissions=permissions, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_add_group_org(group_id: str, member_oid: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview adding an organization to a group."""
+
+    return _call("group.org.add.preview", lc.preview_add_group_org, group_id=group_id, member_oid=member_oid, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_remove_group_org(group_id: str, member_oid: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview removing an organization from a group."""
+
+    return _call("group.org.remove.preview", lc.preview_remove_group_org, group_id=group_id, member_oid=member_oid, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
 def lc_list_users(oid: str, limit: int = 100) -> dict:
     """List users with access to an org."""
 
     return _call("user.list", lc.list_users, oid=oid, limit=limit)
+
+
+@mcp.tool()
+def lc_preview_invite_user(oid: str, email: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview inviting a user to an org."""
+
+    return _call("user.invite.preview", lc.preview_invite_user, oid=oid, email=email, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_remove_user(oid: str, email: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview removing a user from an org."""
+
+    return _call("user.remove.preview", lc.preview_remove_user, oid=oid, email=email, token_ttl_seconds=token_ttl_seconds)
 
 
 @mcp.tool()
@@ -765,10 +856,51 @@ def lc_list_user_permissions(oid: str) -> dict:
 
 
 @mcp.tool()
+def lc_preview_add_user_permission(oid: str, email: str, permission: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview granting one permission to a user."""
+
+    return _call("user.permission.add.preview", lc.preview_add_user_permission, oid=oid, email=email, permission=permission, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_remove_user_permission(oid: str, email: str, permission: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview revoking one permission from a user."""
+
+    return _call("user.permission.remove.preview", lc.preview_remove_user_permission, oid=oid, email=email, permission=permission, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_set_user_role(oid: str, email: str, role: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview replacing a user's permissions with a predefined role."""
+
+    return _call("user.role.set.preview", lc.preview_set_user_role, oid=oid, email=email, role=role, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
 def lc_list_api_keys(oid: str, limit: int = 100) -> dict:
     """List API key metadata for an org."""
 
     return _call("api_key.list", lc.list_api_keys, oid=oid, limit=limit)
+
+
+@mcp.tool()
+def lc_preview_create_api_key(
+    oid: str,
+    name: str,
+    permissions: list[str] | str,
+    ip_range: str | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview creating an API key."""
+
+    return _call("api_key.create.preview", lc.preview_create_api_key, oid=oid, name=name, permissions=permissions, ip_range=ip_range, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_delete_api_key(oid: str, key_hash: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview deleting an API key by key hash."""
+
+    return _call("api_key.delete.preview", lc.preview_delete_api_key, oid=oid, key_hash=key_hash, token_ttl_seconds=token_ttl_seconds)
 
 
 @mcp.tool()
@@ -791,6 +923,34 @@ def lc_get_installation_key(oid: str, installation_key_id: str) -> dict:
 
 
 @mcp.tool()
+def lc_preview_create_installation_key(
+    oid: str,
+    description: str,
+    tags: list[str] | str | None = None,
+    use_public_ca: bool = False,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview creating an installation key."""
+
+    return _call(
+        "installation_key.create.preview",
+        lc.preview_create_installation_key,
+        oid=oid,
+        description=description,
+        tags=tags,
+        use_public_ca=use_public_ca,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_preview_delete_installation_key(oid: str, installation_key_id: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview deleting an installation key."""
+
+    return _call("installation_key.delete.preview", lc.preview_delete_installation_key, oid=oid, installation_key_id=installation_key_id, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
 def lc_list_outputs(oid: str, limit: int = 100) -> dict:
     """List output integration configuration for an org."""
 
@@ -798,10 +958,66 @@ def lc_list_outputs(oid: str, limit: int = 100) -> dict:
 
 
 @mcp.tool()
+def lc_preview_create_ingestion_key(oid: str, name: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview creating an ingestion key."""
+
+    return _call("ingestion_key.create.preview", lc.preview_create_ingestion_key, oid=oid, name=name, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_delete_ingestion_key(oid: str, name: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview deleting an ingestion key."""
+
+    return _call("ingestion_key.delete.preview", lc.preview_delete_ingestion_key, oid=oid, name=name, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_create_output(
+    oid: str,
+    name: str,
+    module: str,
+    data_type: str,
+    config: dict[str, Any] | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview creating an output integration."""
+
+    return _call("output.create.preview", lc.preview_create_output, oid=oid, name=name, module=module, data_type=data_type, config=config, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_delete_output(oid: str, name: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview deleting an output integration."""
+
+    return _call("output.delete.preview", lc.preview_delete_output, oid=oid, name=name, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
 def lc_list_extension_subscriptions(oid: str, limit: int = 100) -> dict:
     """List extension subscriptions for an org."""
 
     return _call("extension.list_subscribed", lc.list_extension_subscriptions, oid=oid, limit=limit)
+
+
+@mcp.tool()
+def lc_preview_subscribe_extension(oid: str, extension_name: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview subscribing an org to an extension."""
+
+    return _call("extension.subscribe.preview", lc.preview_subscribe_extension, oid=oid, extension_name=extension_name, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_unsubscribe_extension(oid: str, extension_name: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview unsubscribing an org from an extension."""
+
+    return _call("extension.unsubscribe.preview", lc.preview_unsubscribe_extension, oid=oid, extension_name=extension_name, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_rekey_extension(oid: str, extension_name: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview rotating an extension subscription API key."""
+
+    return _call("extension.rekey.preview", lc.preview_rekey_extension, oid=oid, extension_name=extension_name, token_ttl_seconds=token_ttl_seconds)
 
 
 @mcp.tool()
@@ -819,10 +1035,62 @@ def lc_get_extension(extension_name: str) -> dict:
 
 
 @mcp.tool()
+def lc_preview_create_extension(
+    extension_definition: dict[str, Any],
+    extension_name: str | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview creating an extension definition."""
+
+    return _call("extension.create.preview", lc.preview_create_extension, extension_definition=extension_definition, extension_name=extension_name, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_update_extension(
+    extension_definition: dict[str, Any],
+    extension_name: str | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview updating an extension definition."""
+
+    return _call("extension.update.preview", lc.preview_update_extension, extension_definition=extension_definition, extension_name=extension_name, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_delete_extension(extension_name: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview deleting an extension definition."""
+
+    return _call("extension.delete.preview", lc.preview_delete_extension, extension_name=extension_name, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
 def lc_get_extension_schema(oid: str, extension_name: str) -> dict:
     """Fetch one extension schema for an org context."""
 
     return _call("extension.schema.get", lc.get_extension_schema, oid=oid, extension_name=extension_name)
+
+
+@mcp.tool()
+def lc_preview_extension_request(
+    oid: str,
+    extension_name: str,
+    action: str,
+    data: dict[str, Any] | None = None,
+    impersonate: bool = False,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview a generic extension request."""
+
+    return _call(
+        "extension.request.preview",
+        lc.preview_extension_request,
+        oid=oid,
+        extension_name=extension_name,
+        action=action,
+        data=data,
+        impersonate=impersonate,
+        token_ttl_seconds=token_ttl_seconds,
+    )
 
 
 @mcp.tool()

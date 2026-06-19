@@ -1122,6 +1122,188 @@ def test_admin_inventory_tools_use_org_endpoints(tmp_path: Path) -> None:
     assert client.list_extension_subscriptions(OID)["data"]["resources"][0]["name"] == "ext"
 
 
+def test_org_user_and_api_key_previews_confirm_exact_requests(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("POST", f"https://api.limacharlie.io/v1/orgs/{OID}/quota", {"ok": True})
+    fake.add("POST", f"https://api.limacharlie.io/v1/orgs/{OID}/name", {"ok": True})
+    fake.add("POST", f"https://api.limacharlie.io/v1/orgs/{OID}/users", {"ok": True})
+    fake.add("PUT", f"https://api.limacharlie.io/v1/orgs/{OID}/users/role", {"ok": True})
+    fake.add("POST", f"https://api.limacharlie.io/v1/orgs/{OID}/keys", {"key": "one-time"})
+    fake.add("DELETE", f"https://api.limacharlie.io/v1/orgs/{OID}/keys", {"ok": True})
+    client = make_client(tmp_path, fake)
+
+    quota = client.preview_set_org_quota(OID, 250)
+    rename = client.preview_rename_org(OID, "Prod Org")
+    invite = client.preview_invite_user(OID, "analyst@example.com")
+    role = client.preview_set_user_role(OID, "analyst@example.com", "Viewer")
+    create_key = client.preview_create_api_key(OID, "reader", ["sensor.get", "dr.get"], ip_range="10.0.0.0/8")
+    delete_key = client.preview_delete_api_key(OID, "hash-1")
+
+    assert quota["ok"] is True
+    assert_ax_envelope(quota, "org.quota.set.preview")
+    assert fake.calls == []
+
+    confirmed = [
+        client.confirm_mutation(quota["data"]["confirmation_token"]),
+        client.confirm_mutation(rename["data"]["confirmation_token"]),
+        client.confirm_mutation(invite["data"]["confirmation_token"]),
+        client.confirm_mutation(role["data"]["confirmation_token"]),
+        client.confirm_mutation(create_key["data"]["confirmation_token"]),
+        client.confirm_mutation(delete_key["data"]["confirmation_token"]),
+    ]
+
+    assert [item["data"]["confirmed_operation"] for item in confirmed] == [
+        "org.quota.set",
+        "org.rename",
+        "user.invite",
+        "user.role.set",
+        "api_key.create",
+        "api_key.delete",
+    ]
+    assert fake.calls[1]["params"] == {"quota": 250}
+    assert fake.calls[2]["params"] == {"name": "Prod Org"}
+    assert fake.calls[3]["params"] == {"email": "analyst@example.com"}
+    assert fake.calls[4]["json"] == {"email": "analyst@example.com", "role": "Viewer"}
+    assert fake.calls[5]["params"] == {
+        "key_name": "reader",
+        "perms": "sensor.get,dr.get",
+        "allowed_ip_range": "10.0.0.0/8",
+    }
+    assert fake.calls[6]["params"] == {"key_hash": "hash-1"}
+
+
+def test_group_previews_confirm_exact_requests(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("POST", "https://api.limacharlie.io/v1/groups", {"id": "gid-1"})
+    fake.add("DELETE", "https://api.limacharlie.io/v1/groups/gid-1", {"ok": True})
+    fake.add("POST", "https://api.limacharlie.io/v1/groups/gid-1/users", {"ok": True})
+    fake.add("DELETE", "https://api.limacharlie.io/v1/groups/gid-1/owners", {"ok": True})
+    fake.add("POST", "https://api.limacharlie.io/v1/groups/gid-1/permissions", {"ok": True})
+    fake.add("POST", "https://api.limacharlie.io/v1/groups/gid-1/orgs", {"ok": True})
+    client = make_client(tmp_path, fake)
+
+    create = client.preview_create_group("soc-team")
+    delete = client.preview_delete_group("gid-1")
+    member = client.preview_add_group_member("gid-1", "analyst@example.com")
+    owner = client.preview_remove_group_owner("gid-1", "owner@example.com")
+    perms = client.preview_set_group_permissions("gid-1", ["sensor.get", "dr.get"])
+    org = client.preview_add_group_org("gid-1", OID)
+
+    assert create["ok"] is True
+    assert_ax_envelope(create, "group.create.preview")
+    assert fake.calls == []
+
+    client.confirm_mutation(create["data"]["confirmation_token"])
+    client.confirm_mutation(delete["data"]["confirmation_token"])
+    client.confirm_mutation(member["data"]["confirmation_token"])
+    client.confirm_mutation(owner["data"]["confirmation_token"])
+    client.confirm_mutation(perms["data"]["confirmation_token"])
+    client.confirm_mutation(org["data"]["confirmation_token"])
+
+    assert fake.calls[0]["data"]["oid"] == "-"
+    assert fake.calls[1]["params"] == {"name": "soc-team"}
+    assert fake.calls[2]["method"] == "DELETE"
+    assert fake.calls[3]["params"] == {"member_email": "analyst@example.com"}
+    assert fake.calls[4]["params"] == {"member_email": "owner@example.com"}
+    assert fake.calls[5]["params"] == {"perm": ["sensor.get", "dr.get"]}
+    assert fake.calls[6]["params"] == {"oid": OID}
+
+
+def test_installation_ingestion_and_output_previews_confirm_exact_requests(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("POST", f"https://api.limacharlie.io/v1/installationkeys/{OID}", {"iid": "iid-1"})
+    fake.add("DELETE", f"https://api.limacharlie.io/v1/installationkeys/{OID}", {"ok": True})
+    fake.add("POST", f"https://api.limacharlie.io/v1/insight/{OID}/ingestion_keys", {"name": "ingest-1"})
+    fake.add("DELETE", f"https://api.limacharlie.io/v1/insight/{OID}/ingestion_keys", {"ok": True})
+    fake.add("POST", f"https://api.limacharlie.io/v1/outputs/{OID}", {"name": "out-1"})
+    fake.add("DELETE", f"https://api.limacharlie.io/v1/outputs/{OID}", {"ok": True})
+    client = make_client(tmp_path, fake)
+
+    install = client.preview_create_installation_key(OID, "installer", tags=["prod", "edr"], use_public_ca=True)
+    delete_install = client.preview_delete_installation_key(OID, "iid-1")
+    ingest = client.preview_create_ingestion_key(OID, "ingest-1")
+    delete_ingest = client.preview_delete_ingestion_key(OID, "ingest-1")
+    output = client.preview_create_output(OID, "out-1", "webhook", "event", config={"url": "https://example.test/hook"})
+    delete_output = client.preview_delete_output(OID, "out-1")
+
+    assert install["ok"] is True
+    assert_ax_envelope(install, "installation_key.create.preview")
+    assert fake.calls == []
+
+    client.confirm_mutation(install["data"]["confirmation_token"])
+    client.confirm_mutation(delete_install["data"]["confirmation_token"])
+    client.confirm_mutation(ingest["data"]["confirmation_token"])
+    client.confirm_mutation(delete_ingest["data"]["confirmation_token"])
+    client.confirm_mutation(output["data"]["confirmation_token"])
+    client.confirm_mutation(delete_output["data"]["confirmation_token"])
+
+    assert fake.calls[1]["params"] == {"desc": "installer", "use_public_root_ca": "true", "tags": "prod,edr"}
+    assert fake.calls[2]["params"] == {"iid": "iid-1"}
+    assert fake.calls[3]["params"] == {"name": "ingest-1"}
+    assert fake.calls[4]["params"] == {"name": "ingest-1"}
+    assert fake.calls[5]["params"] == {
+        "name": "out-1",
+        "module": "webhook",
+        "type": "event",
+        "url": "https://example.test/hook",
+    }
+    assert fake.calls[6]["params"] == {"name": "out-1"}
+
+
+def test_extension_previews_confirm_exact_requests(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("POST", f"https://api.limacharlie.io/v1/orgs/{OID}/subscription/extension/ext-yara", {"ok": True})
+    fake.add("DELETE", f"https://api.limacharlie.io/v1/orgs/{OID}/subscription/extension/ext-yara", {"ok": True})
+    fake.add("PATCH", f"https://api.limacharlie.io/v1/orgs/{OID}/subscription/extension/ext-yara", {"key": "new"})
+    fake.add("POST", "https://api.limacharlie.io/v1/extension/request/ext-vulnerability-reporting", {"data": {"ok": True}})
+    client = make_client(tmp_path, fake)
+
+    subscribe = client.preview_subscribe_extension(OID, "ext-yara")
+    unsubscribe = client.preview_unsubscribe_extension(OID, "ext-yara")
+    rekey = client.preview_rekey_extension(OID, "ext-yara")
+    request = client.preview_extension_request(OID, "ext-vulnerability-reporting", "query_dashboard", data={"sort_asc": True})
+
+    assert subscribe["ok"] is True
+    assert_ax_envelope(subscribe, "extension.subscribe.preview")
+    assert fake.calls == []
+
+    client.confirm_mutation(subscribe["data"]["confirmation_token"])
+    client.confirm_mutation(unsubscribe["data"]["confirmation_token"])
+    client.confirm_mutation(rekey["data"]["confirmation_token"])
+    client.confirm_mutation(request["data"]["confirmation_token"])
+
+    assert fake.calls[1]["method"] == "POST"
+    assert fake.calls[2]["method"] == "DELETE"
+    assert fake.calls[3]["method"] == "PATCH"
+    assert fake.calls[4]["params"]["oid"] == OID
+    assert fake.calls[4]["params"]["action"] == "query_dashboard"
+    assert decode_gzdata(fake.calls[4]["params"]["gzdata"]) == {"sort_asc": True}
+
+
+def test_extension_definition_previews_and_impersonation_guard(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("POST", "https://api.limacharlie.io/v1/extension/definition", {"ok": True})
+    fake.add("PUT", "https://api.limacharlie.io/v1/extension/definition", {"ok": True})
+    fake.add("DELETE", "https://api.limacharlie.io/v1/extension/definition/ext-custom", {"ok": True})
+    client = make_client(tmp_path, fake)
+
+    create = client.preview_create_extension({"name": "ext-custom", "version": "1.0"})
+    update = client.preview_update_extension({"name": "ext-custom", "version": "1.1"})
+    delete = client.preview_delete_extension("ext-custom")
+
+    with pytest.raises(ValidationError, match="impersonate"):
+        client.preview_extension_request(OID, "ext-custom", "do_thing", impersonate=True)
+
+    client.confirm_mutation(create["data"]["confirmation_token"])
+    client.confirm_mutation(update["data"]["confirmation_token"])
+    client.confirm_mutation(delete["data"]["confirmation_token"])
+
+    assert fake.calls[0]["data"]["oid"] == "-"
+    assert fake.calls[1]["json"] == {"name": "ext-custom", "version": "1.0"}
+    assert fake.calls[2]["json"] == {"name": "ext-custom", "version": "1.1"}
+    assert fake.calls[3]["method"] == "DELETE"
+
+
 def test_org_platform_read_tools_use_expected_paths(tmp_path: Path) -> None:
     fake = FakeHTTP()
     fake.add("GET", f"https://api.limacharlie.io/v1/orgs/{OID}/url", {"url": {"hooks": "https://hooks"}})

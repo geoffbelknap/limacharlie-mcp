@@ -755,6 +755,26 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "side_effects": "none",
         "notes": "Returns enforced quota usage; use with online sensor count for capacity checks.",
     },
+    "org.quota.set.preview": {
+        "suite": "administration",
+        "tool": "lc_preview_set_org_quota",
+        "action": "preview",
+        "resource_type": "organization_quota",
+        "required_inputs": ["oid", "quota"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews setting the org sensor quota.",
+    },
+    "org.rename.preview": {
+        "suite": "administration",
+        "tool": "lc_preview_rename_org",
+        "action": "preview",
+        "resource_type": "organization",
+        "required_inputs": ["oid", "new_name"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews renaming the organization.",
+    },
     "group.list": {
         "suite": "administration",
         "tool": "lc_list_groups",
@@ -765,6 +785,16 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "bounds": {"limit_min": 1, "limit_max": 500},
         "side_effects": "none",
         "notes": "Lists organization groups accessible to the authenticated identity.",
+    },
+    "group.create.preview": {
+        "suite": "administration",
+        "tool": "lc_preview_create_group",
+        "action": "preview",
+        "resource_type": "group",
+        "required_inputs": ["name"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews creating an organization group.",
     },
     "billing.status": {
         "suite": "administration",
@@ -818,6 +848,86 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "side_effects": "none",
         "notes": "Fetches one group definition, including members, owners, orgs, and permissions when available.",
     },
+    "group.delete.preview": {
+        "suite": "administration",
+        "tool": "lc_preview_delete_group",
+        "action": "preview",
+        "resource_type": "group",
+        "required_inputs": ["group_id"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews deleting an organization group.",
+    },
+    "group.member.add.preview": {
+        "suite": "administration",
+        "tool": "lc_preview_add_group_member",
+        "action": "preview",
+        "resource_type": "group_member",
+        "required_inputs": ["group_id", "email"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews adding a group member.",
+    },
+    "group.member.remove.preview": {
+        "suite": "administration",
+        "tool": "lc_preview_remove_group_member",
+        "action": "preview",
+        "resource_type": "group_member",
+        "required_inputs": ["group_id", "email"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews removing a group member.",
+    },
+    "group.owner.add.preview": {
+        "suite": "administration",
+        "tool": "lc_preview_add_group_owner",
+        "action": "preview",
+        "resource_type": "group_owner",
+        "required_inputs": ["group_id", "email"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews adding a group owner.",
+    },
+    "group.owner.remove.preview": {
+        "suite": "administration",
+        "tool": "lc_preview_remove_group_owner",
+        "action": "preview",
+        "resource_type": "group_owner",
+        "required_inputs": ["group_id", "email"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews removing a group owner.",
+    },
+    "group.permissions.set.preview": {
+        "suite": "administration",
+        "tool": "lc_preview_set_group_permissions",
+        "action": "preview",
+        "resource_type": "group_permissions",
+        "required_inputs": ["group_id", "permissions"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews replacing a group's permission list.",
+    },
+    "group.org.add.preview": {
+        "suite": "administration",
+        "tool": "lc_preview_add_group_org",
+        "action": "preview",
+        "resource_type": "group_org_membership",
+        "required_inputs": ["group_id", "member_oid"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews adding an org to a group.",
+    },
+    "group.org.remove.preview": {
+        "suite": "administration",
+        "tool": "lc_preview_remove_group_org",
+        "action": "preview",
+        "resource_type": "group_org_membership",
+        "required_inputs": ["group_id", "member_oid"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews removing an org from a group.",
+    },
     "group.logs": {
         "suite": "administration",
         "tool": "lc_list_group_logs",
@@ -840,6 +950,26 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "side_effects": "none",
         "notes": "Lists users with access to the org.",
     },
+    "user.invite.preview": {
+        "suite": "administration",
+        "tool": "lc_preview_invite_user",
+        "action": "preview",
+        "resource_type": "user",
+        "required_inputs": ["oid", "email"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews inviting a user to an org.",
+    },
+    "user.remove.preview": {
+        "suite": "administration",
+        "tool": "lc_preview_remove_user",
+        "action": "preview",
+        "resource_type": "user",
+        "required_inputs": ["oid", "email"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews removing a user from an org.",
+    },
     "user.permission.list": {
         "suite": "administration",
         "tool": "lc_list_user_permissions",
@@ -849,6 +979,36 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "optional_inputs": [],
         "side_effects": "none",
         "notes": "Lists permission mappings by user.",
+    },
+    "user.permission.add.preview": {
+        "suite": "administration",
+        "tool": "lc_preview_add_user_permission",
+        "action": "preview",
+        "resource_type": "user_permission",
+        "required_inputs": ["oid", "email", "permission"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews granting one permission to a user.",
+    },
+    "user.permission.remove.preview": {
+        "suite": "administration",
+        "tool": "lc_preview_remove_user_permission",
+        "action": "preview",
+        "resource_type": "user_permission",
+        "required_inputs": ["oid", "email", "permission"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews revoking one permission from a user.",
+    },
+    "user.role.set.preview": {
+        "suite": "administration",
+        "tool": "lc_preview_set_user_role",
+        "action": "preview",
+        "resource_type": "user_role",
+        "required_inputs": ["oid", "email", "role"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews replacing a user's permissions with a predefined role.",
     },
     "api_key.list": {
         "suite": "administration",
@@ -860,6 +1020,26 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "bounds": {"limit_min": 1, "limit_max": 500},
         "side_effects": "none",
         "notes": "Lists API key metadata. Secrets are not expected from list responses.",
+    },
+    "api_key.create.preview": {
+        "suite": "administration",
+        "tool": "lc_preview_create_api_key",
+        "action": "preview",
+        "resource_type": "api_key",
+        "required_inputs": ["oid", "name", "permissions"],
+        "optional_inputs": ["ip_range", "token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews creating an API key. Confirmation may return the one-time secret key value.",
+    },
+    "api_key.delete.preview": {
+        "suite": "administration",
+        "tool": "lc_preview_delete_api_key",
+        "action": "preview",
+        "resource_type": "api_key",
+        "required_inputs": ["oid", "key_hash"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews deleting an API key by key hash.",
     },
     "installation_key.list": {
         "suite": "administration",
@@ -882,6 +1062,46 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "side_effects": "none",
         "notes": "Fetches one installation key by ID.",
     },
+    "installation_key.create.preview": {
+        "suite": "administration",
+        "tool": "lc_preview_create_installation_key",
+        "action": "preview",
+        "resource_type": "installation_key",
+        "required_inputs": ["oid", "description"],
+        "optional_inputs": ["tags", "use_public_ca", "token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews creating an installation key.",
+    },
+    "installation_key.delete.preview": {
+        "suite": "administration",
+        "tool": "lc_preview_delete_installation_key",
+        "action": "preview",
+        "resource_type": "installation_key",
+        "required_inputs": ["oid", "installation_key_id"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews deleting an installation key.",
+    },
+    "ingestion_key.create.preview": {
+        "suite": "administration",
+        "tool": "lc_preview_create_ingestion_key",
+        "action": "preview",
+        "resource_type": "ingestion_key",
+        "required_inputs": ["oid", "name"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews creating an ingestion key.",
+    },
+    "ingestion_key.delete.preview": {
+        "suite": "administration",
+        "tool": "lc_preview_delete_ingestion_key",
+        "action": "preview",
+        "resource_type": "ingestion_key",
+        "required_inputs": ["oid", "name"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews deleting an ingestion key.",
+    },
     "output.list": {
         "suite": "administration",
         "tool": "lc_list_outputs",
@@ -893,6 +1113,26 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "side_effects": "none",
         "notes": "Lists output integration configuration.",
     },
+    "output.create.preview": {
+        "suite": "administration",
+        "tool": "lc_preview_create_output",
+        "action": "preview",
+        "resource_type": "output",
+        "required_inputs": ["oid", "name", "module", "data_type"],
+        "optional_inputs": ["config", "token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews creating an output integration.",
+    },
+    "output.delete.preview": {
+        "suite": "administration",
+        "tool": "lc_preview_delete_output",
+        "action": "preview",
+        "resource_type": "output",
+        "required_inputs": ["oid", "name"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews deleting an output integration.",
+    },
     "extension.list_subscribed": {
         "suite": "administration",
         "tool": "lc_list_extension_subscriptions",
@@ -903,6 +1143,36 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "bounds": {"limit_min": 1, "limit_max": 500},
         "side_effects": "none",
         "notes": "Lists extensions subscribed by the org.",
+    },
+    "extension.subscribe.preview": {
+        "suite": "administration",
+        "tool": "lc_preview_subscribe_extension",
+        "action": "preview",
+        "resource_type": "extension_subscription",
+        "required_inputs": ["oid", "extension_name"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews subscribing an org to an extension.",
+    },
+    "extension.unsubscribe.preview": {
+        "suite": "administration",
+        "tool": "lc_preview_unsubscribe_extension",
+        "action": "preview",
+        "resource_type": "extension_subscription",
+        "required_inputs": ["oid", "extension_name"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews unsubscribing an org from an extension.",
+    },
+    "extension.rekey.preview": {
+        "suite": "administration",
+        "tool": "lc_preview_rekey_extension",
+        "action": "preview",
+        "resource_type": "extension_subscription",
+        "required_inputs": ["oid", "extension_name"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews rotating an extension subscription API key.",
     },
     "extension.list_available": {
         "suite": "administration",
@@ -925,6 +1195,36 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "side_effects": "none",
         "notes": "Fetches one extension definition.",
     },
+    "extension.create.preview": {
+        "suite": "administration",
+        "tool": "lc_preview_create_extension",
+        "action": "preview",
+        "resource_type": "extension_definition",
+        "required_inputs": ["extension_definition"],
+        "optional_inputs": ["extension_name", "token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews creating an extension definition.",
+    },
+    "extension.update.preview": {
+        "suite": "administration",
+        "tool": "lc_preview_update_extension",
+        "action": "preview",
+        "resource_type": "extension_definition",
+        "required_inputs": ["extension_definition"],
+        "optional_inputs": ["extension_name", "token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews updating an extension definition.",
+    },
+    "extension.delete.preview": {
+        "suite": "administration",
+        "tool": "lc_preview_delete_extension",
+        "action": "preview",
+        "resource_type": "extension_definition",
+        "required_inputs": ["extension_name"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews deleting an extension definition.",
+    },
     "extension.schema.get": {
         "suite": "administration",
         "tool": "lc_get_extension_schema",
@@ -934,6 +1234,16 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "optional_inputs": [],
         "side_effects": "none",
         "notes": "Fetches extension schema for an org context.",
+    },
+    "extension.request.preview": {
+        "suite": "administration",
+        "tool": "lc_preview_extension_request",
+        "action": "preview",
+        "resource_type": "extension_request",
+        "required_inputs": ["oid", "extension_name", "action"],
+        "optional_inputs": ["data", "impersonate", "token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews a generic extension request. Side effects depend on the extension action.",
     },
     "vulnerability.cve.list": {
         "suite": "investigation",
@@ -1405,6 +1715,8 @@ _VULN_SEARCH_OPS = {"is", "contains"}
 _VULN_RESOLUTIONS = {"mitigated", "accepted", "false_positive"}
 _VULN_SCOPES = {"org", "host"}
 _VULN_SEVERITIES = {"critical", "high", "medium", "low"}
+_ORG_USER_ROLES = {"Owner", "Administrator", "Operator", "Viewer", "Basic"}
+_EMAIL_RE = re.compile(r"^[^@\s\x00]{1,254}@[^@\s\x00]{1,253}\.[^@\s\x00]{1,63}$")
 _SENSOR_DOWNLOAD_TARGETS: dict[tuple[str, str], str] = {
     ("windows", "64"): "sensor/windows/64",
     ("windows", "32"): "sensor/windows/32",
@@ -1542,6 +1854,24 @@ def require_extension_name(value: str) -> str:
 def require_token(value: str, name: str) -> str:
     if not isinstance(value, str) or not _SAFE_TOKEN.match(value):
         raise ValidationError(f"{name} contains unsupported characters")
+    return value
+
+
+def require_email(value: str) -> str:
+    if not isinstance(value, str) or not _EMAIL_RE.match(value):
+        raise ValidationError("email must be a valid email address")
+    return value
+
+
+def require_org_role(value: str) -> str:
+    if value not in _ORG_USER_ROLES:
+        raise ValidationError("role must be one of: Owner, Administrator, Operator, Viewer, Basic")
+    return value
+
+
+def require_quota(value: int) -> int:
+    if not isinstance(value, int) or value < 0 or value > 10_000_000:
+        raise ValidationError("quota must be an integer between 0 and 10000000")
     return value
 
 
@@ -1700,6 +2030,13 @@ def require_string_list(values: list[str] | str | None, name: str, *, maximum: i
             raise ValidationError(f"{name} entries must be non-empty strings under 1000 characters")
         checked.append(value)
     return checked
+
+
+def require_permission_list(values: list[str] | str, name: str = "permissions", *, maximum: int = 100) -> list[str]:
+    checked = require_string_list(values, name, maximum=maximum)
+    if not checked:
+        raise ValidationError(f"{name} must include at least one permission")
+    return [require_permission(value) for value in checked]
 
 
 def require_retention_days(value: int | None) -> int | None:
@@ -3278,6 +3615,42 @@ class LimaCharlieAPI:
             resource={"type": "quota_usage", "id": scoped_oid},
         ).as_dict()
 
+    def preview_set_org_quota(self, oid: str, quota: int, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_quota = require_quota(quota)
+        return self._preview_mutation(
+            operation="org.quota.set",
+            oid=scoped_oid,
+            method="POST",
+            path=f"orgs/{scoped_oid}/quota",
+            resource_type="organization_quota",
+            resource_id=scoped_oid,
+            params={"quota": safe_quota},
+            expected_effect=f"Set organization sensor quota to {safe_quota}.",
+            reversibility="Run another quota preview with the prior quota value.",
+            side_effect_type="org_quota_set",
+            token_ttl_seconds=token_ttl_seconds,
+            parent_oid=scoped_oid,
+        )
+
+    def preview_rename_org(self, oid: str, new_name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_name = require_token(new_name, "new_name")
+        return self._preview_mutation(
+            operation="org.rename",
+            oid=scoped_oid,
+            method="POST",
+            path=f"orgs/{scoped_oid}/name",
+            resource_type="organization",
+            resource_id=scoped_oid,
+            params={"name": safe_name},
+            expected_effect=f"Rename organization {scoped_oid} to {safe_name!r}.",
+            reversibility="Run another rename preview with the previous organization name.",
+            side_effect_type="org_renamed",
+            token_ttl_seconds=token_ttl_seconds,
+            parent_oid=scoped_oid,
+        )
+
     def get_billing_status(self, oid: str) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         return self._request(
@@ -3335,6 +3708,22 @@ class LimaCharlieAPI:
             limit=bounded_limit,
         ).as_dict()
 
+    def preview_create_group(self, name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        safe_name = require_token(name, "name")
+        return self._preview_mutation(
+            operation="group.create",
+            oid="-",
+            method="POST",
+            path="groups",
+            resource_type="group",
+            resource_id=safe_name,
+            params={"name": safe_name},
+            expected_effect=f"Create group {safe_name!r}.",
+            reversibility="Delete the group if it was created unintentionally.",
+            side_effect_type="group_created",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
     def get_group(self, group_id: str) -> dict[str, Any]:
         safe_group_id = require_path_segment(group_id, "group_id")
         return self._request(
@@ -3357,6 +3746,56 @@ class LimaCharlieAPI:
             limit=bounded_limit,
         ).as_dict()
 
+    def preview_delete_group(self, group_id: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        safe_group_id = require_path_segment(group_id, "group_id")
+        return self._preview_mutation(
+            operation="group.delete",
+            oid="-",
+            method="DELETE",
+            path=f"groups/{quote(safe_group_id, safe='')}",
+            resource_type="group",
+            resource_id=safe_group_id,
+            expected_effect=f"Delete group {safe_group_id}.",
+            reversibility="Recreate the group and memberships from a known-good definition if deletion was unintended.",
+            side_effect_type="group_deleted",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_add_group_member(self, group_id: str, email: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        return self._preview_group_email_mutation("group.member.add", "POST", group_id, email, "users", "group_member_added", token_ttl_seconds)
+
+    def preview_remove_group_member(self, group_id: str, email: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        return self._preview_group_email_mutation("group.member.remove", "DELETE", group_id, email, "users", "group_member_removed", token_ttl_seconds)
+
+    def preview_add_group_owner(self, group_id: str, email: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        return self._preview_group_email_mutation("group.owner.add", "POST", group_id, email, "owners", "group_owner_added", token_ttl_seconds)
+
+    def preview_remove_group_owner(self, group_id: str, email: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        return self._preview_group_email_mutation("group.owner.remove", "DELETE", group_id, email, "owners", "group_owner_removed", token_ttl_seconds)
+
+    def preview_set_group_permissions(self, group_id: str, permissions: list[str] | str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        safe_group_id = require_path_segment(group_id, "group_id")
+        safe_permissions = require_permission_list(permissions)
+        return self._preview_mutation(
+            operation="group.permissions.set",
+            oid="-",
+            method="POST",
+            path=f"groups/{quote(safe_group_id, safe='')}/permissions",
+            resource_type="group_permissions",
+            resource_id=safe_group_id,
+            params={"perm": safe_permissions},
+            expected_effect=f"Replace permissions on group {safe_group_id}.",
+            reversibility="Run another permissions preview with the previous permission list.",
+            side_effect_type="group_permissions_set",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_add_group_org(self, group_id: str, member_oid: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        return self._preview_group_org_mutation("group.org.add", "POST", group_id, member_oid, "group_org_added", token_ttl_seconds)
+
+    def preview_remove_group_org(self, group_id: str, member_oid: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        return self._preview_group_org_mutation("group.org.remove", "DELETE", group_id, member_oid, "group_org_removed", token_ttl_seconds)
+
     def list_users(self, oid: str, limit: int = 100) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         bounded_limit = require_limit(limit)
@@ -3369,6 +3808,42 @@ class LimaCharlieAPI:
             limit=bounded_limit,
         ).as_dict()
 
+    def preview_invite_user(self, oid: str, email: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_email = require_email(email)
+        return self._preview_mutation(
+            operation="user.invite",
+            oid=scoped_oid,
+            method="POST",
+            path=f"orgs/{scoped_oid}/users",
+            resource_type="user",
+            resource_id=safe_email,
+            params={"email": safe_email},
+            expected_effect=f"Invite {safe_email} to organization {scoped_oid}.",
+            reversibility="Remove the user from the org if the invitation was unintended.",
+            side_effect_type="user_invited",
+            token_ttl_seconds=token_ttl_seconds,
+            parent_oid=scoped_oid,
+        )
+
+    def preview_remove_user(self, oid: str, email: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_email = require_email(email)
+        return self._preview_mutation(
+            operation="user.remove",
+            oid=scoped_oid,
+            method="DELETE",
+            path=f"orgs/{scoped_oid}/users",
+            resource_type="user",
+            resource_id=safe_email,
+            params={"email": safe_email},
+            expected_effect=f"Remove {safe_email} from organization {scoped_oid}.",
+            reversibility="Invite the user again and restore permissions if removal was unintended.",
+            side_effect_type="user_removed",
+            token_ttl_seconds=token_ttl_seconds,
+            parent_oid=scoped_oid,
+        )
+
     def list_user_permissions(self, oid: str) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         return self._request(
@@ -3378,6 +3853,63 @@ class LimaCharlieAPI:
             oid=scoped_oid,
             resource={"type": "user_permission_collection", "id": scoped_oid},
         ).as_dict()
+
+    def preview_add_user_permission(self, oid: str, email: str, permission: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_email = require_email(email)
+        safe_permission = require_permission(permission)
+        return self._preview_mutation(
+            operation="user.permission.add",
+            oid=scoped_oid,
+            method="POST",
+            path=f"orgs/{scoped_oid}/users/permissions",
+            resource_type="user_permission",
+            resource_id=f"{safe_email}:{safe_permission}",
+            params={"email": safe_email, "perm": safe_permission},
+            expected_effect=f"Grant {safe_permission} to {safe_email}.",
+            reversibility="Preview and confirm user.permission.remove for the same permission.",
+            side_effect_type="user_permission_added",
+            token_ttl_seconds=token_ttl_seconds,
+            parent_oid=scoped_oid,
+        )
+
+    def preview_remove_user_permission(self, oid: str, email: str, permission: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_email = require_email(email)
+        safe_permission = require_permission(permission)
+        return self._preview_mutation(
+            operation="user.permission.remove",
+            oid=scoped_oid,
+            method="DELETE",
+            path=f"orgs/{scoped_oid}/users/permissions",
+            resource_type="user_permission",
+            resource_id=f"{safe_email}:{safe_permission}",
+            params={"email": safe_email, "perm": safe_permission},
+            expected_effect=f"Revoke {safe_permission} from {safe_email}.",
+            reversibility="Preview and confirm user.permission.add for the same permission.",
+            side_effect_type="user_permission_removed",
+            token_ttl_seconds=token_ttl_seconds,
+            parent_oid=scoped_oid,
+        )
+
+    def preview_set_user_role(self, oid: str, email: str, role: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_email = require_email(email)
+        safe_role = require_org_role(role)
+        return self._preview_mutation(
+            operation="user.role.set",
+            oid=scoped_oid,
+            method="PUT",
+            path=f"orgs/{scoped_oid}/users/role",
+            resource_type="user_role",
+            resource_id=safe_email,
+            json_body={"email": safe_email, "role": safe_role},
+            expected_effect=f"Replace {safe_email}'s permissions with role {safe_role}.",
+            reversibility="Restore the previous explicit permissions or role from audit evidence.",
+            side_effect_type="user_role_set",
+            token_ttl_seconds=token_ttl_seconds,
+            parent_oid=scoped_oid,
+        )
 
     def list_api_keys(self, oid: str, limit: int = 100) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
@@ -3390,6 +3922,53 @@ class LimaCharlieAPI:
             resource={"type": "api_key_collection", "id": scoped_oid},
             limit=bounded_limit,
         ).as_dict()
+
+    def preview_create_api_key(
+        self,
+        oid: str,
+        name: str,
+        permissions: list[str] | str,
+        ip_range: str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_name = require_token(name, "name")
+        safe_permissions = require_permission_list(permissions)
+        params: dict[str, Any] = {"key_name": safe_name, "perms": ",".join(safe_permissions)}
+        if ip_range:
+            params["allowed_ip_range"] = require_token(ip_range, "ip_range")
+        return self._preview_mutation(
+            operation="api_key.create",
+            oid=scoped_oid,
+            method="POST",
+            path=f"orgs/{scoped_oid}/keys",
+            resource_type="api_key",
+            resource_id=safe_name,
+            params=params,
+            expected_effect=f"Create API key {safe_name!r}.",
+            reversibility="Delete the API key by key hash if creation was unintended.",
+            side_effect_type="api_key_created",
+            token_ttl_seconds=token_ttl_seconds,
+            parent_oid=scoped_oid,
+        )
+
+    def preview_delete_api_key(self, oid: str, key_hash: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_key_hash = require_path_segment(key_hash, "key_hash")
+        return self._preview_mutation(
+            operation="api_key.delete",
+            oid=scoped_oid,
+            method="DELETE",
+            path=f"orgs/{scoped_oid}/keys",
+            resource_type="api_key",
+            resource_id=safe_key_hash,
+            params={"key_hash": safe_key_hash},
+            expected_effect=f"Delete API key {safe_key_hash}.",
+            reversibility="Create a replacement API key with equivalent permissions if deletion was unintended.",
+            side_effect_type="api_key_deleted",
+            token_ttl_seconds=token_ttl_seconds,
+            parent_oid=scoped_oid,
+        )
 
     def list_installation_keys(self, oid: str, limit: int = 100) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
@@ -3414,6 +3993,56 @@ class LimaCharlieAPI:
             resource={"type": "installation_key", "id": safe_iid, "parent": {"type": "organization", "id": scoped_oid}},
         ).as_dict()
 
+    def preview_create_installation_key(
+        self,
+        oid: str,
+        description: str,
+        tags: list[str] | str | None = None,
+        use_public_ca: bool = False,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_description = require_token(description, "description")
+        params: dict[str, Any] = {
+            "desc": safe_description,
+            "use_public_root_ca": bool_param(bool(use_public_ca)),
+        }
+        checked_tags = require_string_list(tags, "tags")
+        if checked_tags:
+            params["tags"] = ",".join(checked_tags)
+        return self._preview_mutation(
+            operation="installation_key.create",
+            oid=scoped_oid,
+            method="POST",
+            path=f"installationkeys/{scoped_oid}",
+            resource_type="installation_key",
+            resource_id=safe_description,
+            params=params,
+            expected_effect=f"Create installation key {safe_description!r}.",
+            reversibility="Delete the installation key if creation was unintended.",
+            side_effect_type="installation_key_created",
+            token_ttl_seconds=token_ttl_seconds,
+            parent_oid=scoped_oid,
+        )
+
+    def preview_delete_installation_key(self, oid: str, installation_key_id: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_iid = require_path_segment(installation_key_id, "installation_key_id")
+        return self._preview_mutation(
+            operation="installation_key.delete",
+            oid=scoped_oid,
+            method="DELETE",
+            path=f"installationkeys/{scoped_oid}",
+            resource_type="installation_key",
+            resource_id=safe_iid,
+            params={"iid": safe_iid},
+            expected_effect=f"Delete installation key {safe_iid}.",
+            reversibility="Create a replacement installation key if deletion was unintended.",
+            side_effect_type="installation_key_deleted",
+            token_ttl_seconds=token_ttl_seconds,
+            parent_oid=scoped_oid,
+        )
+
     def list_outputs(self, oid: str, limit: int = 100) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         bounded_limit = require_limit(limit)
@@ -3426,6 +4055,93 @@ class LimaCharlieAPI:
             limit=bounded_limit,
         ).as_dict()
 
+    def preview_create_ingestion_key(self, oid: str, name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_name = require_token(name, "name")
+        return self._preview_mutation(
+            operation="ingestion_key.create",
+            oid=scoped_oid,
+            method="POST",
+            path=f"insight/{scoped_oid}/ingestion_keys",
+            resource_type="ingestion_key",
+            resource_id=safe_name,
+            params={"name": safe_name},
+            expected_effect=f"Create ingestion key {safe_name!r}.",
+            reversibility="Delete the ingestion key if creation was unintended.",
+            side_effect_type="ingestion_key_created",
+            token_ttl_seconds=token_ttl_seconds,
+            parent_oid=scoped_oid,
+        )
+
+    def preview_delete_ingestion_key(self, oid: str, name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_name = require_token(name, "name")
+        return self._preview_mutation(
+            operation="ingestion_key.delete",
+            oid=scoped_oid,
+            method="DELETE",
+            path=f"insight/{scoped_oid}/ingestion_keys",
+            resource_type="ingestion_key",
+            resource_id=safe_name,
+            params={"name": safe_name},
+            expected_effect=f"Delete ingestion key {safe_name!r}.",
+            reversibility="Create a replacement ingestion key if deletion was unintended.",
+            side_effect_type="ingestion_key_deleted",
+            token_ttl_seconds=token_ttl_seconds,
+            parent_oid=scoped_oid,
+        )
+
+    def preview_create_output(
+        self,
+        oid: str,
+        name: str,
+        module: str,
+        data_type: str,
+        config: dict[str, Any] | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_name = require_token(name, "name")
+        params: dict[str, Any] = {
+            "name": safe_name,
+            "module": require_token(module, "module"),
+            "type": require_token(data_type, "data_type"),
+        }
+        checked_config = require_dict(config, "config") or {}
+        params.update(checked_config)
+        return self._preview_mutation(
+            operation="output.create",
+            oid=scoped_oid,
+            method="POST",
+            path=f"outputs/{scoped_oid}",
+            resource_type="output",
+            resource_id=safe_name,
+            params=params,
+            expected_effect=f"Create output {safe_name!r}.",
+            reversibility="Delete the output if creation was unintended.",
+            side_effect_type="output_created",
+            token_ttl_seconds=token_ttl_seconds,
+            parent_oid=scoped_oid,
+        )
+
+    def preview_delete_output(self, oid: str, name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_name = require_token(name, "name")
+        return self._preview_mutation(
+            operation="output.delete",
+            oid=scoped_oid,
+            method="DELETE",
+            path=f"outputs/{scoped_oid}",
+            resource_type="output",
+            resource_id=safe_name,
+            params={"name": safe_name},
+            expected_effect=f"Delete output {safe_name!r}.",
+            reversibility="Recreate the output from its previous configuration if deletion was unintended.",
+            side_effect_type="output_deleted",
+            token_ttl_seconds=token_ttl_seconds,
+            parent_oid=scoped_oid,
+        )
+
     def list_extension_subscriptions(self, oid: str, limit: int = 100) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         bounded_limit = require_limit(limit)
@@ -3437,6 +4153,60 @@ class LimaCharlieAPI:
             resource={"type": "extension_subscription_collection", "id": scoped_oid},
             limit=bounded_limit,
         ).as_dict()
+
+    def preview_subscribe_extension(self, oid: str, extension_name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_name = require_extension_name(extension_name)
+        return self._preview_mutation(
+            operation="extension.subscribe",
+            oid=scoped_oid,
+            method="POST",
+            path=f"orgs/{scoped_oid}/subscription/extension/{quote(safe_name, safe='')}",
+            resource_type="extension_subscription",
+            resource_id=safe_name,
+            params={},
+            expected_effect=f"Subscribe organization {scoped_oid} to extension {safe_name}.",
+            reversibility="Preview and confirm extension.unsubscribe for the same extension.",
+            side_effect_type="extension_subscribed",
+            token_ttl_seconds=token_ttl_seconds,
+            parent_oid=scoped_oid,
+        )
+
+    def preview_unsubscribe_extension(self, oid: str, extension_name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_name = require_extension_name(extension_name)
+        return self._preview_mutation(
+            operation="extension.unsubscribe",
+            oid=scoped_oid,
+            method="DELETE",
+            path=f"orgs/{scoped_oid}/subscription/extension/{quote(safe_name, safe='')}",
+            resource_type="extension_subscription",
+            resource_id=safe_name,
+            params={},
+            expected_effect=f"Unsubscribe organization {scoped_oid} from extension {safe_name}.",
+            reversibility="Preview and confirm extension.subscribe for the same extension.",
+            side_effect_type="extension_unsubscribed",
+            token_ttl_seconds=token_ttl_seconds,
+            parent_oid=scoped_oid,
+        )
+
+    def preview_rekey_extension(self, oid: str, extension_name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_name = require_extension_name(extension_name)
+        return self._preview_mutation(
+            operation="extension.rekey",
+            oid=scoped_oid,
+            method="PATCH",
+            path=f"orgs/{scoped_oid}/subscription/extension/{quote(safe_name, safe='')}",
+            resource_type="extension_subscription",
+            resource_id=safe_name,
+            params={},
+            expected_effect=f"Rotate the API key for extension subscription {safe_name}.",
+            reversibility="Rekeying is not reversible; update dependent systems with the newly returned key material if applicable.",
+            side_effect_type="extension_rekeyed",
+            token_ttl_seconds=token_ttl_seconds,
+            parent_oid=scoped_oid,
+        )
 
     def list_available_extensions(self, limit: int = 100) -> dict[str, Any]:
         bounded_limit = require_limit(limit)
@@ -3460,6 +4230,67 @@ class LimaCharlieAPI:
             resource={"type": "extension_definition", "id": safe_name},
         ).as_dict()
 
+    def preview_create_extension(
+        self,
+        extension_definition: dict[str, Any],
+        extension_name: str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        safe_definition = require_dict(extension_definition, "extension_definition") or {}
+        safe_name = self._extension_definition_id(safe_definition, extension_name)
+        return self._preview_mutation(
+            operation="extension.create",
+            oid="-",
+            method="POST",
+            path="extension/definition",
+            resource_type="extension_definition",
+            resource_id=safe_name,
+            params={},
+            json_body=safe_definition,
+            expected_effect=f"Create extension definition {safe_name}.",
+            reversibility="Delete the extension definition if creation was unintended.",
+            side_effect_type="extension_created",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_update_extension(
+        self,
+        extension_definition: dict[str, Any],
+        extension_name: str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        safe_definition = require_dict(extension_definition, "extension_definition") or {}
+        safe_name = self._extension_definition_id(safe_definition, extension_name)
+        return self._preview_mutation(
+            operation="extension.update",
+            oid="-",
+            method="PUT",
+            path="extension/definition",
+            resource_type="extension_definition",
+            resource_id=safe_name,
+            params={},
+            json_body=safe_definition,
+            expected_effect=f"Update extension definition {safe_name}.",
+            reversibility="Restore the previous extension definition body if the update was unintended.",
+            side_effect_type="extension_updated",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_delete_extension(self, extension_name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        safe_name = require_extension_name(extension_name)
+        return self._preview_mutation(
+            operation="extension.delete",
+            oid="-",
+            method="DELETE",
+            path=f"extension/definition/{quote(safe_name, safe='')}",
+            resource_type="extension_definition",
+            resource_id=safe_name,
+            expected_effect=f"Delete extension definition {safe_name}.",
+            reversibility="Recreate the extension definition from a known-good body if deletion was unintended.",
+            side_effect_type="extension_deleted",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
     def get_extension_schema(self, oid: str, extension_name: str) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         safe_name = require_extension_name(extension_name)
@@ -3471,6 +4302,36 @@ class LimaCharlieAPI:
             resource={"type": "extension_schema", "id": safe_name, "parent": {"type": "organization", "id": scoped_oid}},
             params={"oid": scoped_oid},
         ).as_dict()
+
+    def preview_extension_request(
+        self,
+        oid: str,
+        extension_name: str,
+        action: str,
+        data: dict[str, Any] | None = None,
+        impersonate: bool = False,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        if impersonate:
+            raise ValidationError("impersonate is not supported because it would expose a JWT in preview data")
+        scoped_oid = require_oid(oid)
+        safe_name = require_extension_name(extension_name)
+        safe_action = require_token(action, "action")
+        safe_data = require_dict(data, "data") or {}
+        return self._preview_mutation(
+            operation="extension.request",
+            oid=scoped_oid,
+            method="POST",
+            path=f"extension/request/{quote(safe_name, safe='')}",
+            resource_type="extension_request",
+            resource_id=f"{safe_name}:{safe_action}",
+            params=extension_request_params(scoped_oid, safe_action, safe_data),
+            expected_effect=f"Call extension {safe_name} action {safe_action}.",
+            reversibility="Extension request side effects are action-specific; inspect the extension action documentation before confirming.",
+            side_effect_type="extension_request_executed",
+            token_ttl_seconds=token_ttl_seconds,
+            parent_oid=scoped_oid,
+        )
 
     def list_vulnerability_cves(
         self,
@@ -4671,6 +5532,102 @@ class LimaCharlieAPI:
             side_effects=[{"type": side_effect_type, "resource": {"type": "sensor", "id": safe_sensor_id}}],
             token_ttl_seconds=token_ttl,
         )
+
+    def _preview_mutation(
+        self,
+        *,
+        operation: str,
+        oid: str,
+        method: str,
+        path: str,
+        resource_type: str,
+        resource_id: str,
+        expected_effect: str,
+        reversibility: str,
+        side_effect_type: str,
+        token_ttl_seconds: int,
+        params: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
+        json_body: Any | None = None,
+        parent_oid: str | None = None,
+    ) -> dict[str, Any]:
+        token_ttl = require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900)
+        resource: dict[str, Any] = {"type": resource_type, "id": resource_id}
+        if parent_oid is not None:
+            resource["parent"] = {"type": "organization", "id": parent_oid}
+        return self._create_mutation_preview(
+            operation=operation,
+            oid=oid,
+            method=method,
+            path=path,
+            resource=resource,
+            params=params,
+            data=data,
+            json_body=json_body,
+            expected_effect=expected_effect,
+            reversibility=reversibility,
+            side_effects=[{"type": side_effect_type, "resource": {"type": resource_type, "id": resource_id}}],
+            token_ttl_seconds=token_ttl,
+        )
+
+    def _preview_group_email_mutation(
+        self,
+        operation: str,
+        method: str,
+        group_id: str,
+        email: str,
+        path_suffix: str,
+        side_effect_type: str,
+        token_ttl_seconds: int,
+    ) -> dict[str, Any]:
+        safe_group_id = require_path_segment(group_id, "group_id")
+        safe_email = require_email(email)
+        return self._preview_mutation(
+            operation=operation,
+            oid="-",
+            method=method,
+            path=f"groups/{quote(safe_group_id, safe='')}/{path_suffix}",
+            resource_type=operation.rsplit(".", 1)[0].replace(".", "_"),
+            resource_id=f"{safe_group_id}:{safe_email}",
+            params={"member_email": safe_email},
+            expected_effect=f"{operation} for {safe_email} on group {safe_group_id}.",
+            reversibility="Apply the opposite group membership or ownership operation if this was unintended.",
+            side_effect_type=side_effect_type,
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def _preview_group_org_mutation(
+        self,
+        operation: str,
+        method: str,
+        group_id: str,
+        member_oid: str,
+        side_effect_type: str,
+        token_ttl_seconds: int,
+    ) -> dict[str, Any]:
+        safe_group_id = require_path_segment(group_id, "group_id")
+        safe_member_oid = require_oid(member_oid)
+        return self._preview_mutation(
+            operation=operation,
+            oid="-",
+            method=method,
+            path=f"groups/{quote(safe_group_id, safe='')}/orgs",
+            resource_type="group_org_membership",
+            resource_id=f"{safe_group_id}:{safe_member_oid}",
+            params={"oid": safe_member_oid},
+            expected_effect=f"{operation} for org {safe_member_oid} on group {safe_group_id}.",
+            reversibility="Apply the opposite group org membership operation if this was unintended.",
+            side_effect_type=side_effect_type,
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def _extension_definition_id(self, extension_definition: dict[str, Any], extension_name: str | None) -> str:
+        if extension_name is not None:
+            return require_extension_name(extension_name)
+        raw_name = extension_definition.get("name") or extension_definition.get("extension_name") or extension_definition.get("id")
+        if raw_name is None:
+            return "extension_definition"
+        return require_extension_name(str(raw_name))
 
     def _hive_set_params(
         self,

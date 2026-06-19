@@ -78,6 +78,7 @@ class PendingMutation:
     method: str
     path: str
     resource: dict[str, Any]
+    base_url: str | None
     params: dict[str, Any] | None
     data: dict[str, Any] | None
     json_body: Any | None
@@ -302,10 +303,22 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "action": "read",
         "resource_type": "case_collection",
         "required_inputs": ["oid"],
-        "optional_inputs": ["limit"],
-        "bounds": {"limit_min": 1, "limit_max": 200},
+        "optional_inputs": [
+            "status",
+            "severity",
+            "classification",
+            "assignee",
+            "search",
+            "sensor_id",
+            "tags",
+            "sort",
+            "order",
+            "limit",
+            "page_token",
+        ],
+        "bounds": {"limit_min": 1, "limit_max": 200, "order": ["asc", "desc"]},
         "side_effects": "none",
-        "notes": "Cases is a beta LimaCharlie surface; auth or extension errors are possible.",
+        "notes": "Lists one Cases API page with optional filters. Use page_token for pagination.",
     },
     "case.get": {
         "suite": "investigation",
@@ -1697,6 +1710,322 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
     },
 }
 
+OPERATION_CATALOG.update(
+    {
+        "case.create.preview": {
+            "suite": "investigation",
+            "tool": "lc_preview_create_case",
+            "action": "preview",
+            "resource_type": "case",
+            "required_inputs": ["oid"],
+            "optional_inputs": ["detection", "severity", "summary", "token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews ext-cases create_case request. Confirmation creates the case.",
+        },
+        "case.update.preview": {
+            "suite": "investigation",
+            "tool": "lc_preview_update_case",
+            "action": "preview",
+            "resource_type": "case",
+            "required_inputs": ["oid", "case_number"],
+            "optional_inputs": ["status", "severity", "assignees", "classification", "summary", "conclusion", "tags", "token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews PATCH /cases/{case_number} against the Cases API.",
+        },
+        "case.note.add.preview": {
+            "suite": "investigation",
+            "tool": "lc_preview_add_case_note",
+            "action": "preview",
+            "resource_type": "case_note",
+            "required_inputs": ["oid", "case_number", "content"],
+            "optional_inputs": ["note_type", "is_public", "token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews adding an analyst note to a case.",
+        },
+        "case.note.visibility.preview": {
+            "suite": "investigation",
+            "tool": "lc_preview_update_case_note_visibility",
+            "action": "preview",
+            "resource_type": "case_note",
+            "required_inputs": ["oid", "case_number", "event_id", "is_public"],
+            "optional_inputs": ["token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews toggling note stakeholder visibility.",
+        },
+        "case.bulk_update.preview": {
+            "suite": "investigation",
+            "tool": "lc_preview_bulk_update_cases",
+            "action": "preview",
+            "resource_type": "case_collection",
+            "required_inputs": ["oid", "case_numbers"],
+            "optional_inputs": ["status", "severity", "assignees", "classification", "summary", "conclusion", "tags", "token_ttl_seconds"],
+            "bounds": {"case_numbers_max": 200},
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews a Cases bulk-update request.",
+        },
+        "case.merge.preview": {
+            "suite": "investigation",
+            "tool": "lc_preview_merge_cases",
+            "action": "preview",
+            "resource_type": "case_merge",
+            "required_inputs": ["oid", "target_case_number", "source_case_numbers"],
+            "optional_inputs": ["token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews merging source cases into a target case.",
+        },
+        "case.detection.list": {
+            "suite": "investigation",
+            "tool": "lc_list_case_detections",
+            "action": "read",
+            "resource_type": "case_detection_collection",
+            "required_inputs": ["oid", "case_number"],
+            "optional_inputs": [],
+            "side_effects": "none",
+            "notes": "Lists detections linked to a case.",
+        },
+        "case.detection.add.preview": {
+            "suite": "investigation",
+            "tool": "lc_preview_add_case_detection",
+            "action": "preview",
+            "resource_type": "case_detection",
+            "required_inputs": ["oid", "case_number", "detection"],
+            "optional_inputs": ["token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews linking a full LC detection object to a case.",
+        },
+        "case.detection.remove.preview": {
+            "suite": "investigation",
+            "tool": "lc_preview_remove_case_detection",
+            "action": "preview",
+            "resource_type": "case_detection",
+            "required_inputs": ["oid", "case_number", "detection_id"],
+            "optional_inputs": ["token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews removing a detection link from a case.",
+        },
+        "case.entity.list": {
+            "suite": "investigation",
+            "tool": "lc_list_case_entities",
+            "action": "read",
+            "resource_type": "case_entity_collection",
+            "required_inputs": ["oid", "case_number"],
+            "optional_inputs": [],
+            "side_effects": "none",
+            "notes": "Lists entities/IOCs attached to a case.",
+        },
+        "case.entity.search": {
+            "suite": "investigation",
+            "tool": "lc_search_case_entities",
+            "action": "read",
+            "resource_type": "case_entity_collection",
+            "required_inputs": ["oid", "entity_type", "entity_value"],
+            "optional_inputs": [],
+            "side_effects": "none",
+            "notes": "Searches case entities across an org.",
+        },
+        "case.entity.add.preview": {
+            "suite": "investigation",
+            "tool": "lc_preview_add_case_entity",
+            "action": "preview",
+            "resource_type": "case_entity",
+            "required_inputs": ["oid", "case_number", "entity_type", "entity_value"],
+            "optional_inputs": ["note", "verdict", "token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews adding an IOC/entity to a case.",
+        },
+        "case.entity.update.preview": {
+            "suite": "investigation",
+            "tool": "lc_preview_update_case_entity",
+            "action": "preview",
+            "resource_type": "case_entity",
+            "required_inputs": ["oid", "case_number", "entity_id"],
+            "optional_inputs": ["note", "verdict", "token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews updating an entity's note or verdict.",
+        },
+        "case.entity.remove.preview": {
+            "suite": "investigation",
+            "tool": "lc_preview_remove_case_entity",
+            "action": "preview",
+            "resource_type": "case_entity",
+            "required_inputs": ["oid", "case_number", "entity_id"],
+            "optional_inputs": ["token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews removing an entity from a case.",
+        },
+        "case.telemetry.list": {
+            "suite": "investigation",
+            "tool": "lc_list_case_telemetry",
+            "action": "read",
+            "resource_type": "case_telemetry_collection",
+            "required_inputs": ["oid", "case_number"],
+            "optional_inputs": [],
+            "side_effects": "none",
+            "notes": "Lists telemetry references linked to a case.",
+        },
+        "case.telemetry.add.preview": {
+            "suite": "investigation",
+            "tool": "lc_preview_add_case_telemetry",
+            "action": "preview",
+            "resource_type": "case_telemetry",
+            "required_inputs": ["oid", "case_number", "event"],
+            "optional_inputs": ["note", "verdict", "token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews linking a full LC event object to a case.",
+        },
+        "case.telemetry.update.preview": {
+            "suite": "investigation",
+            "tool": "lc_preview_update_case_telemetry",
+            "action": "preview",
+            "resource_type": "case_telemetry",
+            "required_inputs": ["oid", "case_number", "telemetry_id"],
+            "optional_inputs": ["note", "verdict", "token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews updating a telemetry note or verdict.",
+        },
+        "case.telemetry.remove.preview": {
+            "suite": "investigation",
+            "tool": "lc_preview_remove_case_telemetry",
+            "action": "preview",
+            "resource_type": "case_telemetry",
+            "required_inputs": ["oid", "case_number", "telemetry_id"],
+            "optional_inputs": ["token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews removing a telemetry reference from a case.",
+        },
+        "case.artifact.list": {
+            "suite": "investigation",
+            "tool": "lc_list_case_artifacts",
+            "action": "read",
+            "resource_type": "case_artifact_collection",
+            "required_inputs": ["oid", "case_number"],
+            "optional_inputs": [],
+            "side_effects": "none",
+            "notes": "Lists forensic artifact references attached to a case.",
+        },
+        "case.artifact.add.preview": {
+            "suite": "investigation",
+            "tool": "lc_preview_add_case_artifact",
+            "action": "preview",
+            "resource_type": "case_artifact",
+            "required_inputs": ["oid", "case_number", "path", "source"],
+            "optional_inputs": ["artifact_type", "note", "verdict", "token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews adding a forensic artifact reference to a case.",
+        },
+        "case.artifact.remove.preview": {
+            "suite": "investigation",
+            "tool": "lc_preview_remove_case_artifact",
+            "action": "preview",
+            "resource_type": "case_artifact",
+            "required_inputs": ["oid", "case_number", "artifact_id"],
+            "optional_inputs": ["token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews removing a forensic artifact from a case.",
+        },
+        "case.export": {
+            "suite": "investigation",
+            "tool": "lc_export_case",
+            "action": "read",
+            "resource_type": "case_export",
+            "required_inputs": ["oid", "case_number"],
+            "optional_inputs": [],
+            "side_effects": "none",
+            "notes": "Fetches a case plus detections, entities, telemetry, and artifacts.",
+        },
+        "case.report": {
+            "suite": "investigation",
+            "tool": "lc_get_cases_report_summary",
+            "action": "read",
+            "resource_type": "case_report",
+            "required_inputs": ["oid", "time_from", "time_to"],
+            "optional_inputs": ["group_by"],
+            "side_effects": "none",
+            "notes": "Gets SOC report summary metrics from the Cases API.",
+        },
+        "case.dashboard": {
+            "suite": "investigation",
+            "tool": "lc_get_cases_dashboard_counts",
+            "action": "read",
+            "resource_type": "case_dashboard",
+            "required_inputs": ["oid"],
+            "optional_inputs": [],
+            "side_effects": "none",
+            "notes": "Gets real-time case counts by status/severity and SLA breach state.",
+        },
+        "case.config.get": {
+            "suite": "administration",
+            "tool": "lc_get_cases_config",
+            "action": "read",
+            "resource_type": "case_config",
+            "required_inputs": ["oid"],
+            "optional_inputs": [],
+            "side_effects": "none",
+            "notes": "Fetches Cases configuration for an org.",
+        },
+        "case.config.set.preview": {
+            "suite": "administration",
+            "tool": "lc_preview_set_cases_config",
+            "action": "preview",
+            "resource_type": "case_config",
+            "required_inputs": ["oid", "config"],
+            "optional_inputs": ["token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews replacing Cases configuration for an org.",
+        },
+        "case.assignees.list": {
+            "suite": "investigation",
+            "tool": "lc_list_case_assignees",
+            "action": "read",
+            "resource_type": "case_assignee_collection",
+            "required_inputs": ["oid"],
+            "optional_inputs": [],
+            "side_effects": "none",
+            "notes": "Lists unique assignees across cases in an org.",
+        },
+        "case.org.list": {
+            "suite": "administration",
+            "tool": "lc_list_case_orgs",
+            "action": "read",
+            "resource_type": "case_org_collection",
+            "required_inputs": [],
+            "optional_inputs": [],
+            "side_effects": "none",
+            "notes": "Lists orgs subscribed to ext-cases that the caller can access.",
+        },
+        "case.tag.set.preview": {
+            "suite": "investigation",
+            "tool": "lc_preview_set_case_tags",
+            "action": "preview",
+            "resource_type": "case_tag_collection",
+            "required_inputs": ["oid", "case_number", "tags"],
+            "optional_inputs": ["token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews replacing all tags on a case.",
+        },
+        "case.tag.add.preview": {
+            "suite": "investigation",
+            "tool": "lc_preview_add_case_tags",
+            "action": "preview",
+            "resource_type": "case_tag_collection",
+            "required_inputs": ["oid", "case_number", "tags"],
+            "optional_inputs": ["token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Reads current tags, then previews the exact replacement tag list.",
+        },
+        "case.tag.remove.preview": {
+            "suite": "investigation",
+            "tool": "lc_preview_remove_case_tags",
+            "action": "preview",
+            "resource_type": "case_tag_collection",
+            "required_inputs": ["oid", "case_number", "tags"],
+            "optional_inputs": ["token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Reads current tags, then previews the exact replacement tag list.",
+        },
+    }
+)
+
 
 _SAFE_DETECT_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,160}$")
 _SAFE_CASE_NUMBER = re.compile(r"^[0-9]{1,20}$")
@@ -1716,6 +2045,13 @@ _VULN_RESOLUTIONS = {"mitigated", "accepted", "false_positive"}
 _VULN_SCOPES = {"org", "host"}
 _VULN_SEVERITIES = {"critical", "high", "medium", "low"}
 _ORG_USER_ROLES = {"Owner", "Administrator", "Operator", "Viewer", "Basic"}
+_CASE_STATUSES = {"new", "in_progress", "resolved", "closed"}
+_CASE_SEVERITIES = {"critical", "high", "medium", "low", "info"}
+_CASE_CLASSIFICATIONS = {"pending", "true_positive", "false_positive"}
+_CASE_NOTE_TYPES = {"general", "analysis", "remediation", "escalation", "handoff", "to_stakeholder", "from_stakeholder"}
+_CASE_ENTITY_TYPES = {"ip", "domain", "hash", "url", "user", "email", "file", "process", "registry", "other"}
+_CASE_VERDICTS = {"malicious", "suspicious", "benign", "unknown", "informational"}
+_CASE_ORDERS = {"asc", "desc"}
 _EMAIL_RE = re.compile(r"^[^@\s\x00]{1,254}@[^@\s\x00]{1,253}\.[^@\s\x00]{1,63}$")
 _SENSOR_DOWNLOAD_TARGETS: dict[tuple[str, str], str] = {
     ("windows", "64"): "sensor/windows/64",
@@ -1827,10 +2163,33 @@ def require_detect_id(detect_id: str) -> str:
     return detect_id
 
 
-def require_case_number(case_number: str) -> str:
-    if not isinstance(case_number, str) or not _SAFE_CASE_NUMBER.match(case_number):
+def require_case_number(case_number: str | int) -> str:
+    if isinstance(case_number, bool):
         raise ValidationError("case_number must be a numeric case number")
-    return case_number
+    value = str(case_number)
+    if not _SAFE_CASE_NUMBER.match(value):
+        raise ValidationError("case_number must be a numeric case number")
+    return value
+
+
+def require_case_number_int(case_number: str | int) -> int:
+    value = int(require_case_number(case_number))
+    if value < 1:
+        raise ValidationError("case_number must be greater than zero")
+    return value
+
+
+def require_case_numbers(case_numbers: list[str | int] | str, *, maximum: int = 200) -> list[int]:
+    if isinstance(case_numbers, str):
+        raw_values: list[str | int] = [value.strip() for value in case_numbers.split(",") if value.strip()]
+    else:
+        raw_values = case_numbers
+    if not isinstance(raw_values, list) or not raw_values or len(raw_values) > maximum:
+        raise ValidationError(f"case_numbers must contain between 1 and {maximum} case numbers")
+    checked = [require_case_number_int(value) for value in raw_values]
+    if len(set(checked)) != len(checked):
+        raise ValidationError("case_numbers must not contain duplicates")
+    return checked
 
 
 def require_permission(permission: str) -> str:
@@ -1855,6 +2214,66 @@ def require_token(value: str, name: str) -> str:
     if not isinstance(value, str) or not _SAFE_TOKEN.match(value):
         raise ValidationError(f"{name} contains unsupported characters")
     return value
+
+
+def require_case_text(value: str | None, name: str, *, maximum: int = 8192, required: bool = False) -> str | None:
+    if value is None:
+        if required:
+            raise ValidationError(f"{name} is required")
+        return None
+    if not isinstance(value, str) or "\x00" in value:
+        raise ValidationError(f"{name} must be a string without NUL bytes")
+    stripped = value.strip()
+    if required and not stripped:
+        raise ValidationError(f"{name} must be non-empty")
+    if len(value) > maximum:
+        raise ValidationError(f"{name} must be {maximum} characters or less")
+    return value
+
+
+def require_case_choice(value: str | None, name: str, choices: set[str]) -> str | None:
+    if value is None:
+        return None
+    checked = str(value).lower()
+    if checked not in choices:
+        raise ValidationError(f"{name} must be one of: {', '.join(sorted(choices))}")
+    return checked
+
+
+def require_case_choice_list(values: list[str] | str | None, name: str, choices: set[str], *, maximum: int = 20) -> list[str] | None:
+    if values is None:
+        return None
+    raw_values = [value.strip() for value in values.split(",") if value.strip()] if isinstance(values, str) else values
+    if not isinstance(raw_values, list) or not raw_values or len(raw_values) > maximum:
+        raise ValidationError(f"{name} must be a non-empty list with at most {maximum} entries")
+    checked = [require_case_choice(str(value), name, choices) for value in raw_values]
+    return [value for value in checked if value is not None]
+
+
+def require_case_tag_list(values: list[str] | str | None, name: str = "tags", *, maximum: int = 50) -> list[str] | None:
+    raw_values = require_string_list(values, name, maximum=maximum)
+    if raw_values is None:
+        return None
+    checked: list[str] = []
+    seen: set[str] = set()
+    for value in raw_values:
+        tag = value.strip()
+        if not tag:
+            raise ValidationError(f"{name} entries must be non-empty")
+        if len(tag) > 120:
+            raise ValidationError(f"{name} entries must be 120 characters or less")
+        key = tag.lower()
+        if key not in seen:
+            checked.append(tag)
+            seen.add(key)
+    return checked
+
+
+def require_case_email_list(values: list[str] | str | None, name: str = "assignees", *, maximum: int = 50) -> list[str] | None:
+    raw_values = require_string_list(values, name, maximum=maximum)
+    if raw_values is None:
+        return None
+    return [require_email(value) for value in raw_values]
 
 
 def require_email(value: str) -> str:
@@ -2686,21 +3105,135 @@ class LimaCharlieAPI:
             resource={"type": "detection", "id": safe_detect_id, "parent": {"type": "organization", "id": scoped_oid}},
         ).as_dict()
 
-    def list_cases(self, oid: str, limit: int = 100) -> dict[str, Any]:
+    def _case_resource(self, oid: str, case_number: str | int, resource_type: str = "case") -> dict[str, Any]:
+        return {"type": resource_type, "id": require_case_number(case_number), "parent": {"type": "organization", "id": oid}}
+
+    def _case_update_body(
+        self,
+        *,
+        status: str | None = None,
+        severity: str | None = None,
+        assignees: list[str] | str | None = None,
+        classification: str | None = None,
+        summary: str | None = None,
+        conclusion: str | None = None,
+        tags: list[str] | str | None = None,
+        require_non_empty: bool = True,
+    ) -> dict[str, Any]:
+        body: dict[str, Any] = {}
+        checked_status = require_case_choice(status, "status", _CASE_STATUSES)
+        if checked_status is not None:
+            body["status"] = checked_status
+        checked_severity = require_case_choice(severity, "severity", _CASE_SEVERITIES)
+        if checked_severity is not None:
+            body["severity"] = checked_severity
+        checked_assignees = require_case_email_list(assignees)
+        if checked_assignees is not None:
+            body["assignees"] = checked_assignees
+        checked_classification = require_case_choice(classification, "classification", _CASE_CLASSIFICATIONS)
+        if checked_classification is not None:
+            body["classification"] = checked_classification
+        checked_summary = require_case_text(summary, "summary")
+        if checked_summary is not None:
+            body["summary"] = checked_summary
+        checked_conclusion = require_case_text(conclusion, "conclusion")
+        if checked_conclusion is not None:
+            body["conclusion"] = checked_conclusion
+        checked_tags = require_case_tag_list(tags)
+        if checked_tags is not None:
+            body["tags"] = checked_tags
+        if require_non_empty and not body:
+            raise ValidationError("at least one case update field is required")
+        return body
+
+    def _preview_case_api_mutation(
+        self,
+        *,
+        operation: str,
+        oid: str,
+        method: str,
+        path: str,
+        resource_type: str,
+        resource_id: str,
+        params: dict[str, Any] | None = None,
+        json_body: Any | None = None,
+        expected_effect: str,
+        reversibility: str,
+        side_effect_type: str,
+        token_ttl_seconds: int,
+    ) -> dict[str, Any]:
+        token_ttl = require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900)
+        return self._create_mutation_preview(
+            operation=operation,
+            oid=oid,
+            method=method,
+            path=f"api/v1/{path.lstrip('/')}",
+            resource={"type": resource_type, "id": resource_id, "parent": {"type": "organization", "id": oid}},
+            params=params,
+            data=None,
+            json_body=json_body,
+            expected_effect=expected_effect,
+            reversibility=reversibility,
+            side_effects=[{"type": side_effect_type, "resource": {"type": resource_type, "id": resource_id}}],
+            token_ttl_seconds=token_ttl,
+            base_url=self.cases_root,
+        )
+
+    def list_cases(
+        self,
+        oid: str,
+        status: list[str] | str | None = None,
+        severity: list[str] | str | None = None,
+        classification: list[str] | str | None = None,
+        assignee: str | None = None,
+        search: str | None = None,
+        sensor_id: str | None = None,
+        tags: list[str] | str | None = None,
+        sort: str | None = None,
+        order: str | None = None,
+        limit: int = 100,
+        page_token: str | None = None,
+    ) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         bounded_limit = require_limit(limit, maximum=200)
+        params: dict[str, Any] = {"oids": scoped_oid, "page_size": bounded_limit}
+        checked_status = require_case_choice_list(status, "status", _CASE_STATUSES)
+        if checked_status:
+            params["status"] = ",".join(checked_status)
+        checked_severity = require_case_choice_list(severity, "severity", _CASE_SEVERITIES)
+        if checked_severity:
+            params["severity"] = ",".join(checked_severity)
+        checked_classification = require_case_choice_list(classification, "classification", _CASE_CLASSIFICATIONS)
+        if checked_classification:
+            params["classification"] = ",".join(checked_classification)
+        if assignee:
+            params["assignee"] = require_email(assignee)
+        checked_search = require_case_text(search, "search", maximum=500)
+        if checked_search:
+            params["search"] = checked_search
+        if sensor_id:
+            params["sid"] = require_oid(sensor_id)
+        checked_tags = require_case_tag_list(tags, "tags")
+        if checked_tags:
+            params["tag"] = ",".join(checked_tags)
+        if sort:
+            params["sort"] = require_token(sort, "sort")
+        if order:
+            params["order"] = require_case_choice(order, "order", _CASE_ORDERS)
+        if page_token:
+            params["page_token"] = require_token(page_token, "page_token")
         return self._request(
             "GET",
             "api/v1/cases",
             operation="case.list",
             oid=scoped_oid,
             resource={"type": "case_collection", "id": scoped_oid},
-            params={"oids": scoped_oid, "page_size": bounded_limit},
+            params=params,
             limit=bounded_limit,
             base_url=self.cases_root,
         ).as_dict()
 
-    def get_case(self, oid: str, case_number: str) -> dict[str, Any]:
+    def get_case(self, oid: str, case_number: str | int) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         safe_case_number = require_case_number(case_number)
         return self._request(
@@ -2708,10 +3241,811 @@ class LimaCharlieAPI:
             f"api/v1/cases/{safe_case_number}",
             operation="case.get",
             oid=scoped_oid,
-            resource={"type": "case", "id": safe_case_number, "parent": {"type": "organization", "id": scoped_oid}},
+            resource=self._case_resource(scoped_oid, safe_case_number),
             params={"oid": scoped_oid},
             base_url=self.cases_root,
         ).as_dict()
+
+    def preview_create_case(
+        self,
+        oid: str,
+        detection: dict[str, Any] | None = None,
+        severity: str | None = None,
+        summary: str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        data: dict[str, Any] = {}
+        checked_detection = require_dict(detection, "detection")
+        if checked_detection is not None:
+            data["detection"] = checked_detection
+        checked_severity = require_case_choice(severity, "severity", _CASE_SEVERITIES)
+        if checked_severity is not None:
+            data["severity"] = checked_severity
+        checked_summary = require_case_text(summary, "summary")
+        if checked_summary is not None:
+            data["summary"] = checked_summary
+        token_ttl = require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900)
+        return self._create_mutation_preview(
+            operation="case.create",
+            oid=scoped_oid,
+            method="POST",
+            path="extension/request/ext-cases",
+            resource={"type": "case", "id": "new", "parent": {"type": "organization", "id": scoped_oid}},
+            params=extension_request_params(scoped_oid, "create_case", data),
+            data=None,
+            json_body=None,
+            expected_effect="Create a new LimaCharlie case through ext-cases.",
+            reversibility="Close or merge the case if it was created unintentionally.",
+            side_effects=[{"type": "case_created", "resource": {"type": "case", "id": "new"}}],
+            token_ttl_seconds=token_ttl,
+        )
+
+    def preview_update_case(
+        self,
+        oid: str,
+        case_number: str | int,
+        status: str | None = None,
+        severity: str | None = None,
+        assignees: list[str] | str | None = None,
+        classification: str | None = None,
+        summary: str | None = None,
+        conclusion: str | None = None,
+        tags: list[str] | str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_case_number = require_case_number(case_number)
+        body = self._case_update_body(
+            status=status,
+            severity=severity,
+            assignees=assignees,
+            classification=classification,
+            summary=summary,
+            conclusion=conclusion,
+            tags=tags,
+        )
+        return self._preview_case_api_mutation(
+            operation="case.update",
+            oid=scoped_oid,
+            method="PATCH",
+            path=f"cases/{safe_case_number}",
+            resource_type="case",
+            resource_id=safe_case_number,
+            params={"oid": scoped_oid},
+            json_body=body,
+            expected_effect=f"Update case {safe_case_number}.",
+            reversibility="Apply another case update to restore the previous values if needed.",
+            side_effect_type="case_updated",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_add_case_note(
+        self,
+        oid: str,
+        case_number: str | int,
+        content: str,
+        note_type: str | None = None,
+        is_public: bool | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_case_number = require_case_number(case_number)
+        body: dict[str, Any] = {"content": require_case_text(content, "content", required=True)}
+        checked_note_type = require_case_choice(note_type, "note_type", _CASE_NOTE_TYPES)
+        if checked_note_type is not None:
+            body["note_type"] = checked_note_type
+        if is_public is not None:
+            body["is_public"] = require_bool_or_none(is_public, "is_public")
+        return self._preview_case_api_mutation(
+            operation="case.note.add",
+            oid=scoped_oid,
+            method="POST",
+            path=f"cases/{safe_case_number}/notes",
+            resource_type="case_note",
+            resource_id=safe_case_number,
+            params={"oid": scoped_oid},
+            json_body=body,
+            expected_effect=f"Add a note to case {safe_case_number}.",
+            reversibility="Delete or update the note visibility through the Cases UI/API if it was unintended.",
+            side_effect_type="case_note_added",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_update_case_note_visibility(
+        self,
+        oid: str,
+        case_number: str | int,
+        event_id: str,
+        is_public: bool,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_case_number = require_case_number(case_number)
+        safe_event_id = require_path_segment(event_id, "event_id")
+        return self._preview_case_api_mutation(
+            operation="case.note.visibility",
+            oid=scoped_oid,
+            method="PATCH",
+            path=f"cases/{safe_case_number}/notes/{quote(safe_event_id, safe='')}",
+            resource_type="case_note",
+            resource_id=safe_event_id,
+            params={"oid": scoped_oid},
+            json_body={"is_public": require_bool_or_none(is_public, "is_public")},
+            expected_effect=f"Set public visibility on note {safe_event_id} for case {safe_case_number}.",
+            reversibility="Run the same preview with the opposite is_public value.",
+            side_effect_type="case_note_visibility_updated",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_bulk_update_cases(
+        self,
+        oid: str,
+        case_numbers: list[str | int] | str,
+        status: str | None = None,
+        severity: str | None = None,
+        assignees: list[str] | str | None = None,
+        classification: str | None = None,
+        summary: str | None = None,
+        conclusion: str | None = None,
+        tags: list[str] | str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        checked_case_numbers = require_case_numbers(case_numbers)
+        update = self._case_update_body(
+            status=status,
+            severity=severity,
+            assignees=assignees,
+            classification=classification,
+            summary=summary,
+            conclusion=conclusion,
+            tags=tags,
+        )
+        return self._preview_case_api_mutation(
+            operation="case.bulk_update",
+            oid=scoped_oid,
+            method="POST",
+            path="cases/bulk-update",
+            resource_type="case_collection",
+            resource_id=scoped_oid,
+            json_body={"oid": scoped_oid, "case_numbers": checked_case_numbers, "update": update},
+            expected_effect=f"Bulk update {len(checked_case_numbers)} cases.",
+            reversibility="Bulk apply another update with prior values if needed.",
+            side_effect_type="case_collection_updated",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_merge_cases(
+        self,
+        oid: str,
+        target_case_number: str | int,
+        source_case_numbers: list[str | int] | str,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        target = require_case_number_int(target_case_number)
+        sources = require_case_numbers(source_case_numbers)
+        if target in sources:
+            raise ValidationError("target_case_number must not also be in source_case_numbers")
+        return self._preview_case_api_mutation(
+            operation="case.merge",
+            oid=scoped_oid,
+            method="POST",
+            path="cases/merge",
+            resource_type="case_merge",
+            resource_id=str(target),
+            json_body={"oid": scoped_oid, "target_case_number": target, "source_case_numbers": sources},
+            expected_effect=f"Merge {len(sources)} source cases into case {target}.",
+            reversibility="Case merge is not generally reversible; export source cases first if preservation is needed.",
+            side_effect_type="cases_merged",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def list_case_detections(self, oid: str, case_number: str | int) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_case_number = require_case_number(case_number)
+        return self._request(
+            "GET",
+            f"api/v1/cases/{safe_case_number}/detections",
+            operation="case.detection.list",
+            oid=scoped_oid,
+            resource=self._case_resource(scoped_oid, safe_case_number, "case_detection_collection"),
+            params={"oid": scoped_oid},
+            base_url=self.cases_root,
+        ).as_dict()
+
+    def preview_add_case_detection(
+        self,
+        oid: str,
+        case_number: str | int,
+        detection: dict[str, Any],
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_case_number = require_case_number(case_number)
+        checked_detection = require_dict(detection, "detection")
+        if checked_detection is None:
+            raise ValidationError("detection is required")
+        return self._preview_case_api_mutation(
+            operation="case.detection.add",
+            oid=scoped_oid,
+            method="POST",
+            path=f"cases/{safe_case_number}/detections",
+            resource_type="case_detection",
+            resource_id=safe_case_number,
+            params={"oid": scoped_oid},
+            json_body={"detection": checked_detection},
+            expected_effect=f"Link a detection to case {safe_case_number}.",
+            reversibility="Remove the detection link from the case if it was unintended.",
+            side_effect_type="case_detection_added",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_remove_case_detection(
+        self,
+        oid: str,
+        case_number: str | int,
+        detection_id: str,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_case_number = require_case_number(case_number)
+        safe_detection_id = require_detect_id(detection_id)
+        return self._preview_case_api_mutation(
+            operation="case.detection.remove",
+            oid=scoped_oid,
+            method="DELETE",
+            path=f"cases/{safe_case_number}/detections/{quote(safe_detection_id, safe='')}",
+            resource_type="case_detection",
+            resource_id=safe_detection_id,
+            params={"oid": scoped_oid},
+            expected_effect=f"Remove detection {safe_detection_id} from case {safe_case_number}.",
+            reversibility="Add the detection to the case again if removal was unintended.",
+            side_effect_type="case_detection_removed",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def list_case_entities(self, oid: str, case_number: str | int) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_case_number = require_case_number(case_number)
+        return self._request(
+            "GET",
+            f"api/v1/cases/{safe_case_number}/entities",
+            operation="case.entity.list",
+            oid=scoped_oid,
+            resource=self._case_resource(scoped_oid, safe_case_number, "case_entity_collection"),
+            params={"oid": scoped_oid},
+            base_url=self.cases_root,
+        ).as_dict()
+
+    def search_case_entities(self, oid: str, entity_type: str, entity_value: str) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        checked_entity_type = require_case_choice(entity_type, "entity_type", _CASE_ENTITY_TYPES)
+        checked_entity_value = require_case_text(entity_value, "entity_value", maximum=1024, required=True)
+        return self._request(
+            "GET",
+            "api/v1/entities/search",
+            operation="case.entity.search",
+            oid=scoped_oid,
+            resource={"type": "case_entity_collection", "id": scoped_oid},
+            params={"oids": scoped_oid, "entity_type": checked_entity_type, "entity_value": checked_entity_value},
+            base_url=self.cases_root,
+        ).as_dict()
+
+    def preview_add_case_entity(
+        self,
+        oid: str,
+        case_number: str | int,
+        entity_type: str,
+        entity_value: str,
+        note: str | None = None,
+        verdict: str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_case_number = require_case_number(case_number)
+        body: dict[str, Any] = {
+            "entity_type": require_case_choice(entity_type, "entity_type", _CASE_ENTITY_TYPES),
+            "entity_value": require_case_text(entity_value, "entity_value", maximum=1024, required=True),
+        }
+        checked_note = require_case_text(note, "note", maximum=2048)
+        if checked_note is not None:
+            body["note"] = checked_note
+        checked_verdict = require_case_choice(verdict, "verdict", _CASE_VERDICTS)
+        if checked_verdict is not None:
+            body["verdict"] = checked_verdict
+        return self._preview_case_api_mutation(
+            operation="case.entity.add",
+            oid=scoped_oid,
+            method="POST",
+            path=f"cases/{safe_case_number}/entities",
+            resource_type="case_entity",
+            resource_id=safe_case_number,
+            params={"oid": scoped_oid},
+            json_body=body,
+            expected_effect=f"Add an entity to case {safe_case_number}.",
+            reversibility="Remove the entity from the case if it was unintended.",
+            side_effect_type="case_entity_added",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_update_case_entity(
+        self,
+        oid: str,
+        case_number: str | int,
+        entity_id: str,
+        note: str | None = None,
+        verdict: str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_case_number = require_case_number(case_number)
+        safe_entity_id = require_path_segment(entity_id, "entity_id")
+        body: dict[str, Any] = {}
+        checked_note = require_case_text(note, "note", maximum=2048)
+        if checked_note is not None:
+            body["note"] = checked_note
+        checked_verdict = require_case_choice(verdict, "verdict", _CASE_VERDICTS)
+        if checked_verdict is not None:
+            body["verdict"] = checked_verdict
+        if not body:
+            raise ValidationError("note or verdict is required")
+        return self._preview_case_api_mutation(
+            operation="case.entity.update",
+            oid=scoped_oid,
+            method="PATCH",
+            path=f"cases/{safe_case_number}/entities/{quote(safe_entity_id, safe='')}",
+            resource_type="case_entity",
+            resource_id=safe_entity_id,
+            params={"oid": scoped_oid},
+            json_body=body,
+            expected_effect=f"Update entity {safe_entity_id} on case {safe_case_number}.",
+            reversibility="Apply another entity update with prior note/verdict if needed.",
+            side_effect_type="case_entity_updated",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_remove_case_entity(
+        self,
+        oid: str,
+        case_number: str | int,
+        entity_id: str,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_case_number = require_case_number(case_number)
+        safe_entity_id = require_path_segment(entity_id, "entity_id")
+        return self._preview_case_api_mutation(
+            operation="case.entity.remove",
+            oid=scoped_oid,
+            method="DELETE",
+            path=f"cases/{safe_case_number}/entities/{quote(safe_entity_id, safe='')}",
+            resource_type="case_entity",
+            resource_id=safe_entity_id,
+            params={"oid": scoped_oid},
+            expected_effect=f"Remove entity {safe_entity_id} from case {safe_case_number}.",
+            reversibility="Add the entity to the case again if removal was unintended.",
+            side_effect_type="case_entity_removed",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def list_case_telemetry(self, oid: str, case_number: str | int) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_case_number = require_case_number(case_number)
+        return self._request(
+            "GET",
+            f"api/v1/cases/{safe_case_number}/telemetry",
+            operation="case.telemetry.list",
+            oid=scoped_oid,
+            resource=self._case_resource(scoped_oid, safe_case_number, "case_telemetry_collection"),
+            params={"oid": scoped_oid},
+            base_url=self.cases_root,
+        ).as_dict()
+
+    def preview_add_case_telemetry(
+        self,
+        oid: str,
+        case_number: str | int,
+        event: dict[str, Any],
+        note: str | None = None,
+        verdict: str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_case_number = require_case_number(case_number)
+        checked_event = require_dict(event, "event")
+        if checked_event is None:
+            raise ValidationError("event is required")
+        body: dict[str, Any] = {"event": checked_event}
+        checked_note = require_case_text(note, "note", maximum=2048)
+        if checked_note is not None:
+            body["note"] = checked_note
+        checked_verdict = require_case_choice(verdict, "verdict", _CASE_VERDICTS)
+        if checked_verdict is not None:
+            body["verdict"] = checked_verdict
+        return self._preview_case_api_mutation(
+            operation="case.telemetry.add",
+            oid=scoped_oid,
+            method="POST",
+            path=f"cases/{safe_case_number}/telemetry",
+            resource_type="case_telemetry",
+            resource_id=safe_case_number,
+            params={"oid": scoped_oid},
+            json_body=body,
+            expected_effect=f"Add telemetry to case {safe_case_number}.",
+            reversibility="Remove the telemetry reference if it was unintended.",
+            side_effect_type="case_telemetry_added",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_update_case_telemetry(
+        self,
+        oid: str,
+        case_number: str | int,
+        telemetry_id: str,
+        note: str | None = None,
+        verdict: str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_case_number = require_case_number(case_number)
+        safe_telemetry_id = require_path_segment(telemetry_id, "telemetry_id")
+        body: dict[str, Any] = {}
+        checked_note = require_case_text(note, "note", maximum=2048)
+        if checked_note is not None:
+            body["note"] = checked_note
+        checked_verdict = require_case_choice(verdict, "verdict", _CASE_VERDICTS)
+        if checked_verdict is not None:
+            body["verdict"] = checked_verdict
+        if not body:
+            raise ValidationError("note or verdict is required")
+        return self._preview_case_api_mutation(
+            operation="case.telemetry.update",
+            oid=scoped_oid,
+            method="PATCH",
+            path=f"cases/{safe_case_number}/telemetry/{quote(safe_telemetry_id, safe='')}",
+            resource_type="case_telemetry",
+            resource_id=safe_telemetry_id,
+            params={"oid": scoped_oid},
+            json_body=body,
+            expected_effect=f"Update telemetry {safe_telemetry_id} on case {safe_case_number}.",
+            reversibility="Apply another telemetry update with prior note/verdict if needed.",
+            side_effect_type="case_telemetry_updated",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_remove_case_telemetry(
+        self,
+        oid: str,
+        case_number: str | int,
+        telemetry_id: str,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_case_number = require_case_number(case_number)
+        safe_telemetry_id = require_path_segment(telemetry_id, "telemetry_id")
+        return self._preview_case_api_mutation(
+            operation="case.telemetry.remove",
+            oid=scoped_oid,
+            method="DELETE",
+            path=f"cases/{safe_case_number}/telemetry/{quote(safe_telemetry_id, safe='')}",
+            resource_type="case_telemetry",
+            resource_id=safe_telemetry_id,
+            params={"oid": scoped_oid},
+            expected_effect=f"Remove telemetry {safe_telemetry_id} from case {safe_case_number}.",
+            reversibility="Add the telemetry reference again if removal was unintended.",
+            side_effect_type="case_telemetry_removed",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def list_case_artifacts(self, oid: str, case_number: str | int) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_case_number = require_case_number(case_number)
+        return self._request(
+            "GET",
+            f"api/v1/cases/{safe_case_number}/artifacts",
+            operation="case.artifact.list",
+            oid=scoped_oid,
+            resource=self._case_resource(scoped_oid, safe_case_number, "case_artifact_collection"),
+            params={"oid": scoped_oid},
+            base_url=self.cases_root,
+        ).as_dict()
+
+    def preview_add_case_artifact(
+        self,
+        oid: str,
+        case_number: str | int,
+        path: str,
+        source: str,
+        artifact_type: str | None = None,
+        note: str | None = None,
+        verdict: str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_case_number = require_case_number(case_number)
+        body: dict[str, Any] = {
+            "path": require_case_text(path, "path", maximum=2048, required=True),
+            "source": require_case_text(source, "source", maximum=1024, required=True),
+        }
+        if artifact_type is not None:
+            body["artifact_type"] = require_token(artifact_type, "artifact_type")
+        checked_note = require_case_text(note, "note", maximum=2048)
+        if checked_note is not None:
+            body["note"] = checked_note
+        checked_verdict = require_case_choice(verdict, "verdict", _CASE_VERDICTS)
+        if checked_verdict is not None:
+            body["verdict"] = checked_verdict
+        return self._preview_case_api_mutation(
+            operation="case.artifact.add",
+            oid=scoped_oid,
+            method="POST",
+            path=f"cases/{safe_case_number}/artifacts",
+            resource_type="case_artifact",
+            resource_id=safe_case_number,
+            params={"oid": scoped_oid},
+            json_body=body,
+            expected_effect=f"Add an artifact reference to case {safe_case_number}.",
+            reversibility="Remove the artifact reference if it was unintended.",
+            side_effect_type="case_artifact_added",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_remove_case_artifact(
+        self,
+        oid: str,
+        case_number: str | int,
+        artifact_id: str,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_case_number = require_case_number(case_number)
+        safe_artifact_id = require_path_segment(artifact_id, "artifact_id")
+        return self._preview_case_api_mutation(
+            operation="case.artifact.remove",
+            oid=scoped_oid,
+            method="DELETE",
+            path=f"cases/{safe_case_number}/artifacts/{quote(safe_artifact_id, safe='')}",
+            resource_type="case_artifact",
+            resource_id=safe_artifact_id,
+            params={"oid": scoped_oid},
+            expected_effect=f"Remove artifact {safe_artifact_id} from case {safe_case_number}.",
+            reversibility="Add the artifact reference again if removal was unintended.",
+            side_effect_type="case_artifact_removed",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def export_case(self, oid: str, case_number: str | int) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_case_number = require_case_number(case_number)
+        resource = self._case_resource(scoped_oid, safe_case_number, "case_export")
+        components: dict[str, Any] = {}
+        requests = [
+            ("case", self.get_case),
+            ("detections", self.list_case_detections),
+            ("entities", self.list_case_entities),
+            ("telemetry", self.list_case_telemetry),
+            ("artifacts", self.list_case_artifacts),
+        ]
+        for name, fn in requests:
+            result = fn(scoped_oid, safe_case_number)
+            if not result.get("ok"):
+                return ToolResponse(
+                    ok=False,
+                    operation="case.export",
+                    request_id=f"req_{uuid.uuid4().hex}",
+                    resource=resource,
+                    state={"current": "partial"},
+                    data={"components": components, "failed_component": name, "failure": result.get("data")},
+                    side_effects=[],
+                    warnings=[],
+                    meta={"summary": {"shape": "object", "failed_component": name}, "truncated": False},
+                    observed_at=observed_at(),
+                    error=result.get("error") or classify_error(None, None, f"case export failed while fetching {name}"),
+                ).as_dict()
+            components[name] = result.get("data")
+        return ToolResponse(
+            ok=True,
+            operation="case.export",
+            request_id=f"req_{uuid.uuid4().hex}",
+            resource=resource,
+            state={},
+            data=components,
+            side_effects=[],
+            warnings=[],
+            meta={"summary": {"shape": "object", "components": len(components)}, "truncated": False},
+            observed_at=observed_at(),
+        ).as_dict()
+
+    def get_cases_report_summary(self, oid: str, time_from: str, time_to: str, group_by: str | None = None) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        params: dict[str, Any] = {
+            "oids": scoped_oid,
+            "from": require_case_text(time_from, "time_from", maximum=100, required=True),
+            "to": require_case_text(time_to, "time_to", maximum=100, required=True),
+        }
+        if group_by:
+            params["group_by"] = require_token(group_by, "group_by")
+        return self._request(
+            "GET",
+            "api/v1/reports/summary",
+            operation="case.report",
+            oid=scoped_oid,
+            resource={"type": "case_report", "id": scoped_oid},
+            params=params,
+            base_url=self.cases_root,
+        ).as_dict()
+
+    def get_cases_dashboard_counts(self, oid: str) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        return self._request(
+            "GET",
+            "api/v1/dashboard/counts",
+            operation="case.dashboard",
+            oid=scoped_oid,
+            resource={"type": "case_dashboard", "id": scoped_oid},
+            params={"oids": scoped_oid},
+            base_url=self.cases_root,
+        ).as_dict()
+
+    def get_cases_config(self, oid: str) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        return self._request(
+            "GET",
+            f"api/v1/config/{scoped_oid}",
+            operation="case.config.get",
+            oid=scoped_oid,
+            resource={"type": "case_config", "id": scoped_oid},
+            base_url=self.cases_root,
+        ).as_dict()
+
+    def preview_set_cases_config(self, oid: str, config: dict[str, Any], token_ttl_seconds: int = 300) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        checked_config = require_dict(config, "config")
+        if checked_config is None:
+            raise ValidationError("config is required")
+        return self._preview_case_api_mutation(
+            operation="case.config.set",
+            oid=scoped_oid,
+            method="PUT",
+            path=f"config/{scoped_oid}",
+            resource_type="case_config",
+            resource_id=scoped_oid,
+            json_body=checked_config,
+            expected_effect="Replace Cases configuration for the org.",
+            reversibility="Restore the previous Cases configuration from a known-good export.",
+            side_effect_type="case_config_updated",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def list_case_assignees(self, oid: str) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        return self._request(
+            "GET",
+            "api/v1/assignees",
+            operation="case.assignees.list",
+            oid=scoped_oid,
+            resource={"type": "case_assignee_collection", "id": scoped_oid},
+            params={"oids": scoped_oid},
+            base_url=self.cases_root,
+        ).as_dict()
+
+    def list_case_orgs(self) -> dict[str, Any]:
+        return self._request(
+            "GET",
+            "api/v1/orgs",
+            operation="case.org.list",
+            oid="-",
+            resource={"type": "case_org_collection", "id": "-"},
+            base_url=self.cases_root,
+        ).as_dict()
+
+    def preview_set_case_tags(
+        self,
+        oid: str,
+        case_number: str | int,
+        tags: list[str] | str,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_case_number = require_case_number(case_number)
+        checked_tags = require_case_tag_list(tags)
+        if checked_tags is None:
+            raise ValidationError("tags are required")
+        return self._preview_case_api_mutation(
+            operation="case.tag.set",
+            oid=scoped_oid,
+            method="PATCH",
+            path=f"cases/{safe_case_number}",
+            resource_type="case_tag_collection",
+            resource_id=safe_case_number,
+            params={"oid": scoped_oid},
+            json_body={"tags": checked_tags},
+            expected_effect=f"Replace all tags on case {safe_case_number}.",
+            reversibility="Run another tag set preview with the prior complete tag list.",
+            side_effect_type="case_tags_set",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_add_case_tags(
+        self,
+        oid: str,
+        case_number: str | int,
+        tags: list[str] | str,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_case_number = require_case_number(case_number)
+        requested_tags = require_case_tag_list(tags)
+        if requested_tags is None:
+            raise ValidationError("tags are required")
+        current = self.get_case(scoped_oid, safe_case_number)
+        if not current.get("ok"):
+            current["operation"] = "case.tag.add.preview"
+            return current
+        existing = self._case_tags_from_data(current.get("data"))
+        seen = {tag.lower(): tag for tag in existing}
+        for tag in requested_tags:
+            seen.setdefault(tag.lower(), tag)
+        merged = list(seen.values())
+        return self._preview_case_api_mutation(
+            operation="case.tag.add",
+            oid=scoped_oid,
+            method="PATCH",
+            path=f"cases/{safe_case_number}",
+            resource_type="case_tag_collection",
+            resource_id=safe_case_number,
+            params={"oid": scoped_oid},
+            json_body={"tags": merged},
+            expected_effect=f"Add tags to case {safe_case_number} by replacing tags with the merged set.",
+            reversibility="Run tag set with the prior complete tag list.",
+            side_effect_type="case_tags_added",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_remove_case_tags(
+        self,
+        oid: str,
+        case_number: str | int,
+        tags: list[str] | str,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_case_number = require_case_number(case_number)
+        requested_tags = require_case_tag_list(tags)
+        if requested_tags is None:
+            raise ValidationError("tags are required")
+        current = self.get_case(scoped_oid, safe_case_number)
+        if not current.get("ok"):
+            current["operation"] = "case.tag.remove.preview"
+            return current
+        remove_set = {tag.lower() for tag in requested_tags}
+        remaining = [tag for tag in self._case_tags_from_data(current.get("data")) if tag.lower() not in remove_set]
+        return self._preview_case_api_mutation(
+            operation="case.tag.remove",
+            oid=scoped_oid,
+            method="PATCH",
+            path=f"cases/{safe_case_number}",
+            resource_type="case_tag_collection",
+            resource_id=safe_case_number,
+            params={"oid": scoped_oid},
+            json_body={"tags": remaining},
+            expected_effect=f"Remove tags from case {safe_case_number} by replacing tags with the remaining set.",
+            reversibility="Run tag set with the prior complete tag list.",
+            side_effect_type="case_tags_removed",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    @staticmethod
+    def _case_tags_from_data(data: Any) -> list[str]:
+        if not isinstance(data, dict):
+            return []
+        case_data = data.get("case") if isinstance(data.get("case"), dict) else data
+        raw_tags = case_data.get("tags") if isinstance(case_data, dict) else None
+        if not isinstance(raw_tags, list):
+            return []
+        return [str(tag) for tag in raw_tags if isinstance(tag, str) and tag]
 
     def list_sensor_events(
         self,
@@ -5296,6 +6630,7 @@ class LimaCharlieAPI:
             operation="mutation.confirm",
             oid=mutation.oid,
             resource=mutation.resource,
+            base_url=mutation.base_url,
             params=mutation.params,
             data=mutation.data,
             json_body=mutation.json_body,
@@ -5550,6 +6885,7 @@ class LimaCharlieAPI:
         data: dict[str, Any] | None = None,
         json_body: Any | None = None,
         parent_oid: str | None = None,
+        base_url: str | None = None,
     ) -> dict[str, Any]:
         token_ttl = require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900)
         resource: dict[str, Any] = {"type": resource_type, "id": resource_id}
@@ -5561,6 +6897,7 @@ class LimaCharlieAPI:
             method=method,
             path=path,
             resource=resource,
+            base_url=base_url,
             params=params,
             data=data,
             json_body=json_body,
@@ -5766,6 +7103,7 @@ class LimaCharlieAPI:
         side_effects: list[dict[str, Any]],
         token_ttl_seconds: int,
         params: dict[str, Any] | None = None,
+        base_url: str | None = None,
     ) -> dict[str, Any]:
         self._prune_expired_mutations()
         token = f"mut_{uuid.uuid4().hex}"
@@ -5777,6 +7115,7 @@ class LimaCharlieAPI:
             method=method,
             path=path,
             resource=resource,
+            base_url=base_url,
             params=params,
             data=data,
             json_body=json_body,
@@ -5807,7 +7146,7 @@ class LimaCharlieAPI:
         ).as_dict()
 
     def _preview_data(self, mutation: PendingMutation, now: float, *, include_token: bool = True) -> dict[str, Any]:
-        root = f"{self.api_root}/v1"
+        root = (mutation.base_url or f"{self.api_root}/v1").rstrip("/")
         preview = {
             "operation": mutation.operation,
             "http_method": mutation.method,
@@ -5815,6 +7154,8 @@ class LimaCharlieAPI:
             "oid": mutation.oid,
             "resource": mutation.resource,
             "params": mutation.params,
+            "data": mutation.data,
+            "json_body": mutation.json_body,
             "expected_effect": mutation.expected_effect,
             "reversibility": mutation.reversibility,
             "expected_side_effects": mutation.side_effects,

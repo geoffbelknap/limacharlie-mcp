@@ -305,12 +305,207 @@ def test_cases_use_cases_api_root(tmp_path: Path) -> None:
     fake.add("GET", "https://cases.limacharlie.io/api/v1/cases", {"cases": [{"case_number": 42}]})
     client = make_client(tmp_path, fake)
 
-    result = client.list_cases(OID, limit=25)
+    result = client.list_cases(
+        OID,
+        status=["new", "resolved"],
+        severity="high,medium",
+        classification="true_positive",
+        assignee="analyst@example.com",
+        search="hostname-1",
+        sensor_id=SID,
+        tags=["phishing", "urgent"],
+        sort="severity",
+        order="desc",
+        limit=25,
+        page_token="page-2",
+    )
 
     assert result["ok"] is True
     assert_ax_envelope(result, "case.list")
     assert fake.calls[1]["url"] == "https://cases.limacharlie.io/api/v1/cases"
-    assert fake.calls[1]["params"] == {"oids": OID, "page_size": 25}
+    assert fake.calls[1]["params"] == {
+        "oids": OID,
+        "page_size": 25,
+        "status": "new,resolved",
+        "severity": "high,medium",
+        "classification": "true_positive",
+        "assignee": "analyst@example.com",
+        "search": "hostname-1",
+        "sid": SID,
+        "tag": "phishing,urgent",
+        "sort": "severity",
+        "order": "desc",
+        "page_token": "page-2",
+    }
+
+
+def test_cases_read_component_endpoints_use_cases_api_root(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("GET", "https://cases.limacharlie.io/api/v1/cases/42", {"case": {"case_number": 42}})
+    fake.add("GET", "https://cases.limacharlie.io/api/v1/cases/42/detections", {"detections": []})
+    fake.add("GET", "https://cases.limacharlie.io/api/v1/cases/42/entities", {"entities": []})
+    fake.add("GET", "https://cases.limacharlie.io/api/v1/entities/search", {"entities": []})
+    fake.add("GET", "https://cases.limacharlie.io/api/v1/cases/42/telemetry", {"telemetry": []})
+    fake.add("GET", "https://cases.limacharlie.io/api/v1/cases/42/artifacts", {"artifacts": []})
+    fake.add("GET", "https://cases.limacharlie.io/api/v1/reports/summary", {"summary": {}})
+    fake.add("GET", "https://cases.limacharlie.io/api/v1/dashboard/counts", {"counts": {}})
+    fake.add("GET", f"https://cases.limacharlie.io/api/v1/config/{OID}", {"config": {}})
+    fake.add("GET", "https://cases.limacharlie.io/api/v1/assignees", {"assignees": []})
+    fake.add("GET", "https://cases.limacharlie.io/api/v1/orgs", {"orgs": []})
+    client = make_client(tmp_path, fake)
+
+    assert client.get_case(OID, 42)["ok"] is True
+    assert client.list_case_detections(OID, 42)["ok"] is True
+    assert client.list_case_entities(OID, 42)["ok"] is True
+    assert client.search_case_entities(OID, "domain", "example.com")["ok"] is True
+    assert client.list_case_telemetry(OID, 42)["ok"] is True
+    assert client.list_case_artifacts(OID, 42)["ok"] is True
+    assert client.get_cases_report_summary(OID, "2026-01-01T00:00:00Z", "2026-01-31T00:00:00Z", group_by="severity")["ok"] is True
+    assert client.get_cases_dashboard_counts(OID)["ok"] is True
+    assert client.get_cases_config(OID)["ok"] is True
+    assert client.list_case_assignees(OID)["ok"] is True
+    assert client.list_case_orgs()["ok"] is True
+
+    urls = [call["url"] for call in fake.calls if call["url"] != "https://jwt.limacharlie.io"]
+    assert urls == [
+        "https://cases.limacharlie.io/api/v1/cases/42",
+        "https://cases.limacharlie.io/api/v1/cases/42/detections",
+        "https://cases.limacharlie.io/api/v1/cases/42/entities",
+        "https://cases.limacharlie.io/api/v1/entities/search",
+        "https://cases.limacharlie.io/api/v1/cases/42/telemetry",
+        "https://cases.limacharlie.io/api/v1/cases/42/artifacts",
+        "https://cases.limacharlie.io/api/v1/reports/summary",
+        "https://cases.limacharlie.io/api/v1/dashboard/counts",
+        f"https://cases.limacharlie.io/api/v1/config/{OID}",
+        "https://cases.limacharlie.io/api/v1/assignees",
+        "https://cases.limacharlie.io/api/v1/orgs",
+    ]
+    assert fake.calls[4]["params"] == {"oids": OID, "entity_type": "domain", "entity_value": "example.com"}
+    assert fake.calls[7]["params"] == {"oids": OID, "from": "2026-01-01T00:00:00Z", "to": "2026-01-31T00:00:00Z", "group_by": "severity"}
+
+
+def test_case_lifecycle_previews_confirm_exact_requests(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("POST", "https://api.limacharlie.io/v1/extension/request/ext-cases", {"case_number": 43})
+    fake.add("PATCH", "https://cases.limacharlie.io/api/v1/cases/42", {"case_number": 42})
+    fake.add("POST", "https://cases.limacharlie.io/api/v1/cases/42/notes", {"event_id": "evt-1"})
+    fake.add("PATCH", "https://cases.limacharlie.io/api/v1/cases/42/notes/evt-1", {"event_id": "evt-1"})
+    fake.add("POST", "https://cases.limacharlie.io/api/v1/cases/bulk-update", {"updated": 2})
+    fake.add("POST", "https://cases.limacharlie.io/api/v1/cases/merge", {"merged": True})
+    client = make_client(tmp_path, fake)
+
+    create = client.preview_create_case(OID, detection={"detect_id": "det-1"}, severity="high", summary="New case")
+    update = client.preview_update_case(
+        OID,
+        42,
+        status="in_progress",
+        severity="medium",
+        assignees=["analyst@example.com"],
+        classification="pending",
+        summary="Updated",
+        conclusion="Working",
+        tags=["phishing"],
+    )
+    note = client.preview_add_case_note(OID, 42, "analysis note", note_type="analysis", is_public=True)
+    visibility = client.preview_update_case_note_visibility(OID, 42, "evt-1", False)
+    bulk = client.preview_bulk_update_cases(OID, [42, 43], status="resolved", classification="true_positive")
+    merge = client.preview_merge_cases(OID, 42, [43, 44])
+
+    assert update["data"]["endpoint"] == "https://cases.limacharlie.io/api/v1/cases/42"
+    assert update["data"]["json_body"]["assignees"] == ["analyst@example.com"]
+    client.confirm_mutation(create["data"]["confirmation_token"])
+    client.confirm_mutation(update["data"]["confirmation_token"])
+    client.confirm_mutation(note["data"]["confirmation_token"])
+    client.confirm_mutation(visibility["data"]["confirmation_token"])
+    client.confirm_mutation(bulk["data"]["confirmation_token"])
+    client.confirm_mutation(merge["data"]["confirmation_token"])
+
+    assert fake.calls[1]["url"] == "https://api.limacharlie.io/v1/extension/request/ext-cases"
+    assert fake.calls[1]["params"]["oid"] == OID
+    assert fake.calls[1]["params"]["action"] == "create_case"
+    assert decode_gzdata(fake.calls[1]["params"]["gzdata"]) == {"detection": {"detect_id": "det-1"}, "severity": "high", "summary": "New case"}
+    assert fake.calls[2]["json"] == {
+        "status": "in_progress",
+        "severity": "medium",
+        "assignees": ["analyst@example.com"],
+        "classification": "pending",
+        "summary": "Updated",
+        "conclusion": "Working",
+        "tags": ["phishing"],
+    }
+    assert fake.calls[2]["params"] == {"oid": OID}
+    assert fake.calls[3]["json"] == {"content": "analysis note", "note_type": "analysis", "is_public": True}
+    assert fake.calls[4]["json"] == {"is_public": False}
+    assert fake.calls[5]["json"] == {"oid": OID, "case_numbers": [42, 43], "update": {"status": "resolved", "classification": "true_positive"}}
+    assert fake.calls[6]["json"] == {"oid": OID, "target_case_number": 42, "source_case_numbers": [43, 44]}
+
+
+def test_case_investigation_previews_confirm_exact_requests(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("POST", "https://cases.limacharlie.io/api/v1/cases/42/detections", {"ok": True})
+    fake.add("DELETE", "https://cases.limacharlie.io/api/v1/cases/42/detections/det-1", {"ok": True})
+    fake.add("POST", "https://cases.limacharlie.io/api/v1/cases/42/entities", {"ok": True})
+    fake.add("PATCH", "https://cases.limacharlie.io/api/v1/cases/42/entities/entity-1", {"ok": True})
+    fake.add("DELETE", "https://cases.limacharlie.io/api/v1/cases/42/entities/entity-1", {"ok": True})
+    fake.add("POST", "https://cases.limacharlie.io/api/v1/cases/42/telemetry", {"ok": True})
+    fake.add("PATCH", "https://cases.limacharlie.io/api/v1/cases/42/telemetry/tel-1", {"ok": True})
+    fake.add("DELETE", "https://cases.limacharlie.io/api/v1/cases/42/telemetry/tel-1", {"ok": True})
+    fake.add("POST", "https://cases.limacharlie.io/api/v1/cases/42/artifacts", {"ok": True})
+    fake.add("DELETE", "https://cases.limacharlie.io/api/v1/cases/42/artifacts/art-1", {"ok": True})
+    client = make_client(tmp_path, fake)
+
+    previews = [
+        client.preview_add_case_detection(OID, 42, {"detect_id": "det-1"}),
+        client.preview_remove_case_detection(OID, 42, "det-1"),
+        client.preview_add_case_entity(OID, 42, "domain", "example.com", note="triage", verdict="suspicious"),
+        client.preview_update_case_entity(OID, 42, "entity-1", verdict="malicious"),
+        client.preview_remove_case_entity(OID, 42, "entity-1"),
+        client.preview_add_case_telemetry(OID, 42, {"routing": {"this": "atom-1"}}, note="event note", verdict="unknown"),
+        client.preview_update_case_telemetry(OID, 42, "tel-1", note="updated"),
+        client.preview_remove_case_telemetry(OID, 42, "tel-1"),
+        client.preview_add_case_artifact(OID, 42, "/tmp/file.bin", "sensor", artifact_type="file", verdict="benign"),
+        client.preview_remove_case_artifact(OID, 42, "art-1"),
+    ]
+    for preview in previews:
+        assert preview["data"]["endpoint"].startswith("https://cases.limacharlie.io/api/v1/")
+        client.confirm_mutation(preview["data"]["confirmation_token"])
+
+    assert fake.calls[1]["json"] == {"detection": {"detect_id": "det-1"}}
+    assert fake.calls[3]["json"] == {"entity_type": "domain", "entity_value": "example.com", "note": "triage", "verdict": "suspicious"}
+    assert fake.calls[4]["json"] == {"verdict": "malicious"}
+    assert fake.calls[6]["json"] == {"event": {"routing": {"this": "atom-1"}}, "note": "event note", "verdict": "unknown"}
+    assert fake.calls[7]["json"] == {"note": "updated"}
+    assert fake.calls[9]["json"] == {"path": "/tmp/file.bin", "source": "sensor", "artifact_type": "file", "verdict": "benign"}
+
+
+def test_case_config_export_and_tag_previews(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("GET", "https://cases.limacharlie.io/api/v1/cases/42", {"case": {"case_number": 42, "tags": ["phishing"]}})
+    fake.add("GET", "https://cases.limacharlie.io/api/v1/cases/42/detections", {"detections": []})
+    fake.add("GET", "https://cases.limacharlie.io/api/v1/cases/42/entities", {"entities": []})
+    fake.add("GET", "https://cases.limacharlie.io/api/v1/cases/42/telemetry", {"telemetry": []})
+    fake.add("GET", "https://cases.limacharlie.io/api/v1/cases/42/artifacts", {"artifacts": []})
+    fake.add("PUT", f"https://cases.limacharlie.io/api/v1/config/{OID}", {"ok": True})
+    fake.add("PATCH", "https://cases.limacharlie.io/api/v1/cases/42", {"ok": True})
+    client = make_client(tmp_path, fake)
+
+    exported = client.export_case(OID, 42)
+    config = client.preview_set_cases_config(OID, {"sla_config": {"high": 3600}})
+    set_tags = client.preview_set_case_tags(OID, 42, ["urgent"])
+    add_tags = client.preview_add_case_tags(OID, 42, ["urgent"])
+    remove_tags = client.preview_remove_case_tags(OID, 42, ["phishing"])
+
+    assert exported["ok"] is True
+    assert sorted(exported["data"].keys()) == ["artifacts", "case", "detections", "entities", "telemetry"]
+    client.confirm_mutation(config["data"]["confirmation_token"])
+    client.confirm_mutation(set_tags["data"]["confirmation_token"])
+    client.confirm_mutation(add_tags["data"]["confirmation_token"])
+    client.confirm_mutation(remove_tags["data"]["confirmation_token"])
+
+    assert fake.calls[8]["json"] == {"sla_config": {"high": 3600}}
+    assert fake.calls[9]["json"] == {"tags": ["urgent"]}
+    assert fake.calls[10]["json"] == {"tags": ["phishing", "urgent"]}
+    assert fake.calls[11]["json"] == {"tags": []}
 
 
 def test_sensor_events_are_decoded_and_bounded(tmp_path: Path) -> None:

@@ -109,6 +109,37 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
         "lc_list_vulnerability_resolutions",
         "lc_list_vulnerability_snapshots",
         "lc_get_vulnerability_epss_history",
+        "lc_preview_create_case",
+        "lc_preview_update_case",
+        "lc_preview_add_case_note",
+        "lc_preview_update_case_note_visibility",
+        "lc_preview_bulk_update_cases",
+        "lc_preview_merge_cases",
+        "lc_list_case_detections",
+        "lc_preview_add_case_detection",
+        "lc_preview_remove_case_detection",
+        "lc_list_case_entities",
+        "lc_search_case_entities",
+        "lc_preview_add_case_entity",
+        "lc_preview_update_case_entity",
+        "lc_preview_remove_case_entity",
+        "lc_list_case_telemetry",
+        "lc_preview_add_case_telemetry",
+        "lc_preview_update_case_telemetry",
+        "lc_preview_remove_case_telemetry",
+        "lc_list_case_artifacts",
+        "lc_preview_add_case_artifact",
+        "lc_preview_remove_case_artifact",
+        "lc_export_case",
+        "lc_get_cases_report_summary",
+        "lc_get_cases_dashboard_counts",
+        "lc_get_cases_config",
+        "lc_preview_set_cases_config",
+        "lc_list_case_assignees",
+        "lc_list_case_orgs",
+        "lc_preview_set_case_tags",
+        "lc_preview_add_case_tags",
+        "lc_preview_remove_case_tags",
         "lc_validate_search_query",
         "lc_estimate_search_query",
         "lc_execute_search_query",
@@ -186,6 +217,23 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
     vuln_host_schema = tools["lc_list_vulnerability_host_packages"]["inputSchema"]
     assert set(vuln_host_schema["required"]) == {"oid", "sensor_id"}
     assert vuln_host_schema["properties"]["rollup_subpackages"]["default"] is None
+    case_list_schema = tools["lc_list_cases"]["inputSchema"]
+    assert set(case_list_schema["required"]) == {"oid"}
+    assert case_list_schema["properties"]["limit"]["default"] == 100
+    case_update_schema = tools["lc_preview_update_case"]["inputSchema"]
+    assert set(case_update_schema["required"]) == {"oid", "case_number"}
+    case_note_schema = tools["lc_preview_add_case_note"]["inputSchema"]
+    assert set(case_note_schema["required"]) == {"oid", "case_number", "content"}
+    case_bulk_schema = tools["lc_preview_bulk_update_cases"]["inputSchema"]
+    assert set(case_bulk_schema["required"]) == {"oid", "case_numbers"}
+    case_entity_schema = tools["lc_preview_add_case_entity"]["inputSchema"]
+    assert set(case_entity_schema["required"]) == {"oid", "case_number", "entity_type", "entity_value"}
+    case_artifact_schema = tools["lc_preview_add_case_artifact"]["inputSchema"]
+    assert set(case_artifact_schema["required"]) == {"oid", "case_number", "path", "source"}
+    cases_config_schema = tools["lc_preview_set_cases_config"]["inputSchema"]
+    assert set(cases_config_schema["required"]) == {"oid", "config"}
+    case_tag_schema = tools["lc_preview_set_case_tags"]["inputSchema"]
+    assert set(case_tag_schema["required"]) == {"oid", "case_number", "tags"}
     search_execute_schema = tools["lc_execute_search_query"]["inputSchema"]
     assert set(search_execute_schema["required"]) == {"oid", "query", "start", "end"}
     search_poll_schema = tools["lc_poll_search_query"]["inputSchema"]

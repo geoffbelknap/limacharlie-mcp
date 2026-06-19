@@ -84,8 +84,39 @@ renaming tools.
 | `lc_list_tags` | List tags observed across sensors in an org. |
 | `lc_find_sensors_by_tag` | Find sensors with a specific tag. |
 | `lc_find_sensors_by_hostname` | Find sensors by hostname prefix. |
-| `lc_list_cases` | List cases for an explicit org. |
+| `lc_list_cases` | List cases for an explicit org with filters and pagination. |
 | `lc_get_case` | Fetch one case by case number. |
+| `lc_preview_create_case` | Preview creating a case through ext-cases. |
+| `lc_preview_update_case` | Preview updating case status, severity, assignment, classification, summary, conclusion, or tags. |
+| `lc_preview_add_case_note` | Preview adding a case note. |
+| `lc_preview_update_case_note_visibility` | Preview changing case note stakeholder visibility. |
+| `lc_preview_bulk_update_cases` | Preview bulk-updating up to 200 cases. |
+| `lc_preview_merge_cases` | Preview merging source cases into a target case. |
+| `lc_list_case_detections` | List detections linked to a case. |
+| `lc_preview_add_case_detection` | Preview linking a detection to a case. |
+| `lc_preview_remove_case_detection` | Preview removing a detection link from a case. |
+| `lc_list_case_entities` | List entities/IOCs attached to a case. |
+| `lc_search_case_entities` | Search case entities across an org. |
+| `lc_preview_add_case_entity` | Preview adding an entity/IOC to a case. |
+| `lc_preview_update_case_entity` | Preview updating an entity note or verdict. |
+| `lc_preview_remove_case_entity` | Preview removing an entity from a case. |
+| `lc_list_case_telemetry` | List telemetry references linked to a case. |
+| `lc_preview_add_case_telemetry` | Preview linking telemetry to a case. |
+| `lc_preview_update_case_telemetry` | Preview updating telemetry note or verdict. |
+| `lc_preview_remove_case_telemetry` | Preview removing telemetry from a case. |
+| `lc_list_case_artifacts` | List forensic artifacts linked to a case. |
+| `lc_preview_add_case_artifact` | Preview adding a forensic artifact reference to a case. |
+| `lc_preview_remove_case_artifact` | Preview removing a forensic artifact reference from a case. |
+| `lc_export_case` | Export a case with detections, entities, telemetry, and artifacts. |
+| `lc_get_cases_report_summary` | Fetch Cases report summary metrics. |
+| `lc_get_cases_dashboard_counts` | Fetch Cases dashboard counts. |
+| `lc_get_cases_config` | Fetch Cases configuration. |
+| `lc_preview_set_cases_config` | Preview replacing Cases configuration. |
+| `lc_list_case_assignees` | List unique case assignees for an org. |
+| `lc_list_case_orgs` | List ext-cases orgs accessible to the caller. |
+| `lc_preview_set_case_tags` | Preview replacing all tags on a case. |
+| `lc_preview_add_case_tags` | Preview adding tags through an exact replacement list. |
+| `lc_preview_remove_case_tags` | Preview removing tags through an exact replacement list. |
 
 ### Administration
 
@@ -206,10 +237,11 @@ renaming tools.
 
 Mutations are available only through the preview/confirm contract. Current
 typed previews cover sensor response actions, job deletion, sensor tags,
-administration writes, extension requests, and artifact/logging/D&R/
-false-positive/integrity/YARA content changes. Remaining case and specialized
-streaming/sync surfaces stay gated until they have typed preview/confirm tools
-or bounded read contracts with request-shape tests.
+case lifecycle/investigation/config/tag changes, administration writes,
+extension requests, and artifact/logging/D&R/false-positive/integrity/YARA
+content changes. Remaining specialized streaming/sync surfaces stay gated until
+they have typed preview/confirm tools or bounded read contracts with
+request-shape tests.
 
 ## Agent Experience Contract
 

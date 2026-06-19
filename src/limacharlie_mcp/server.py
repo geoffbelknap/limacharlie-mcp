@@ -180,10 +180,38 @@ def lc_get_detection(oid: str, detect_id: str) -> dict:
 
 
 @mcp.tool()
-def lc_list_cases(oid: str, limit: int = 100) -> dict:
-    """List LimaCharlie cases for an explicit org."""
+def lc_list_cases(
+    oid: str,
+    status: list[str] | str | None = None,
+    severity: list[str] | str | None = None,
+    classification: list[str] | str | None = None,
+    assignee: str | None = None,
+    search: str | None = None,
+    sensor_id: str | None = None,
+    tags: list[str] | str | None = None,
+    sort: str | None = None,
+    order: str | None = None,
+    limit: int = 100,
+    page_token: str | None = None,
+) -> dict:
+    """List LimaCharlie cases for an explicit org, with optional filters."""
 
-    return _call("case.list", lc.list_cases, oid=oid, limit=limit)
+    return _call(
+        "case.list",
+        lc.list_cases,
+        oid=oid,
+        status=status,
+        severity=severity,
+        classification=classification,
+        assignee=assignee,
+        search=search,
+        sensor_id=sensor_id,
+        tags=tags,
+        sort=sort,
+        order=order,
+        limit=limit,
+        page_token=page_token,
+    )
 
 
 @mcp.tool()
@@ -191,6 +219,413 @@ def lc_get_case(oid: str, case_number: str) -> dict:
     """Fetch a LimaCharlie case by case number for an explicit org."""
 
     return _call("case.get", lc.get_case, oid=oid, case_number=case_number)
+
+
+@mcp.tool()
+def lc_preview_create_case(
+    oid: str,
+    detection: dict[str, Any] | None = None,
+    severity: str | None = None,
+    summary: str | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview creating a LimaCharlie case through ext-cases."""
+
+    return _call(
+        "case.create.preview",
+        lc.preview_create_case,
+        oid=oid,
+        detection=detection,
+        severity=severity,
+        summary=summary,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_preview_update_case(
+    oid: str,
+    case_number: str,
+    status: str | None = None,
+    severity: str | None = None,
+    assignees: list[str] | str | None = None,
+    classification: str | None = None,
+    summary: str | None = None,
+    conclusion: str | None = None,
+    tags: list[str] | str | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview updating a case. No write is sent until confirmation."""
+
+    return _call(
+        "case.update.preview",
+        lc.preview_update_case,
+        oid=oid,
+        case_number=case_number,
+        status=status,
+        severity=severity,
+        assignees=assignees,
+        classification=classification,
+        summary=summary,
+        conclusion=conclusion,
+        tags=tags,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_preview_add_case_note(
+    oid: str,
+    case_number: str,
+    content: str,
+    note_type: str | None = None,
+    is_public: bool | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview adding a note to a case."""
+
+    return _call(
+        "case.note.add.preview",
+        lc.preview_add_case_note,
+        oid=oid,
+        case_number=case_number,
+        content=content,
+        note_type=note_type,
+        is_public=is_public,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_preview_update_case_note_visibility(
+    oid: str,
+    case_number: str,
+    event_id: str,
+    is_public: bool,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview changing a case note's public visibility."""
+
+    return _call(
+        "case.note.visibility.preview",
+        lc.preview_update_case_note_visibility,
+        oid=oid,
+        case_number=case_number,
+        event_id=event_id,
+        is_public=is_public,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_preview_bulk_update_cases(
+    oid: str,
+    case_numbers: list[str | int] | str,
+    status: str | None = None,
+    severity: str | None = None,
+    assignees: list[str] | str | None = None,
+    classification: str | None = None,
+    summary: str | None = None,
+    conclusion: str | None = None,
+    tags: list[str] | str | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview bulk-updating up to 200 cases."""
+
+    return _call(
+        "case.bulk_update.preview",
+        lc.preview_bulk_update_cases,
+        oid=oid,
+        case_numbers=case_numbers,
+        status=status,
+        severity=severity,
+        assignees=assignees,
+        classification=classification,
+        summary=summary,
+        conclusion=conclusion,
+        tags=tags,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_preview_merge_cases(
+    oid: str,
+    target_case_number: str,
+    source_case_numbers: list[str | int] | str,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview merging source cases into a target case."""
+
+    return _call(
+        "case.merge.preview",
+        lc.preview_merge_cases,
+        oid=oid,
+        target_case_number=target_case_number,
+        source_case_numbers=source_case_numbers,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_list_case_detections(oid: str, case_number: str) -> dict:
+    """List detections linked to a case."""
+
+    return _call("case.detection.list", lc.list_case_detections, oid=oid, case_number=case_number)
+
+
+@mcp.tool()
+def lc_preview_add_case_detection(oid: str, case_number: str, detection: dict[str, Any], token_ttl_seconds: int = 300) -> dict:
+    """Preview linking a detection to a case."""
+
+    return _call("case.detection.add.preview", lc.preview_add_case_detection, oid=oid, case_number=case_number, detection=detection, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_remove_case_detection(oid: str, case_number: str, detection_id: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview removing a detection link from a case."""
+
+    return _call("case.detection.remove.preview", lc.preview_remove_case_detection, oid=oid, case_number=case_number, detection_id=detection_id, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_list_case_entities(oid: str, case_number: str) -> dict:
+    """List entities attached to a case."""
+
+    return _call("case.entity.list", lc.list_case_entities, oid=oid, case_number=case_number)
+
+
+@mcp.tool()
+def lc_search_case_entities(oid: str, entity_type: str, entity_value: str) -> dict:
+    """Search case entities across an org."""
+
+    return _call("case.entity.search", lc.search_case_entities, oid=oid, entity_type=entity_type, entity_value=entity_value)
+
+
+@mcp.tool()
+def lc_preview_add_case_entity(
+    oid: str,
+    case_number: str,
+    entity_type: str,
+    entity_value: str,
+    note: str | None = None,
+    verdict: str | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview adding an entity/IOC to a case."""
+
+    return _call(
+        "case.entity.add.preview",
+        lc.preview_add_case_entity,
+        oid=oid,
+        case_number=case_number,
+        entity_type=entity_type,
+        entity_value=entity_value,
+        note=note,
+        verdict=verdict,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_preview_update_case_entity(
+    oid: str,
+    case_number: str,
+    entity_id: str,
+    note: str | None = None,
+    verdict: str | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview updating a case entity note or verdict."""
+
+    return _call(
+        "case.entity.update.preview",
+        lc.preview_update_case_entity,
+        oid=oid,
+        case_number=case_number,
+        entity_id=entity_id,
+        note=note,
+        verdict=verdict,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_preview_remove_case_entity(oid: str, case_number: str, entity_id: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview removing an entity from a case."""
+
+    return _call("case.entity.remove.preview", lc.preview_remove_case_entity, oid=oid, case_number=case_number, entity_id=entity_id, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_list_case_telemetry(oid: str, case_number: str) -> dict:
+    """List telemetry references linked to a case."""
+
+    return _call("case.telemetry.list", lc.list_case_telemetry, oid=oid, case_number=case_number)
+
+
+@mcp.tool()
+def lc_preview_add_case_telemetry(
+    oid: str,
+    case_number: str,
+    event: dict[str, Any],
+    note: str | None = None,
+    verdict: str | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview linking telemetry to a case."""
+
+    return _call(
+        "case.telemetry.add.preview",
+        lc.preview_add_case_telemetry,
+        oid=oid,
+        case_number=case_number,
+        event=event,
+        note=note,
+        verdict=verdict,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_preview_update_case_telemetry(
+    oid: str,
+    case_number: str,
+    telemetry_id: str,
+    note: str | None = None,
+    verdict: str | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview updating case telemetry note or verdict."""
+
+    return _call(
+        "case.telemetry.update.preview",
+        lc.preview_update_case_telemetry,
+        oid=oid,
+        case_number=case_number,
+        telemetry_id=telemetry_id,
+        note=note,
+        verdict=verdict,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_preview_remove_case_telemetry(oid: str, case_number: str, telemetry_id: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview removing telemetry from a case."""
+
+    return _call("case.telemetry.remove.preview", lc.preview_remove_case_telemetry, oid=oid, case_number=case_number, telemetry_id=telemetry_id, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_list_case_artifacts(oid: str, case_number: str) -> dict:
+    """List forensic artifacts linked to a case."""
+
+    return _call("case.artifact.list", lc.list_case_artifacts, oid=oid, case_number=case_number)
+
+
+@mcp.tool()
+def lc_preview_add_case_artifact(
+    oid: str,
+    case_number: str,
+    path: str,
+    source: str,
+    artifact_type: str | None = None,
+    note: str | None = None,
+    verdict: str | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview adding a forensic artifact reference to a case."""
+
+    return _call(
+        "case.artifact.add.preview",
+        lc.preview_add_case_artifact,
+        oid=oid,
+        case_number=case_number,
+        path=path,
+        source=source,
+        artifact_type=artifact_type,
+        note=note,
+        verdict=verdict,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_preview_remove_case_artifact(oid: str, case_number: str, artifact_id: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview removing a forensic artifact reference from a case."""
+
+    return _call("case.artifact.remove.preview", lc.preview_remove_case_artifact, oid=oid, case_number=case_number, artifact_id=artifact_id, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_export_case(oid: str, case_number: str) -> dict:
+    """Export a case with detections, entities, telemetry, and artifacts."""
+
+    return _call("case.export", lc.export_case, oid=oid, case_number=case_number)
+
+
+@mcp.tool()
+def lc_get_cases_report_summary(oid: str, time_from: str, time_to: str, group_by: str | None = None) -> dict:
+    """Get Cases report summary metrics."""
+
+    return _call("case.report", lc.get_cases_report_summary, oid=oid, time_from=time_from, time_to=time_to, group_by=group_by)
+
+
+@mcp.tool()
+def lc_get_cases_dashboard_counts(oid: str) -> dict:
+    """Get Cases dashboard counts."""
+
+    return _call("case.dashboard", lc.get_cases_dashboard_counts, oid=oid)
+
+
+@mcp.tool()
+def lc_get_cases_config(oid: str) -> dict:
+    """Get Cases configuration for an org."""
+
+    return _call("case.config.get", lc.get_cases_config, oid=oid)
+
+
+@mcp.tool()
+def lc_preview_set_cases_config(oid: str, config: dict[str, Any], token_ttl_seconds: int = 300) -> dict:
+    """Preview replacing Cases configuration for an org."""
+
+    return _call("case.config.set.preview", lc.preview_set_cases_config, oid=oid, config=config, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_list_case_assignees(oid: str) -> dict:
+    """List unique case assignee emails for an org."""
+
+    return _call("case.assignees.list", lc.list_case_assignees, oid=oid)
+
+
+@mcp.tool()
+def lc_list_case_orgs() -> dict:
+    """List ext-cases organizations accessible to the caller."""
+
+    return lc.list_case_orgs()
+
+
+@mcp.tool()
+def lc_preview_set_case_tags(oid: str, case_number: str, tags: list[str] | str, token_ttl_seconds: int = 300) -> dict:
+    """Preview replacing all tags on a case."""
+
+    return _call("case.tag.set.preview", lc.preview_set_case_tags, oid=oid, case_number=case_number, tags=tags, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_add_case_tags(oid: str, case_number: str, tags: list[str] | str, token_ttl_seconds: int = 300) -> dict:
+    """Preview adding tags to a case by replacing the exact merged tag list."""
+
+    return _call("case.tag.add.preview", lc.preview_add_case_tags, oid=oid, case_number=case_number, tags=tags, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_remove_case_tags(oid: str, case_number: str, tags: list[str] | str, token_ttl_seconds: int = 300) -> dict:
+    """Preview removing tags from a case by replacing the exact remaining tag list."""
+
+    return _call("case.tag.remove.preview", lc.preview_remove_case_tags, oid=oid, case_number=case_number, tags=tags, token_ttl_seconds=token_ttl_seconds)
 
 
 @mcp.tool()

@@ -6,15 +6,20 @@ JWTs.
 
 ## Recommended Setup
 
-Use an Organization API key for the org you want the MCP to access.
+Use an Organization API key for the org you want the MCP to access, stored in
+Vault. Vault is the default credential provider for deployment. Raw environment
+API keys are a local-development fallback, not the recommended runtime model.
 
 1. In LimaCharlie, open the organization.
 2. Go to Access Management -> REST API.
 3. Create an API key with the minimum permissions needed for the workflows.
-4. Put the key in the MCP client's environment as `LC_API_KEY`.
-5. Start the MCP server.
-6. Call `lc_auth_status`.
-7. Call `lc_list_orgs` or an org-scoped read such as `lc_list_sensors`.
+4. Store the key in Vault KV v2, for example at
+   `secret/data/limacharlie/mcp`, field `api_key`.
+5. Configure the MCP runtime with `LC_SECRET_PROVIDER=vault`,
+   `LC_VAULT_ADDR`, `LC_VAULT_TOKEN_FILE`, and `LC_API_KEY_REF`.
+6. Start the MCP server.
+7. Call `lc_auth_status`.
+8. Call `lc_list_orgs` or an org-scoped read such as `lc_list_sensors`.
 
 Example stdio config:
 
@@ -24,11 +29,21 @@ Example stdio config:
     "limacharlie-local": {
       "command": "/path/to/limacharlie-mcp/.venv/bin/limacharlie-mcp",
       "env": {
-        "LC_API_KEY": "your-organization-api-key"
+        "LC_SECRET_PROVIDER": "vault",
+        "LC_VAULT_ADDR": "https://vault.example.com",
+        "LC_VAULT_TOKEN_FILE": "/run/secrets/vault-token",
+        "LC_API_KEY_REF": "vault://secret/data/limacharlie/mcp#api_key"
       }
     }
   }
 }
+```
+
+For a local-only test environment:
+
+```bash
+export LC_SECRET_PROVIDER=env
+export LC_API_KEY=your-organization-api-key
 ```
 
 ## What Happens Internally
@@ -36,7 +51,9 @@ Example stdio config:
 LimaCharlie REST authentication uses short-lived JWTs. This MCP hides that from
 the user:
 
-- `LC_API_KEY` is the stable credential.
+- Vault stores the stable LimaCharlie API key.
+- The server reads the API key from the configured Vault reference only when it
+  needs a new LimaCharlie JWT.
 - The server exchanges that API key for a LimaCharlie JWT.
 - JWTs are cached in memory only.
 - JWT values are never returned by tools.
@@ -50,7 +67,7 @@ tool call refreshes the JWT automatically.
 
 Use `lc_auth_refresh` when:
 
-- a user just rotated the API key in their MCP client configuration,
+- a user just rotated the API key in Vault,
 - a token is suspected to be stale,
 - a user wants to verify auth before a workflow,
 - a user changed from user API key mode to org API key mode.
@@ -69,14 +86,31 @@ Use `lc_auth_status` when:
 User API keys are supported by setting both:
 
 ```bash
+LC_SECRET_PROVIDER=vault
 LC_UID=your-user-id
-LC_API_KEY=your-user-api-key
+LC_API_KEY_REF=vault://secret/data/limacharlie/mcp-user#api_key
 ```
 
 User API key mode can list orgs and then mint org-scoped JWTs for individual
 org operations. It is more powerful than an organization API key because it
 inherits the user's permissions across organizations. Prefer organization API
 keys for routine local MCP use unless multi-org access is required.
+
+For local development only, user API key mode can also use
+`LC_SECRET_PROVIDER=env` with `LC_API_KEY`.
+
+## Other KMS Or HSM Providers
+
+The runtime currently supports Vault and direct env-key fallback. If an
+environment standardizes on a different KMS or HSM, prefer one of these paths:
+
+- Use Vault Agent or an approved broker to expose the key through the same Vault
+  HTTP shape.
+- Add a new credential provider with the same non-leakage behavior:
+  `lc_auth_status` reports readiness booleans only, and JWT refresh resolves the
+  key just-in-time without returning or auditing it.
+
+Do not add a raw provider that returns stable LimaCharlie API keys to agents.
 
 ## Permission Profiles
 
@@ -103,8 +137,10 @@ mutation tool has a preview/confirm implementation.
 ## Troubleshooting
 
 If `lc_auth_status` returns `missing_credentials`, the MCP process did not
-receive `LC_API_KEY`. Put it in the MCP client config `env` block rather than
-only in an interactive shell.
+receive a complete Vault configuration. Check `LC_VAULT_ADDR`,
+`LC_VAULT_TOKEN_FILE`, and `LC_API_KEY_REF` in the MCP client config `env`
+block. For local development fallback, check `LC_SECRET_PROVIDER=env` and
+`LC_API_KEY`.
 
 If org-scoped tools fail with `error.class: auth` or `error.class: policy`,
 call `lc_auth_whoami` with the target `oid` and optional `check_perm`.

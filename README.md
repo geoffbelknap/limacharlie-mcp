@@ -438,12 +438,20 @@ python -m venv .venv
 pip install -e ".[dev]"
 ```
 
-Set stable API-key credentials. Users do not need to generate or paste JWTs;
-the MCP server handles LimaCharlie JWT exchange and refresh in memory.
+Configure stable API-key credentials through Vault. Users do not need to
+generate or paste JWTs; the MCP server handles LimaCharlie JWT exchange and
+refresh in memory.
 
 ```bash
-export LC_API_KEY="your-org-api-key"
+export LC_SECRET_PROVIDER="vault"
+export LC_VAULT_ADDR="https://vault.example.com"
+export LC_VAULT_TOKEN_FILE="/run/secrets/vault-token"
+export LC_API_KEY_REF="vault://secret/data/limacharlie/mcp#api_key"
 ```
+
+Store the LimaCharlie API key in Vault KV v2 at
+`secret/data/limacharlie/mcp`, field `api_key`. For local development only,
+you can use `LC_SECRET_PROVIDER=env` with `LC_API_KEY`.
 
 Org-scoped tools always require an explicit `oid`. Discovery tools
 (`lc_list_orgs`, unscoped `lc_auth_whoami`) use LimaCharlie's minimal JWT org
@@ -459,7 +467,10 @@ Example stdio config:
     "limacharlie-local": {
       "command": "/path/to/limacharlie-mcp/.venv/bin/limacharlie-mcp",
       "env": {
-        "LC_API_KEY": "your-organization-api-key"
+        "LC_SECRET_PROVIDER": "vault",
+        "LC_VAULT_ADDR": "https://vault.example.com",
+        "LC_VAULT_TOKEN_FILE": "/run/secrets/vault-token",
+        "LC_API_KEY_REF": "vault://secret/data/limacharlie/mcp#api_key"
       }
     }
   }
@@ -474,7 +485,13 @@ credential rotation or auth troubleshooting.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `LC_API_KEY` | required | LimaCharlie API key used for JWT exchange. |
+| `LC_SECRET_PROVIDER` | `vault` when `LC_API_KEY` is unset | Credential provider. Supported values: `vault`, `env`. |
+| `LC_API_KEY_REF` | `vault://secret/data/limacharlie/mcp#api_key` | Vault reference for the LimaCharlie API key. |
+| `LC_VAULT_ADDR` | unset | Vault server URL. Required for the Vault provider. |
+| `LC_VAULT_TOKEN_FILE` | unset | File containing a Vault token. Preferred for deployment. |
+| `LC_VAULT_TOKEN` | unset | Vault token value. Useful for local tests; avoid in shared configs. |
+| `LC_VAULT_NAMESPACE` | unset | Optional Vault Enterprise namespace. |
+| `LC_API_KEY` | unset | Local-development fallback when `LC_SECRET_PROVIDER=env`, or direct override when explicitly set. |
 | `LC_UID` | unset | Optional user ID for user-scoped API keys. |
 | `LC_API_ROOT` | `https://api.limacharlie.io` | LimaCharlie API root. |
 | `LC_JWT_ROOT` | `https://jwt.limacharlie.io` | JWT exchange root. |

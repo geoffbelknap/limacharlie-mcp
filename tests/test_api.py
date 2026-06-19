@@ -87,6 +87,7 @@ def test_tool_catalog_exposes_operation_contracts(tmp_path: Path) -> None:
     assert result["ok"] is True
     assert_ax_envelope(result, "tool.catalog")
     assert result["data"]["default_mode"] == "read_only"
+    assert result["data"]["credential_provider_default"] == "vault"
     assert result["data"]["operations"]["sensor.list"]["required_inputs"] == ["oid"]
     assert result["data"]["operations"]["event.list"]["suite"] == "investigation"
     assert result["data"]["operations"]["api_key.list"]["suite"] == "administration"
@@ -188,8 +189,35 @@ def test_auth_status_reports_missing_credentials(tmp_path: Path) -> None:
 
     assert result["ok"] is False
     assert_ax_envelope(result, "auth.status")
+    assert result["data"]["credential_provider"] == "vault"
     assert result["error"]["class"] == "auth"
     assert result["error"]["code"] == "missing_credentials"
+
+
+def test_auth_status_reports_vault_without_exposing_reference_or_token(tmp_path: Path) -> None:
+    client = LimaCharlieAPI(
+        api_key="",
+        credential_provider="vault",
+        api_key_ref="vault://secret/data/limacharlie/mcp#api_key",
+        vault_addr="http://vault.local",
+        vault_token="vault-token",
+        audit_path=tmp_path / "audit.jsonl",
+        http_client=FakeHTTP(),
+    )
+
+    result = client.auth_status(OID)
+    serialized = json.dumps(result)
+
+    assert result["ok"] is True
+    assert_ax_envelope(result, "auth.status")
+    assert result["data"]["credential_provider"] == "vault"
+    assert result["data"]["api_key_source"] == "vault_ref"
+    assert result["data"]["configured"]["api_key_ref"] is True
+    assert result["data"]["configured"]["vault_addr"] is True
+    assert result["data"]["configured"]["vault_token"] is True
+    assert "vault-token" not in serialized
+    assert "vault://" not in serialized
+    assert "secret/data" not in serialized
 
 
 def test_auth_refresh_forces_new_jwt_without_returning_token(tmp_path: Path) -> None:
@@ -205,6 +233,36 @@ def test_auth_refresh_forces_new_jwt_without_returning_token(tmp_path: Path) -> 
     assert first["side_effects"][0]["type"] == "local_jwt_cache_refresh"
     assert "test-token" not in json.dumps(first)
     assert [call["url"] for call in fake.calls] == ["https://jwt.limacharlie.io", "https://jwt.limacharlie.io"]
+
+
+def test_auth_refresh_resolves_api_key_from_vault_ref(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("GET", "http://vault.local/v1/secret/data/limacharlie/mcp", {"data": {"data": {"api_key": "vault-lc-key"}}})
+    fake.add("POST", "https://jwt.limacharlie.io", {"jwt": "test-token", "expires_in": 3000})
+    client = LimaCharlieAPI(
+        api_key="",
+        credential_provider="vault",
+        api_key_ref="vault://secret/data/limacharlie/mcp#api_key",
+        vault_addr="http://vault.local",
+        vault_token="vault-token",
+        audit_path=tmp_path / "audit.jsonl",
+        http_client=fake,
+    )
+
+    result = client.auth_refresh(OID)
+    serialized = json.dumps(result)
+
+    assert result["ok"] is True
+    assert result["data"]["credential_provider"] == "vault"
+    assert fake.calls[0]["method"] == "GET"
+    assert fake.calls[0]["url"] == "http://vault.local/v1/secret/data/limacharlie/mcp"
+    assert fake.calls[0]["headers"]["X-Vault-Token"] == "vault-token"
+    assert fake.calls[1]["method"] == "POST"
+    assert fake.calls[1]["url"] == "https://jwt.limacharlie.io"
+    assert fake.calls[1]["data"]["secret"] == "vault-lc-key"
+    assert "vault-lc-key" not in serialized
+    assert "vault-token" not in serialized
+    assert "test-token" not in serialized
 
 
 def test_org_scoped_tools_require_uuid_oid(tmp_path: Path) -> None:

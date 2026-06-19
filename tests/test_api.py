@@ -1249,6 +1249,71 @@ def test_generic_service_config_and_exfil_tools_use_exact_requests(tmp_path: Pat
     assert decode_request_data(calls[8]["params"]["request_data"]) == {"action": "remove_watch", "name": "watch-1"}
 
 
+def test_feedback_tools_preview_extension_and_hive_requests(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("GET", f"https://api.limacharlie.io/v1/hive/extension_config/{OID}/ext-feedback/data", {"data": {"channels": []}})
+    fake.add("POST", f"https://api.limacharlie.io/v1/hive/extension_config/{OID}/ext-feedback/data", {"ok": True})
+    fake.add("POST", "https://api.limacharlie.io/v1/extension/request/ext-feedback", {"ok": True})
+    client = make_client(tmp_path, fake)
+
+    assert client.list_feedback_channels(OID)["ok"] is True
+    channels = client.preview_set_feedback_channels(OID, [{"name": "web", "channel_type": "web"}], etag="etag-1")
+    approval = client.preview_feedback_simple_approval(
+        OID,
+        "web",
+        "Approve containment?",
+        "case",
+        case_id="42",
+        approved_content={"approved": True},
+        denied_content={"approved": False},
+        timeout_seconds=60,
+        timeout_choice="denied",
+    )
+    acknowledgement = client.preview_feedback_acknowledgement(
+        OID,
+        "web",
+        "Acknowledge handoff",
+        "playbook",
+        playbook_name="handoff",
+        acknowledged_content={"ack": True},
+    )
+    question = client.preview_feedback_question(
+        OID,
+        "web",
+        "What was observed?",
+        "case",
+        case_id="42",
+        timeout_seconds=60,
+        timeout_content={"answer": "timeout"},
+    )
+
+    assert channels["operation"] == "feedback.channel.set.preview"
+    assert approval["operation"] == "feedback.approval.preview"
+    assert acknowledgement["operation"] == "feedback.acknowledgement.preview"
+    assert question["operation"] == "feedback.question.preview"
+    for preview in [channels, approval, acknowledgement, question]:
+        client.confirm_mutation(preview["data"]["confirmation_token"])
+
+    calls = [call for call in fake.calls if call["url"] != "https://jwt.limacharlie.io"]
+    assert json.loads(calls[1]["params"]["data"]) == {"channels": [{"name": "web", "channel_type": "web"}]}
+    assert calls[1]["params"]["etag"] == "etag-1"
+    assert calls[2]["params"]["action"] == "request_simple_approval"
+    assert decode_gzdata(calls[2]["params"]["gzdata"]) == {
+        "channel": "web",
+        "question": "Approve containment?",
+        "feedback_destination": "case",
+        "case_id": "42",
+        "approved_content": {"approved": True},
+        "denied_content": {"approved": False},
+        "timeout_seconds": 60,
+        "timeout_choice": "denied",
+    }
+    assert calls[3]["params"]["action"] == "request_acknowledgement"
+    assert decode_gzdata(calls[3]["params"]["gzdata"])["playbook_name"] == "handoff"
+    assert calls[4]["params"]["action"] == "request_question"
+    assert decode_gzdata(calls[4]["params"]["gzdata"])["timeout_content"] == {"answer": "timeout"}
+
+
 def test_hive_rule_previews_confirm_encoded_params(tmp_path: Path) -> None:
     fake = FakeHTTP()
     fake.add("POST", f"https://api.limacharlie.io/v1/hive/dr-managed/{OID}/rule-1/data", {"ok": True})
@@ -1378,7 +1443,7 @@ def test_org_user_and_api_key_previews_confirm_exact_requests(tmp_path: Path) ->
     fake.add("POST", f"https://api.limacharlie.io/v1/orgs/{OID}/name", {"ok": True})
     fake.add("POST", f"https://api.limacharlie.io/v1/orgs/{OID}/users", {"ok": True})
     fake.add("PUT", f"https://api.limacharlie.io/v1/orgs/{OID}/users/role", {"ok": True})
-    fake.add("POST", f"https://api.limacharlie.io/v1/orgs/{OID}/keys", {"key": "one-time"})
+    fake.add("POST", f"https://api.limacharlie.io/v1/orgs/{OID}/keys", {"key": "one-time", "api_key": "also-secret", "key_hash": "hash-1"})
     fake.add("DELETE", f"https://api.limacharlie.io/v1/orgs/{OID}/keys", {"ok": True})
     client = make_client(tmp_path, fake)
 
@@ -1410,6 +1475,14 @@ def test_org_user_and_api_key_previews_confirm_exact_requests(tmp_path: Path) ->
         "api_key.create",
         "api_key.delete",
     ]
+    assert confirmed[4]["data"]["result"]["key"] == "[redacted]"
+    assert confirmed[4]["data"]["result"]["api_key"] == "[redacted]"
+    assert confirmed[4]["data"]["result"]["key_hash"] == "hash-1"
+    assert "one-time" not in json.dumps(confirmed[4])
+    assert "also-secret" not in json.dumps(confirmed[4])
+    audit_text = (tmp_path / "audit.jsonl").read_text()
+    assert "one-time" not in audit_text
+    assert "also-secret" not in audit_text
     assert fake.calls[1]["params"] == {"quota": 250}
     assert fake.calls[2]["params"] == {"name": "Prod Org"}
     assert fake.calls[3]["params"] == {"email": "analyst@example.com"}

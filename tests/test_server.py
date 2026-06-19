@@ -158,6 +158,11 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
         "lc_preview_create_exfil_event",
         "lc_preview_delete_exfil_event",
         "lc_preview_delete_exfil_watch",
+        "lc_list_feedback_channels",
+        "lc_preview_set_feedback_channels",
+        "lc_preview_feedback_simple_approval",
+        "lc_preview_feedback_acknowledgement",
+        "lc_preview_feedback_question",
         "lc_validate_search_query",
         "lc_estimate_search_query",
         "lc_execute_search_query",
@@ -266,6 +271,10 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
     assert set(exfil_watch_schema["required"]) == {"oid", "name", "event", "value", "operator", "path"}
     exfil_event_schema = tools["lc_preview_create_exfil_event"]["inputSchema"]
     assert set(exfil_event_schema["required"]) == {"oid", "name", "events"}
+    feedback_channels_schema = tools["lc_preview_set_feedback_channels"]["inputSchema"]
+    assert set(feedback_channels_schema["required"]) == {"oid", "channels"}
+    feedback_approval_schema = tools["lc_preview_feedback_simple_approval"]["inputSchema"]
+    assert set(feedback_approval_schema["required"]) == {"oid", "channel", "question", "feedback_destination"}
     search_execute_schema = tools["lc_execute_search_query"]["inputSchema"]
     assert set(search_execute_schema["required"]) == {"oid", "query", "start", "end"}
     search_poll_schema = tools["lc_poll_search_query"]["inputSchema"]

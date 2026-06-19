@@ -235,6 +235,11 @@ renaming tools.
 | `lc_preview_create_exfil_event` | Preview creating an exfil event rule. |
 | `lc_preview_delete_exfil_event` | Preview deleting an exfil event rule. |
 | `lc_preview_delete_exfil_watch` | Preview deleting an exfil watch rule. |
+| `lc_list_feedback_channels` | List ext-feedback channel configuration. |
+| `lc_preview_set_feedback_channels` | Preview replacing ext-feedback channel configuration. |
+| `lc_preview_feedback_simple_approval` | Preview sending an external approval request through ext-feedback. |
+| `lc_preview_feedback_acknowledgement` | Preview sending an external acknowledgement request through ext-feedback. |
+| `lc_preview_feedback_question` | Preview sending an external free-form question through ext-feedback. |
 
 ### Response
 
@@ -256,11 +261,22 @@ renaming tools.
 Mutations are available only through the preview/confirm contract. Current
 typed previews cover sensor response actions, job deletion, sensor tags,
 sensor version policy, case lifecycle/investigation/config/tag changes,
-administration writes, extension/service/config-sync requests, and
+administration writes, extension/service/config-sync/feedback requests, and
 artifact/logging/D&R/false-positive/integrity/YARA/exfil content changes.
 Remaining specialized streaming and multi-request helper surfaces stay gated
 until they have typed preview/confirm tools or bounded read contracts with
 request-shape tests.
+
+Credential-shaped upstream fields such as API keys, JWTs, secrets, passwords,
+and private/client keys are redacted from MCP responses and audit excerpts.
+Local preview confirmation tokens remain visible in preview responses because
+they are required to execute the explicit confirmation step.
+
+Broad AI-generation wrappers are not a default parity target. This MCP focuses
+on deterministic LimaCharlie administration, investigation, content, response,
+feedback, and evidence workflows; AI-adjacent tools should be added only where
+they create auditable LimaCharlie state or evidence with cost and credential
+guardrails.
 
 ## Agent Experience Contract
 

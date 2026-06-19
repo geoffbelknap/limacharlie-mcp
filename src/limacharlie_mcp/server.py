@@ -1253,6 +1253,127 @@ def lc_preview_delete_exfil_watch(oid: str, name: str, token_ttl_seconds: int = 
 
 
 @mcp.tool()
+def lc_list_feedback_channels(oid: str) -> dict:
+    """List ext-feedback channel configuration."""
+
+    return _call("feedback.channel.list", lc.list_feedback_channels, oid=oid)
+
+
+@mcp.tool()
+def lc_preview_set_feedback_channels(
+    oid: str,
+    channels: list[dict[str, Any]],
+    etag: str | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview replacing ext-feedback channel configuration."""
+
+    return _call(
+        "feedback.channel.set.preview",
+        lc.preview_set_feedback_channels,
+        oid=oid,
+        channels=channels,
+        etag=etag,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_preview_feedback_simple_approval(
+    oid: str,
+    channel: str,
+    question: str,
+    feedback_destination: str,
+    case_id: str | None = None,
+    playbook_name: str | None = None,
+    approved_content: dict[str, Any] | None = None,
+    denied_content: dict[str, Any] | None = None,
+    timeout_seconds: int | None = None,
+    timeout_choice: str | None = None,
+    timeout_content: dict[str, Any] | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview sending an external approval request through ext-feedback."""
+
+    return _call(
+        "feedback.approval.preview",
+        lc.preview_feedback_simple_approval,
+        oid=oid,
+        channel=channel,
+        question=question,
+        feedback_destination=feedback_destination,
+        case_id=case_id,
+        playbook_name=playbook_name,
+        approved_content=approved_content,
+        denied_content=denied_content,
+        timeout_seconds=timeout_seconds,
+        timeout_choice=timeout_choice,
+        timeout_content=timeout_content,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_preview_feedback_acknowledgement(
+    oid: str,
+    channel: str,
+    question: str,
+    feedback_destination: str,
+    case_id: str | None = None,
+    playbook_name: str | None = None,
+    acknowledged_content: dict[str, Any] | None = None,
+    timeout_seconds: int | None = None,
+    timeout_content: dict[str, Any] | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview sending an external acknowledgement request through ext-feedback."""
+
+    return _call(
+        "feedback.acknowledgement.preview",
+        lc.preview_feedback_acknowledgement,
+        oid=oid,
+        channel=channel,
+        question=question,
+        feedback_destination=feedback_destination,
+        case_id=case_id,
+        playbook_name=playbook_name,
+        acknowledged_content=acknowledged_content,
+        timeout_seconds=timeout_seconds,
+        timeout_content=timeout_content,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_preview_feedback_question(
+    oid: str,
+    channel: str,
+    question: str,
+    feedback_destination: str,
+    case_id: str | None = None,
+    playbook_name: str | None = None,
+    timeout_seconds: int | None = None,
+    timeout_content: dict[str, Any] | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview sending an external free-form question through ext-feedback."""
+
+    return _call(
+        "feedback.question.preview",
+        lc.preview_feedback_question,
+        oid=oid,
+        channel=channel,
+        question=question,
+        feedback_destination=feedback_destination,
+        case_id=case_id,
+        playbook_name=playbook_name,
+        timeout_seconds=timeout_seconds,
+        timeout_content=timeout_content,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
 def lc_list_schemas(oid: str, platform: str | None = None, limit: int = 100) -> dict:
     """List event schemas for an org, optionally filtered by platform."""
 

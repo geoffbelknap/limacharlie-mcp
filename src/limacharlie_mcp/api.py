@@ -1042,7 +1042,7 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "required_inputs": ["oid", "name", "permissions"],
         "optional_inputs": ["ip_range", "token_ttl_seconds"],
         "side_effects": "none_until_confirmed",
-        "notes": "Previews creating an API key. Confirmation may return the one-time secret key value.",
+        "notes": "Previews creating an API key. Credential-shaped confirmation response fields are redacted.",
     },
     "api_key.delete.preview": {
         "suite": "administration",
@@ -2212,6 +2212,61 @@ OPERATION_CATALOG.update(
     }
 )
 
+OPERATION_CATALOG.update(
+    {
+        "feedback.channel.list": {
+            "suite": "administration",
+            "tool": "lc_list_feedback_channels",
+            "action": "read",
+            "resource_type": "feedback_channel_collection",
+            "required_inputs": ["oid"],
+            "optional_inputs": [],
+            "side_effects": "none",
+            "notes": "Reads ext-feedback channel configuration from the extension_config hive.",
+        },
+        "feedback.channel.set.preview": {
+            "suite": "administration",
+            "tool": "lc_preview_set_feedback_channels",
+            "action": "preview",
+            "resource_type": "feedback_channel_collection",
+            "required_inputs": ["oid", "channels"],
+            "optional_inputs": ["etag", "token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews replacing ext-feedback channel configuration.",
+        },
+        "feedback.approval.preview": {
+            "suite": "response",
+            "tool": "lc_preview_feedback_simple_approval",
+            "action": "preview",
+            "resource_type": "feedback_request",
+            "required_inputs": ["oid", "channel", "question", "feedback_destination"],
+            "optional_inputs": ["case_id", "playbook_name", "approved_content", "denied_content", "timeout_seconds", "timeout_choice", "timeout_content", "token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews sending an external approval request through ext-feedback.",
+        },
+        "feedback.acknowledgement.preview": {
+            "suite": "response",
+            "tool": "lc_preview_feedback_acknowledgement",
+            "action": "preview",
+            "resource_type": "feedback_request",
+            "required_inputs": ["oid", "channel", "question", "feedback_destination"],
+            "optional_inputs": ["case_id", "playbook_name", "acknowledged_content", "timeout_seconds", "timeout_content", "token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews sending an external acknowledgement request through ext-feedback.",
+        },
+        "feedback.question.preview": {
+            "suite": "response",
+            "tool": "lc_preview_feedback_question",
+            "action": "preview",
+            "resource_type": "feedback_request",
+            "required_inputs": ["oid", "channel", "question", "feedback_destination"],
+            "optional_inputs": ["case_id", "playbook_name", "timeout_seconds", "timeout_content", "token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews sending an external free-form question through ext-feedback.",
+        },
+    }
+)
+
 
 _SAFE_DETECT_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,160}$")
 _SAFE_CASE_NUMBER = re.compile(r"^[0-9]{1,20}$")
@@ -2294,6 +2349,42 @@ _SUMMARY_LIST_KEYS = (
     "results",
     "snapshots",
     "urls",
+)
+REDACTED = "[redacted]"
+_SENSITIVE_RESPONSE_KEYS = frozenset(
+    {
+        "api_key",
+        "apikey",
+        "authorization",
+        "client_secret",
+        "clientsecret",
+        "credential",
+        "credentials",
+        "jwt",
+        "key",
+        "key_material",
+        "keymaterial",
+        "lc_api_key",
+        "lcapikey",
+        "new_key",
+        "newkey",
+        "one_time_key",
+        "onetimekey",
+        "password",
+        "private_key",
+        "privatekey",
+        "refresh_token",
+        "refreshtoken",
+        "secret",
+        "session_token",
+        "sessiontoken",
+        "token",
+    }
+)
+_AUDIT_ONLY_SENSITIVE_KEYS = frozenset({"confirmation", "confirmation_token", "confirmationtoken"})
+_SENSITIVE_TEXT_RE = re.compile(
+    r"(?i)\b(api[_-]?key|authorization|client[_-]?secret|credential|jwt|password|private[_-]?key|refresh[_-]?token|secret|session[_-]?token|token)"
+    r"([\"']?\s*[:=]\s*[\"']?)([^\"'\s,}]+)"
 )
 
 
@@ -2802,6 +2893,48 @@ def bound_output(data: Any, limit: int) -> tuple[Any, bool]:
                 truncated = True
         return bounded, truncated
     return data, False
+
+
+def _sensitive_key_variants(key: str) -> tuple[str, str]:
+    normalized = re.sub(r"[^a-z0-9]+", "_", key.strip().lower()).strip("_")
+    return normalized, normalized.replace("_", "")
+
+
+def is_sensitive_response_key(key: str, *, extra_keys: frozenset[str] = frozenset()) -> bool:
+    normalized, compact = _sensitive_key_variants(key)
+    if normalized in extra_keys or compact in extra_keys:
+        return True
+    if normalized in _SENSITIVE_RESPONSE_KEYS or compact in _SENSITIVE_RESPONSE_KEYS:
+        return True
+    return normalized.endswith("_secret") or normalized.endswith("_api_key") or normalized.endswith("_private_key")
+
+
+def redact_sensitive(data: Any, *, extra_keys: frozenset[str] = frozenset()) -> Any:
+    if isinstance(data, dict):
+        redacted: dict[str, Any] = {}
+        for key, value in data.items():
+            if is_sensitive_response_key(str(key), extra_keys=extra_keys) and value is not None:
+                redacted[key] = REDACTED
+            else:
+                redacted[key] = redact_sensitive(value, extra_keys=extra_keys)
+        return redacted
+    if isinstance(data, list):
+        return [redact_sensitive(item, extra_keys=extra_keys) for item in data]
+    return data
+
+
+def redact_text(text: str) -> str:
+    return _SENSITIVE_TEXT_RE.sub(lambda match: f"{match.group(1)}{match.group(2)}{REDACTED}", text)
+
+
+def redacted_response_excerpt(data: Any, raw_text: str) -> str:
+    redacted = redact_sensitive(data, extra_keys=_AUDIT_ONLY_SENSITIVE_KEYS)
+    if redacted is not None and not isinstance(redacted, str):
+        try:
+            return json.dumps(redacted, sort_keys=True, default=str)[:500]
+        except (TypeError, ValueError):
+            pass
+    return redact_text(raw_text or str(redacted or ""))[:500]
 
 
 def observed_at() -> str:
@@ -5354,6 +5487,211 @@ class LimaCharlieAPI:
             token_ttl_seconds=token_ttl_seconds,
         )
 
+    def list_feedback_channels(self, oid: str) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        return self._request(
+            "GET",
+            f"hive/extension_config/{scoped_oid}/ext-feedback/data",
+            operation="feedback.channel.list",
+            oid=scoped_oid,
+            resource={"type": "feedback_channel_collection", "id": scoped_oid},
+        ).as_dict()
+
+    def preview_set_feedback_channels(
+        self,
+        oid: str,
+        channels: list[dict[str, Any]],
+        etag: str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        checked_channels = require_dict_list(channels, "channels", maximum=50)
+        if checked_channels is None:
+            raise ValidationError("channels are required")
+        for channel in checked_channels:
+            require_token(str(channel.get("name", "")), "channel.name")
+            channel_type = str(channel.get("channel_type", ""))
+            if channel_type not in {"web", "slack", "email", "telegram", "ms_teams"}:
+                raise ValidationError("channel_type must be one of: web, slack, email, telegram, ms_teams")
+        return self._preview_hive_set(
+            operation="feedback.channel.set",
+            oid=oid,
+            hive_name="extension_config",
+            name="ext-feedback",
+            data={"channels": checked_channels},
+            resource_type="feedback_channel_collection",
+            enabled=None,
+            tags=None,
+            comment=None,
+            expiry=None,
+            etag=etag,
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def _feedback_request_data(
+        self,
+        *,
+        channel: str,
+        question: str,
+        feedback_destination: str,
+        case_id: str | None,
+        playbook_name: str | None,
+    ) -> dict[str, Any]:
+        destination = str(feedback_destination)
+        if destination not in {"case", "playbook"}:
+            raise ValidationError("feedback_destination must be case or playbook")
+        data: dict[str, Any] = {
+            "channel": require_token(channel, "channel"),
+            "question": require_case_text(question, "question", maximum=4000, required=True),
+            "feedback_destination": destination,
+        }
+        if destination == "case":
+            if case_id is None:
+                raise ValidationError("case_id is required when feedback_destination is case")
+            data["case_id"] = require_case_number(case_id)
+        if destination == "playbook":
+            if playbook_name is None:
+                raise ValidationError("playbook_name is required when feedback_destination is playbook")
+            data["playbook_name"] = require_token(playbook_name, "playbook_name")
+        return data
+
+    def _preview_feedback_request(
+        self,
+        *,
+        oid: str,
+        action: str,
+        operation: str,
+        data: dict[str, Any],
+        resource_id: str,
+        token_ttl_seconds: int,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        token_ttl = require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900)
+        return self._create_mutation_preview(
+            operation=operation,
+            oid=scoped_oid,
+            method="POST",
+            path="extension/request/ext-feedback",
+            resource={"type": "feedback_request", "id": resource_id, "parent": {"type": "organization", "id": scoped_oid}},
+            params=extension_request_params(scoped_oid, action, data),
+            data=None,
+            json_body=None,
+            expected_effect=f"Send ext-feedback {action} request to channel {data.get('channel')!r}.",
+            reversibility="Feedback requests may notify external systems and cannot generally be withdrawn.",
+            side_effects=[{"type": "feedback_request_sent", "resource": {"type": "feedback_request", "id": resource_id}}],
+            token_ttl_seconds=token_ttl,
+        )
+
+    def preview_feedback_simple_approval(
+        self,
+        oid: str,
+        channel: str,
+        question: str,
+        feedback_destination: str,
+        case_id: str | None = None,
+        playbook_name: str | None = None,
+        approved_content: dict[str, Any] | None = None,
+        denied_content: dict[str, Any] | None = None,
+        timeout_seconds: int | None = None,
+        timeout_choice: str | None = None,
+        timeout_content: dict[str, Any] | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        data = self._feedback_request_data(
+            channel=channel,
+            question=question,
+            feedback_destination=feedback_destination,
+            case_id=case_id,
+            playbook_name=playbook_name,
+        )
+        if approved_content is not None:
+            data["approved_content"] = require_dict(approved_content, "approved_content")
+        if denied_content is not None:
+            data["denied_content"] = require_dict(denied_content, "denied_content")
+        if timeout_seconds is not None:
+            data["timeout_seconds"] = require_seconds(timeout_seconds, "timeout_seconds", minimum=60, maximum=2_592_000)
+            if timeout_choice not in {"approved", "denied"}:
+                raise ValidationError("timeout_choice must be approved or denied when timeout_seconds is set")
+            data["timeout_choice"] = timeout_choice
+        if timeout_content is not None:
+            data["timeout_content"] = require_dict(timeout_content, "timeout_content")
+        return self._preview_feedback_request(
+            oid=oid,
+            action="request_simple_approval",
+            operation="feedback.approval",
+            data=data,
+            resource_id=f"{data['channel']}:approval",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_feedback_acknowledgement(
+        self,
+        oid: str,
+        channel: str,
+        question: str,
+        feedback_destination: str,
+        case_id: str | None = None,
+        playbook_name: str | None = None,
+        acknowledged_content: dict[str, Any] | None = None,
+        timeout_seconds: int | None = None,
+        timeout_content: dict[str, Any] | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        data = self._feedback_request_data(
+            channel=channel,
+            question=question,
+            feedback_destination=feedback_destination,
+            case_id=case_id,
+            playbook_name=playbook_name,
+        )
+        if acknowledged_content is not None:
+            data["acknowledged_content"] = require_dict(acknowledged_content, "acknowledged_content")
+        if timeout_seconds is not None:
+            data["timeout_seconds"] = require_seconds(timeout_seconds, "timeout_seconds", minimum=60, maximum=2_592_000)
+        if timeout_content is not None:
+            data["timeout_content"] = require_dict(timeout_content, "timeout_content")
+        return self._preview_feedback_request(
+            oid=oid,
+            action="request_acknowledgement",
+            operation="feedback.acknowledgement",
+            data=data,
+            resource_id=f"{data['channel']}:acknowledgement",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_feedback_question(
+        self,
+        oid: str,
+        channel: str,
+        question: str,
+        feedback_destination: str,
+        case_id: str | None = None,
+        playbook_name: str | None = None,
+        timeout_seconds: int | None = None,
+        timeout_content: dict[str, Any] | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        data = self._feedback_request_data(
+            channel=channel,
+            question=question,
+            feedback_destination=feedback_destination,
+            case_id=case_id,
+            playbook_name=playbook_name,
+        )
+        if timeout_seconds is not None:
+            data["timeout_seconds"] = require_seconds(timeout_seconds, "timeout_seconds", minimum=60, maximum=2_592_000)
+            if timeout_content is None:
+                raise ValidationError("timeout_content is required when timeout_seconds is set for a question")
+        if timeout_content is not None:
+            data["timeout_content"] = require_dict(timeout_content, "timeout_content")
+        return self._preview_feedback_request(
+            oid=oid,
+            action="request_question",
+            operation="feedback.question",
+            data=data,
+            resource_id=f"{data['channel']}:question",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
     def list_schemas(self, oid: str, platform: str | None = None, limit: int = 100) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         bounded_limit = require_limit(limit)
@@ -7433,20 +7771,22 @@ class LimaCharlieAPI:
             )
 
         raw_text = response.text or ""
-        self._audit(operation, oid, method, url, params, response.status_code, duration_ms, len(raw_text), raw_text[:500])
+        parsed_response = self._parse_response(response)
+        data = redact_sensitive(normalize_api_data(parsed_response))
+        safe_excerpt = redacted_response_excerpt(data, raw_text)
+        self._audit(operation, oid, method, url, params, response.status_code, duration_ms, len(raw_text), safe_excerpt)
         meta = {
             "duration_ms": duration_ms,
             "status_code": response.status_code,
             "truncated": False,
         }
-        data = normalize_api_data(self._parse_response(response))
         if response.status_code < 200 or response.status_code >= 300:
             meta["summary"] = summarize_data(data)
             return ToolResponse(
                 ok=False,
                 operation=operation,
                 data=data,
-                error=classify_error(response.status_code, data, raw_text),
+                error=classify_error(response.status_code, data, safe_excerpt),
                 meta=meta,
                 request_id=request_id,
                 resource=resource,

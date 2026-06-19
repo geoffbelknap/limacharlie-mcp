@@ -1,0 +1,4 @@
+interface:
+  display_name: "LimaCharlie Contain Response"
+  short_description: "Contain affected systems with guarded LimaCharlie previews."
+  default_prompt: "Help me contain affected LimaCharlie endpoints using preview and confirm safeguards."

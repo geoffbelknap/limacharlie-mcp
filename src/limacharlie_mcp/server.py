@@ -77,6 +77,55 @@ def lc_list_adapter_download_targets() -> dict:
 
 
 @mcp.tool()
+def lc_review_org_posture(oid: str, start: int | None = None, end: int | None = None, limit: int = 100) -> dict:
+    """Review org posture across fleet, outputs, access, content, cases, and optional detection noise."""
+
+    return _call("review.org_posture", lc.review_org_posture, oid=oid, start=start, end=end, limit=limit)
+
+
+@mcp.tool()
+def lc_review_fleet_health(oid: str, limit: int = 100) -> dict:
+    """Summarize bounded sensor and online-sensor evidence for fleet health review."""
+
+    return _call("review.fleet_health", lc.review_fleet_health, oid=oid, limit=limit)
+
+
+@mcp.tool()
+def lc_review_detection_noise(oid: str, start: int, end: int, limit: int = 100) -> dict:
+    """Summarize bounded detection volume and concentration for a time window."""
+
+    return _call("review.detection_noise", lc.review_detection_noise, oid=oid, start=start, end=end, limit=limit)
+
+
+@mcp.tool()
+def lc_review_content_coverage(oid: str, limit: int = 100) -> dict:
+    """Summarize D&R, FP, logging, integrity, YARA, and MITRE coverage evidence."""
+
+    return _call("review.content_coverage", lc.review_content_coverage, oid=oid, limit=limit)
+
+
+@mcp.tool()
+def lc_review_case_backlog(oid: str, limit: int = 100) -> dict:
+    """Summarize bounded case backlog and dashboard evidence."""
+
+    return _call("review.case_backlog", lc.review_case_backlog, oid=oid, limit=limit)
+
+
+@mcp.tool()
+def lc_review_output_health(oid: str, limit: int = 100) -> dict:
+    """Summarize outputs, extension subscriptions, and feedback channel health."""
+
+    return _call("review.output_health", lc.review_output_health, oid=oid, limit=limit)
+
+
+@mcp.tool()
+def lc_review_access_hygiene(oid: str, limit: int = 100) -> dict:
+    """Summarize users, permissions, groups, and API-key hygiene evidence."""
+
+    return _call("review.access_hygiene", lc.review_access_hygiene, oid=oid, limit=limit)
+
+
+@mcp.tool()
 def lc_list_sensors(oid: str, selector: str | None = None, limit: int = 100) -> dict:
     """List sensors for an explicit org, optionally filtered by selector."""
 

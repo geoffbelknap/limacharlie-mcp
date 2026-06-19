@@ -1,0 +1,45 @@
+---
+name: limacharlie-auth-onboarding
+description: Set up or troubleshoot LimaCharlie MCP authentication with Vault-first credential storage, org API keys, JWT refresh, UID confusion, onboarding smoke tests, and reauth. Use when users need to configure LimaCharlie MCP auth, verify credentials, rotate keys, diagnose missing_credentials or permission errors, or avoid pasting API keys/JWTs into env files.
+---
+
+# LimaCharlie Auth Onboarding
+
+## Workflow
+
+Use Vault as the default credential store. Do not ask users to paste production
+LimaCharlie API keys into `.env` files or chat. If a local test must use direct
+environment variables, label it as temporary and prefer Vault for deployment.
+
+1. Identify the intended org and key type:
+   - Prefer an organization API key for MCP runtime access.
+   - Use a user API key only when the requested workflow truly needs user-wide
+     access across organizations.
+   - Do not ask for an `LC_UID` unless using user API key JWT exchange.
+2. Store or reference the key:
+   - Use `limacharlie-mcp-vault-bootstrap` when a Vault token file exists.
+   - Use `LC_API_KEY_REF`, `LC_VAULT_ADDR`, and `LC_VAULT_TOKEN_FILE` for runtime.
+   - Keep `LC_API_KEY` as local test fallback only.
+3. Verify without exposing secrets:
+   - Call `lc_auth_status` first.
+   - Call `lc_auth_whoami` with `oid` and a concrete `check_perm` when diagnosing permissions.
+   - Call `lc_auth_refresh` after rotation or suspected stale JWT cache.
+4. Run a smoke test:
+   - Use `lc_list_orgs` if the key can discover orgs.
+   - Use `lc_tool_catalog` to confirm the intended profile is active.
+   - Use one safe read such as `lc_review_org_posture` or `lc_list_sensors`.
+
+## Permission Guidance
+
+For read-only review onboarding, start with the smallest permissions needed for
+org, sensor, detection, case, content, output, user, and API key metadata reads.
+For response workflows, add only the specific permissions required by the
+previewed mutation surfaces. Never request broad destructive permissions just to
+make onboarding easier.
+
+## Failure Handling
+
+If auth fails, report the concrete failure class and next check. Do not print API
+keys, Vault tokens, JWTs, or authorization headers. If an org API key works in
+the LimaCharlie UI but the MCP fails, verify that the MCP is using `oid` for org
+JWT exchange rather than `uid`.

@@ -1,0 +1,4 @@
+interface:
+  display_name: "LimaCharlie Detect Triage"
+  short_description: "Triage LimaCharlie detections and cases with bounded evidence."
+  default_prompt: "Triage this LimaCharlie detection or case and tell me what happened with bounded evidence."

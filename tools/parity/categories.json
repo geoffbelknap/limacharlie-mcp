@@ -327,6 +327,23 @@
       ]
     },
     {
+      "id": "posture_review_tuning",
+      "title": "Posture Review And Tuning",
+      "doc_sections": ["Administration", "Detection & Response", "Data & Queries", "Integrations"],
+      "decision": "cover_bounded",
+      "reason": "Aggregate expert-review tools are in scope when they summarize bounded reads, preserve source-level permission failures, and do not mutate LimaCharlie state.",
+      "required_operations": [
+        "review.org_posture",
+        "review.fleet_health",
+        "review.detection_noise",
+        "review.content_coverage",
+        "review.case_backlog",
+        "review.output_health",
+        "review.access_hygiene"
+      ],
+      "operation_prefixes": ["review."]
+    },
+    {
       "id": "release_notes",
       "title": "Release Notes",
       "doc_sections": ["Release Notes"],

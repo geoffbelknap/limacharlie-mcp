@@ -1,0 +1,4 @@
+interface:
+  display_name: "LimaCharlie Detection Tuning"
+  short_description: "Tune noisy LimaCharlie detections safely."
+  default_prompt: "Analyze noisy LimaCharlie detections and propose safe tuning changes with evidence."

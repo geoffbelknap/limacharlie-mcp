@@ -31,6 +31,9 @@ def test_profile_catalog_filters_operations_and_reports_counts(tmp_path) -> None
     assert "sensor.rejoin.preview" in recover["data"]["operations"]
     assert "api_key.list" in review["data"]["operations"]
     assert "api_key.list" not in recover["data"]["operations"]
+    assert "review.org_posture" in review["data"]["operations"]
+    assert "review.org_posture" not in recover["data"]["operations"]
+    assert review["data"]["operations"]["review.org_posture"]["action"] == "read"
     assert not any(spec["action"] == "preview" for spec in review["data"]["operations"].values())
     assert not any(spec["action"] == "execute" for spec in review["data"]["operations"].values())
 
@@ -60,6 +63,9 @@ def test_profile_tool_sets_are_focused_and_keep_safety_tools() -> None:
     assert "lc_preview_unseal_sensor" in recover
     assert "lc_list_api_keys" in review
     assert "lc_list_api_keys" not in recover
+    assert "lc_review_org_posture" in review
+    assert "lc_review_detection_noise" in review
+    assert "lc_review_org_posture" not in recover
     assert "lc_preview_isolate_sensor" in contain
     assert "lc_preview_isolate_sensor" not in detect
 

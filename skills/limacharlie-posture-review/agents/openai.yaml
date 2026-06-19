@@ -1,0 +1,4 @@
+interface:
+  display_name: "LimaCharlie Posture Review"
+  short_description: "Review LimaCharlie org posture with bounded MCP tools."
+  default_prompt: "Review my LimaCharlie org posture and identify operational, content, access, and output issues."

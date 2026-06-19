@@ -1,0 +1,4 @@
+interface:
+  display_name: "LimaCharlie Evict Response"
+  short_description: "Evict adversary footholds in LimaCharlie."
+  default_prompt: "Help me evict an adversary using LimaCharlie evidence, content review, and guarded endpoint actions."

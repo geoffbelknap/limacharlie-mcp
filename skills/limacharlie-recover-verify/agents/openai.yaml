@@ -1,0 +1,4 @@
+interface:
+  display_name: "LimaCharlie Recover Verify"
+  short_description: "Verify post-incident recovery in LimaCharlie."
+  default_prompt: "Help me verify recovery after an incident using LimaCharlie without reintroducing risk."

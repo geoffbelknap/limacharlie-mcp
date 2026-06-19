@@ -1,0 +1,4 @@
+interface:
+  display_name: "LimaCharlie Auth Onboarding"
+  short_description: "Set up Vault-backed LimaCharlie MCP authentication."
+  default_prompt: "Help me configure LimaCharlie MCP authentication with Vault and verify it without exposing secrets."

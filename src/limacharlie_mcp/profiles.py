@@ -120,6 +120,13 @@ REVIEW_OPERATIONS = CORE_OPERATIONS | frozenset(
         "yara_rule.list",
         "yara_source.get",
         "yara_source.list",
+        "review.access_hygiene",
+        "review.case_backlog",
+        "review.content_coverage",
+        "review.detection_noise",
+        "review.fleet_health",
+        "review.org_posture",
+        "review.output_health",
     }
 )
 
@@ -305,7 +312,7 @@ PROFILE_DEFINITIONS: dict[str, ProfileDefinition] = {
         name="review",
         title="Posture review and tuning",
         description="Read-only assessment for org posture, fleet health, detection quality, content coverage, case backlog, output health, and access hygiene.",
-        include_suites=frozenset({"platform"}),
+        include_suites=frozenset({"platform", "review"}),
         include_actions=frozenset({"read", "validate"}),
         include_operations=REVIEW_OPERATIONS,
         include_operation_prefixes=CORE_OPERATION_PREFIXES,

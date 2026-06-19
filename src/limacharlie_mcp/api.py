@@ -1892,6 +1892,83 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
 
 OPERATION_CATALOG.update(
     {
+        "review.org_posture": {
+            "suite": "review",
+            "tool": "lc_review_org_posture",
+            "action": "read",
+            "resource_type": "posture_review",
+            "required_inputs": ["oid"],
+            "optional_inputs": ["start", "end", "limit"],
+            "bounds": {"limit_min": 1, "limit_max": 500},
+            "side_effects": "none",
+            "notes": "Aggregates bounded review findings across fleet, outputs, access, content, cases, org errors, and optional detection-noise window.",
+        },
+        "review.fleet_health": {
+            "suite": "review",
+            "tool": "lc_review_fleet_health",
+            "action": "read",
+            "resource_type": "fleet_review",
+            "required_inputs": ["oid"],
+            "optional_inputs": ["limit"],
+            "bounds": {"limit_min": 1, "limit_max": 500},
+            "side_effects": "none",
+            "notes": "Summarizes bounded sensor and online-sensor reads for fleet posture review.",
+        },
+        "review.detection_noise": {
+            "suite": "review",
+            "tool": "lc_review_detection_noise",
+            "action": "read",
+            "resource_type": "detection_review",
+            "required_inputs": ["oid", "start", "end"],
+            "optional_inputs": ["limit"],
+            "bounds": {"limit_min": 1, "limit_max": 500},
+            "side_effects": "none",
+            "notes": "Summarizes bounded detection volume, concentration, and case backlog indicators for a time window.",
+        },
+        "review.content_coverage": {
+            "suite": "review",
+            "tool": "lc_review_content_coverage",
+            "action": "read",
+            "resource_type": "content_review",
+            "required_inputs": ["oid"],
+            "optional_inputs": ["limit"],
+            "bounds": {"limit_min": 1, "limit_max": 500},
+            "side_effects": "none",
+            "notes": "Summarizes D&R, false-positive, logging, integrity, YARA, and MITRE coverage evidence.",
+        },
+        "review.case_backlog": {
+            "suite": "review",
+            "tool": "lc_review_case_backlog",
+            "action": "read",
+            "resource_type": "case_review",
+            "required_inputs": ["oid"],
+            "optional_inputs": ["limit"],
+            "bounds": {"limit_min": 1, "limit_max": 200},
+            "side_effects": "none",
+            "notes": "Summarizes bounded case backlog, status distribution, and dashboard evidence.",
+        },
+        "review.output_health": {
+            "suite": "review",
+            "tool": "lc_review_output_health",
+            "action": "read",
+            "resource_type": "output_review",
+            "required_inputs": ["oid"],
+            "optional_inputs": ["limit"],
+            "bounds": {"limit_min": 1, "limit_max": 500},
+            "side_effects": "none",
+            "notes": "Summarizes outputs, extension subscriptions, and feedback channels for telemetry/action delivery health.",
+        },
+        "review.access_hygiene": {
+            "suite": "review",
+            "tool": "lc_review_access_hygiene",
+            "action": "read",
+            "resource_type": "access_review",
+            "required_inputs": ["oid"],
+            "optional_inputs": ["limit"],
+            "bounds": {"limit_min": 1, "limit_max": 500},
+            "side_effects": "none",
+            "notes": "Summarizes users, permissions, groups, and API-key metadata for access hygiene review.",
+        },
         "case.create.preview": {
             "suite": "investigation",
             "tool": "lc_preview_create_case",
@@ -4328,6 +4405,557 @@ class LimaCharlieAPI:
             "download.adapter_targets.list",
             {"targets": self._download_targets(_ADAPTER_DOWNLOAD_TARGETS)},
             resource={"type": "download_target_collection", "id": "adapter"},
+        )
+
+    def _review_finding(
+        self,
+        finding_id: str,
+        severity: str,
+        title: str,
+        evidence: dict[str, Any],
+        recommendation: str,
+        *,
+        category: str,
+        confidence: str = "medium",
+    ) -> dict[str, Any]:
+        return {
+            "id": finding_id,
+            "category": category,
+            "severity": severity,
+            "title": title,
+            "evidence": evidence,
+            "recommendation": recommendation,
+            "confidence": confidence,
+        }
+
+    def _review_source(self, name: str, result: dict[str, Any]) -> dict[str, Any]:
+        source: dict[str, Any] = {
+            "name": name,
+            "operation": result.get("operation"),
+            "ok": bool(result.get("ok")),
+            "summary": result.get("meta", {}).get("summary", {}),
+            "truncated": bool(result.get("meta", {}).get("truncated", False)),
+        }
+        if not source["ok"]:
+            error = result.get("error") or {}
+            source["error"] = {
+                "code": error.get("code", "unknown"),
+                "class": error.get("class", "unknown"),
+                "message": error.get("message", "source read failed"),
+            }
+        return source
+
+    def _review_call(self, name: str, fn: Any, *args: Any, **kwargs: Any) -> tuple[dict[str, Any], dict[str, Any]]:
+        try:
+            result = fn(*args, **kwargs)
+        except ValidationError:
+            raise
+        except Exception as exc:
+            result = {
+                "ok": False,
+                "operation": name,
+                "data": None,
+                "meta": {"summary": {"shape": "empty"}, "truncated": False},
+                "error": {
+                    "code": "source_exception",
+                    "class": "internal",
+                    "message": redact_text(str(exc)),
+                    "retryable": False,
+                    "same_input_retryable": False,
+                },
+            }
+        return result, self._review_source(name, result)
+
+    def _review_count(self, result: dict[str, Any], *preferred_keys: str) -> int:
+        data = result.get("data")
+        if isinstance(data, list):
+            return len(data)
+        if isinstance(data, dict):
+            for key in (*preferred_keys, *_SUMMARY_LIST_KEYS):
+                value = data.get(key)
+                if isinstance(value, (list, dict)):
+                    return len(value)
+            return len(data)
+        return 0
+
+    def _review_items(self, result: dict[str, Any], *preferred_keys: str) -> list[Any]:
+        data = result.get("data")
+        if isinstance(data, list):
+            return data
+        if not isinstance(data, dict):
+            return []
+        for key in (*preferred_keys, *_SUMMARY_LIST_KEYS):
+            value = data.get(key)
+            if isinstance(value, list):
+                return value
+            if isinstance(value, dict):
+                return list(value.values())
+        if data and all(isinstance(value, dict) for value in data.values()):
+            return list(data.values())
+        return []
+
+    def _top_values(self, items: list[Any], keys: tuple[str, ...], *, limit: int = 5) -> list[dict[str, Any]]:
+        counts: dict[str, int] = {}
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            value = None
+            for key in keys:
+                candidate = item.get(key)
+                if candidate not in (None, ""):
+                    value = candidate
+                    break
+            if value is None:
+                continue
+            label = str(value)
+            counts[label] = counts.get(label, 0) + 1
+        return [
+            {"value": value, "count": count}
+            for value, count in sorted(counts.items(), key=lambda pair: (-pair[1], pair[0]))[:limit]
+        ]
+
+    def _review_response(
+        self,
+        operation: str,
+        oid: str,
+        *,
+        metrics: dict[str, Any],
+        findings: list[dict[str, Any]],
+        recommendations: list[str],
+        sources: list[dict[str, Any]],
+        limit: int,
+        warnings: list[str] | None = None,
+    ) -> dict[str, Any]:
+        severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
+        sorted_findings = sorted(findings, key=lambda finding: (severity_order.get(str(finding.get("severity")), 9), str(finding.get("id"))))
+        failed_sources = [source for source in sources if not source.get("ok")]
+        response_warnings = list(warnings or [])
+        for source in failed_sources:
+            error = source.get("error", {})
+            response_warnings.append(f"{source.get('name')}: {error.get('message', 'source read failed')}")
+        state = "needs_attention" if any(f.get("severity") in {"critical", "high", "medium"} for f in sorted_findings) else "reviewed"
+        return self._local_response(
+            operation,
+            {
+                "oid": oid,
+                "metrics": metrics,
+                "findings": sorted_findings,
+                "recommendations": recommendations,
+                "sources": sources,
+            },
+            resource={"type": OPERATION_CATALOG[operation]["resource_type"], "id": oid},
+            state={"current": state, "terminal": True},
+            warnings=response_warnings,
+            limit=limit,
+        )
+
+    def review_fleet_health(self, oid: str, limit: int = 100) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        bounded_limit = require_limit(limit)
+        sensors, sensors_source = self._review_call("sensor.list", self.list_sensors, scoped_oid, limit=bounded_limit)
+        online, online_source = self._review_call("sensor.online.list", self.list_online_sensors, scoped_oid, limit=bounded_limit)
+        tags, tags_source = self._review_call("tag.list", self.list_tags, scoped_oid, limit=bounded_limit)
+        sensor_count = self._review_count(sensors, "sensors")
+        online_count = self._review_count(online, "sensors")
+        findings: list[dict[str, Any]] = []
+        if sensors.get("ok") and sensor_count == 0:
+            findings.append(
+                self._review_finding(
+                    "fleet.no_sensors",
+                    "high",
+                    "No sensors returned in the bounded fleet sample",
+                    {"sensor_count": sensor_count},
+                    "Verify enrollment, installation keys, and org selection before relying on detections or response workflows.",
+                    category="fleet",
+                )
+            )
+        elif online.get("ok") and sensor_count > 0 and online_count == 0:
+            findings.append(
+                self._review_finding(
+                    "fleet.no_online_sensors",
+                    "medium",
+                    "No online sensors returned in the bounded fleet sample",
+                    {"sensor_count": sensor_count, "online_sensor_count": online_count},
+                    "Check sensor connectivity and confirm whether endpoint telemetry is expected in this org.",
+                    category="fleet",
+                )
+            )
+        elif sensors.get("ok") and online.get("ok") and sensor_count > 0:
+            ratio = online_count / sensor_count
+            if ratio < 0.5:
+                findings.append(
+                    self._review_finding(
+                        "fleet.low_online_ratio",
+                        "low",
+                        "Online sensor sample is materially smaller than the fleet sample",
+                        {"sensor_count": sensor_count, "online_sensor_count": online_count, "sample_ratio": round(ratio, 3)},
+                        "Inspect stale hosts and expected check-in patterns before interpreting detection gaps.",
+                        category="fleet",
+                    )
+                )
+        return self._review_response(
+            "review.fleet_health",
+            scoped_oid,
+            metrics={
+                "sensor_sample_count": sensor_count,
+                "online_sensor_sample_count": online_count,
+                "tag_count": self._review_count(tags, "tags"),
+            },
+            findings=findings,
+            recommendations=["Use lc_list_sensors and lc_list_online_sensors to inspect concrete endpoints behind these counts."],
+            sources=[sensors_source, online_source, tags_source],
+            limit=bounded_limit,
+        )
+
+    def review_detection_noise(self, oid: str, start: int, end: int, limit: int = 100) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        bounded_limit = require_limit(limit)
+        start_ts, end_ts = require_time_window(start, end)
+        detections, detections_source = self._review_call(
+            "detection.list",
+            self.list_detections,
+            scoped_oid,
+            start_ts,
+            end_ts,
+            bounded_limit,
+        )
+        cases, cases_source = self._review_call("case.list", self.list_cases, scoped_oid, limit=min(bounded_limit, 200))
+        detection_items = self._review_items(detections, "detects", "detections")
+        detection_count = len(detection_items) if detection_items else self._review_count(detections, "detects", "detections")
+        top_categories = self._top_values(detection_items, ("cat", "category", "routing", "event_type"))
+        top_rules = self._top_values(detection_items, ("rule_name", "rule", "detect_name", "name"))
+        findings: list[dict[str, Any]] = []
+        if detections.get("ok") and detection_count == 0:
+            findings.append(
+                self._review_finding(
+                    "detection.no_detections",
+                    "low",
+                    "No detections returned in the requested window",
+                    {"start": start_ts, "end": end_ts},
+                    "Confirm telemetry coverage and D&R enablement before treating the environment as quiet.",
+                    category="detection",
+                )
+            )
+        if detections_source.get("truncated"):
+            findings.append(
+                self._review_finding(
+                    "detection.sample_truncated",
+                    "medium",
+                    "Detection sample hit the requested limit",
+                    {"limit": bounded_limit, "detection_sample_count": detection_count},
+                    "Repeat with a narrower time window or category filter, then tune the highest-volume rules first.",
+                    category="detection",
+                )
+            )
+        if top_rules and detection_count >= 10 and top_rules[0]["count"] / detection_count >= 0.5:
+            findings.append(
+                self._review_finding(
+                    "detection.concentrated_rule_volume",
+                    "medium",
+                    "One detection rule dominates the bounded sample",
+                    {"top_rule": top_rules[0], "detection_sample_count": detection_count},
+                    "Review the dominant rule for expected prevalence, suppression candidates, or missing context filters.",
+                    category="detection",
+                )
+            )
+        return self._review_response(
+            "review.detection_noise",
+            scoped_oid,
+            metrics={
+                "start": start_ts,
+                "end": end_ts,
+                "detection_sample_count": detection_count,
+                "case_sample_count": self._review_count(cases, "cases"),
+                "top_categories": top_categories,
+                "top_rules": top_rules,
+            },
+            findings=findings,
+            recommendations=["Use lc_list_detections with narrower bounds before changing any D&R or false-positive content."],
+            sources=[detections_source, cases_source],
+            limit=bounded_limit,
+        )
+
+    def review_content_coverage(self, oid: str, limit: int = 100) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        bounded_limit = require_limit(limit)
+        dr, dr_source = self._review_call("dr_rule.list", self.list_dr_rules, scoped_oid, limit=bounded_limit)
+        fp, fp_source = self._review_call("fp_rule.list", self.list_fp_rules, scoped_oid, limit=bounded_limit)
+        logging, logging_source = self._review_call("logging_rule.list", self.list_logging_rules, scoped_oid, limit=bounded_limit)
+        integrity, integrity_source = self._review_call("integrity_rule.list", self.list_integrity_rules, scoped_oid, limit=bounded_limit)
+        yara, yara_source = self._review_call("yara_rule.list", self.list_yara_rules, scoped_oid, limit=bounded_limit)
+        mitre, mitre_source = self._review_call("mitre.get", self.get_mitre_report, scoped_oid)
+        metrics = {
+            "dr_rule_count": self._review_count(dr, "rules"),
+            "fp_rule_count": self._review_count(fp, "rules"),
+            "logging_rule_count": self._review_count(logging, "rules"),
+            "integrity_rule_count": self._review_count(integrity, "rules"),
+            "yara_rule_count": self._review_count(yara, "rules"),
+            "mitre_summary": mitre.get("meta", {}).get("summary", {}),
+        }
+        findings: list[dict[str, Any]] = []
+        if dr.get("ok") and metrics["dr_rule_count"] == 0:
+            findings.append(
+                self._review_finding(
+                    "content.no_dr_rules",
+                    "high",
+                    "No D&R rules returned in the bounded content sample",
+                    {"dr_rule_count": metrics["dr_rule_count"]},
+                    "Add or enable detection and response rules before depending on automated detection coverage.",
+                    category="content",
+                )
+            )
+        if logging.get("ok") and integrity.get("ok") and metrics["logging_rule_count"] == 0 and metrics["integrity_rule_count"] == 0:
+            findings.append(
+                self._review_finding(
+                    "content.no_collection_rules",
+                    "medium",
+                    "No logging or integrity collection rules returned",
+                    {"logging_rule_count": metrics["logging_rule_count"], "integrity_rule_count": metrics["integrity_rule_count"]},
+                    "Review whether collection rules should be enabled for the operating systems and assets in scope.",
+                    category="content",
+                )
+            )
+        if fp.get("ok") and dr.get("ok") and metrics["fp_rule_count"] > metrics["dr_rule_count"] and metrics["fp_rule_count"] >= 5:
+            findings.append(
+                self._review_finding(
+                    "content.fp_outnumbers_dr",
+                    "low",
+                    "False-positive rules outnumber D&R rules in the bounded sample",
+                    {"fp_rule_count": metrics["fp_rule_count"], "dr_rule_count": metrics["dr_rule_count"]},
+                    "Review whether suppression is compensating for noisy or overly broad detections.",
+                    category="content",
+                )
+            )
+        return self._review_response(
+            "review.content_coverage",
+            scoped_oid,
+            metrics=metrics,
+            findings=findings,
+            recommendations=["Use lc_get_mitre_report and content-specific list tools to identify concrete coverage gaps before editing rules."],
+            sources=[dr_source, fp_source, logging_source, integrity_source, yara_source, mitre_source],
+            limit=bounded_limit,
+        )
+
+    def review_case_backlog(self, oid: str, limit: int = 100) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        bounded_limit = require_limit(limit, maximum=200)
+        cases, cases_source = self._review_call("case.list", self.list_cases, scoped_oid, limit=bounded_limit)
+        dashboard, dashboard_source = self._review_call("case.dashboard", self.get_cases_dashboard_counts, scoped_oid)
+        case_items = self._review_items(cases, "cases")
+        status_counts = self._top_values(case_items, ("status",), limit=10)
+        severity_counts = self._top_values(case_items, ("severity",), limit=10)
+        case_count = len(case_items) if case_items else self._review_count(cases, "cases")
+        open_count = sum(item["count"] for item in status_counts if str(item["value"]).lower() not in {"closed", "resolved", "done"})
+        findings: list[dict[str, Any]] = []
+        if cases_source.get("truncated"):
+            findings.append(
+                self._review_finding(
+                    "case.sample_truncated",
+                    "medium",
+                    "Case sample hit the requested limit",
+                    {"limit": bounded_limit, "case_sample_count": case_count},
+                    "Filter by open statuses or use case dashboard counts before deciding backlog health.",
+                    category="case",
+                )
+            )
+        if case_items and open_count > 0:
+            findings.append(
+                self._review_finding(
+                    "case.open_backlog",
+                    "low",
+                    "Open or non-terminal cases are present in the bounded sample",
+                    {"open_case_sample_count": open_count, "status_counts": status_counts},
+                    "Review oldest high-severity cases first and close or classify stale cases.",
+                    category="case",
+                )
+            )
+        return self._review_response(
+            "review.case_backlog",
+            scoped_oid,
+            metrics={
+                "case_sample_count": case_count,
+                "open_case_sample_count": open_count,
+                "status_counts": status_counts,
+                "severity_counts": severity_counts,
+                "dashboard_summary": dashboard.get("meta", {}).get("summary", {}),
+            },
+            findings=findings,
+            recommendations=["Use lc_list_cases with status and severity filters for case-level follow-up."],
+            sources=[cases_source, dashboard_source],
+            limit=bounded_limit,
+        )
+
+    def review_output_health(self, oid: str, limit: int = 100) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        bounded_limit = require_limit(limit)
+        outputs, outputs_source = self._review_call("output.list", self.list_outputs, scoped_oid, limit=bounded_limit)
+        subscriptions, subscriptions_source = self._review_call("extension.list_subscribed", self.list_extension_subscriptions, scoped_oid, limit=bounded_limit)
+        feedback, feedback_source = self._review_call("feedback.channel.list", self.list_feedback_channels, scoped_oid)
+        metrics = {
+            "output_count": self._review_count(outputs, "outputs"),
+            "extension_subscription_count": self._review_count(subscriptions, "extensions", "subscriptions"),
+            "feedback_channel_count": self._review_count(feedback, "channels", "resources"),
+        }
+        findings: list[dict[str, Any]] = []
+        if outputs.get("ok") and metrics["output_count"] == 0:
+            findings.append(
+                self._review_finding(
+                    "output.no_outputs",
+                    "high",
+                    "No output integrations returned",
+                    {"output_count": metrics["output_count"]},
+                    "Configure at least one durable output for telemetry export, retention, or downstream investigation workflows.",
+                    category="output",
+                )
+            )
+        if feedback.get("ok") and metrics["feedback_channel_count"] == 0:
+            findings.append(
+                self._review_finding(
+                    "output.no_feedback_channels",
+                    "low",
+                    "No feedback channels returned",
+                    {"feedback_channel_count": metrics["feedback_channel_count"]},
+                    "Configure feedback channels if approval, acknowledgement, or analyst questions are expected in workflows.",
+                    category="output",
+                )
+            )
+        return self._review_response(
+            "review.output_health",
+            scoped_oid,
+            metrics=metrics,
+            findings=findings,
+            recommendations=["Use lc_list_outputs to inspect concrete destinations before making integration changes."],
+            sources=[outputs_source, subscriptions_source, feedback_source],
+            limit=bounded_limit,
+        )
+
+    def review_access_hygiene(self, oid: str, limit: int = 100) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        bounded_limit = require_limit(limit)
+        users, users_source = self._review_call("user.list", self.list_users, scoped_oid, limit=bounded_limit)
+        permissions, permissions_source = self._review_call("user.permission.list", self.list_user_permissions, scoped_oid)
+        keys, keys_source = self._review_call("api_key.list", self.list_api_keys, scoped_oid, limit=bounded_limit)
+        groups, groups_source = self._review_call("group.list", self.list_groups, limit=bounded_limit)
+        metrics = {
+            "user_count": self._review_count(users, "users"),
+            "permission_principal_count": self._review_count(permissions, "users", "permissions"),
+            "api_key_count": self._review_count(keys, "api_keys", "keys"),
+            "group_count": self._review_count(groups, "groups"),
+        }
+        findings: list[dict[str, Any]] = []
+        if users.get("ok") and metrics["user_count"] == 0:
+            findings.append(
+                self._review_finding(
+                    "access.no_users",
+                    "high",
+                    "No users returned for the organization",
+                    {"user_count": metrics["user_count"]},
+                    "Confirm the organization ID and account permissions before making access decisions.",
+                    category="access",
+                )
+            )
+        if keys.get("ok") and metrics["api_key_count"] == 0:
+            findings.append(
+                self._review_finding(
+                    "access.no_org_api_keys",
+                    "low",
+                    "No organization API keys returned",
+                    {"api_key_count": metrics["api_key_count"]},
+                    "Prefer scoped organization API keys stored in Vault over user API keys for MCP runtime access.",
+                    category="access",
+                )
+            )
+        elif keys.get("ok") and metrics["api_key_count"] >= 10:
+            findings.append(
+                self._review_finding(
+                    "access.many_org_api_keys",
+                    "low",
+                    "Many organization API keys returned in the bounded sample",
+                    {"api_key_count": metrics["api_key_count"]},
+                    "Review key ownership, last-used metadata, and permissions; retire unused keys through preview/confirm deletion.",
+                    category="access",
+                )
+            )
+        return self._review_response(
+            "review.access_hygiene",
+            scoped_oid,
+            metrics=metrics,
+            findings=findings,
+            recommendations=["Use lc_list_api_keys and lc_list_user_permissions to inspect principals before changing access."],
+            sources=[users_source, permissions_source, keys_source, groups_source],
+            limit=bounded_limit,
+        )
+
+    def review_org_posture(self, oid: str, start: int | None = None, end: int | None = None, limit: int = 100) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        bounded_limit = require_limit(limit)
+        if start is None and end is not None or start is not None and end is None:
+            raise ValidationError("start and end must be provided together for detection-noise review")
+        if start is not None and end is not None:
+            start_ts, end_ts = require_time_window(start, end)
+        else:
+            start_ts = None
+            end_ts = None
+        component_results: list[dict[str, Any]] = [
+            self.review_fleet_health(scoped_oid, limit=bounded_limit),
+            self.review_output_health(scoped_oid, limit=bounded_limit),
+            self.review_access_hygiene(scoped_oid, limit=bounded_limit),
+            self.review_content_coverage(scoped_oid, limit=bounded_limit),
+            self.review_case_backlog(scoped_oid, limit=min(bounded_limit, 200)),
+        ]
+        if start_ts is not None and end_ts is not None:
+            component_results.append(self.review_detection_noise(scoped_oid, start_ts, end_ts, limit=bounded_limit))
+        org_errors, org_errors_source = self._review_call("org.errors", self.list_org_errors, scoped_oid)
+        component_summaries = []
+        findings: list[dict[str, Any]] = []
+        source_count = 1
+        failed_source_count = 0
+        for result in component_results:
+            data = result.get("data", {})
+            component_summaries.append(
+                {
+                    "operation": result.get("operation"),
+                    "state": result.get("state", {}).get("current"),
+                    "finding_count": len(data.get("findings", [])) if isinstance(data, dict) else 0,
+                    "metrics": data.get("metrics", {}) if isinstance(data, dict) else {},
+                }
+            )
+            if isinstance(data, dict):
+                findings.extend(data.get("findings", []))
+                sources = data.get("sources", [])
+                source_count += len(sources)
+                failed_source_count += len([source for source in sources if not source.get("ok")])
+        org_error_count = self._review_count(org_errors, "errors")
+        if org_errors.get("ok") and org_error_count > 0:
+            findings.append(
+                self._review_finding(
+                    "org.component_errors",
+                    "medium",
+                    "Organization component errors are present",
+                    {"org_error_count": org_error_count},
+                    "Inspect lc_list_org_errors and dismiss only after validating the underlying component issue is resolved.",
+                    category="organization",
+                )
+            )
+        failed_source_count += 0 if org_errors_source.get("ok") else 1
+        return self._review_response(
+            "review.org_posture",
+            scoped_oid,
+            metrics={
+                "component_count": len(component_results),
+                "source_count": source_count,
+                "failed_source_count": failed_source_count,
+                "org_error_count": org_error_count,
+                "detection_window": {"start": start_ts, "end": end_ts} if start_ts is not None and end_ts is not None else None,
+                "components": component_summaries,
+            },
+            findings=findings,
+            recommendations=[
+                "Prioritize high and medium findings, then inspect each component review for concrete follow-up tools.",
+                "Do not change content, access, or response state from this aggregate; use preview/confirm mutation tools for any remediation.",
+            ],
+            sources=[org_errors_source],
+            limit=bounded_limit,
         )
 
     def list_sensors(self, oid: str, selector: str | None = None, limit: int = 100) -> dict[str, Any]:

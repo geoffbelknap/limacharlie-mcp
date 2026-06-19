@@ -45,6 +45,21 @@ You can also run `limacharlie-mcp` with `LC_MCP_PROFILE` set to one of those
 profile names. Call `lc_tool_catalog` after startup to see the active profile,
 available profiles, and the filtered operation catalog.
 
+## Skills Pack
+
+The repo includes an initial Codex skills pack in `skills/` for agent workflows
+that should use these MCP profiles:
+
+| Skill | Workflow |
+| --- | --- |
+| `limacharlie-auth-onboarding` | Vault-first auth setup, reauth, UID/OID confusion, and secret-safe smoke tests. |
+| `limacharlie-posture-review` | Bounded expert review across fleet, content, access, outputs, cases, and detection noise. |
+| `limacharlie-detection-tuning` | Evidence-led noisy-alert and missing-alert tuning. |
+| `limacharlie-detect-triage` | Detection, case, event, IOC, search, artifact, and vulnerability triage. |
+| `limacharlie-contain-response` | Guarded containment with preview/confirm endpoint actions. |
+| `limacharlie-evict-response` | Evidence-backed adversary eviction and durable content/action changes. |
+| `limacharlie-recover-verify` | Post-incident restoration and recurrence checks. |
+
 This MCP intentionally does not expose live telemetry streaming, spout, or
 firehose tools. Historical event, detection, audit, search, replay, and
 spotcheck workflows remain bounded by explicit limits, cursors, selectors, and
@@ -63,6 +78,23 @@ unbounded firehose into an LLM.
 | `lc_list_orgs` | List organizations available to the authenticated API key. |
 | `lc_list_sensor_download_targets` | List supported sensor installer URLs without downloading binaries. |
 | `lc_list_adapter_download_targets` | List supported adapter binary URLs without downloading binaries. |
+
+### Review And Tuning
+
+These tools aggregate bounded reads into compact findings for recurring posture
+review, noisy-alert triage, and operational hygiene checks. They do not mutate
+LimaCharlie state and they keep source records summarized instead of returning
+entire detections, cases, or rule bodies.
+
+| Tool | Purpose |
+| --- | --- |
+| `lc_review_org_posture` | Aggregate fleet, outputs, access, content, cases, org errors, and optional detection-noise findings. |
+| `lc_review_fleet_health` | Summarize sensor, online-sensor, and tag evidence for fleet health. |
+| `lc_review_detection_noise` | Summarize bounded detection volume, concentration, and related case sample evidence for a time window. |
+| `lc_review_content_coverage` | Summarize D&R, false positive, logging, integrity, YARA, and MITRE coverage evidence. |
+| `lc_review_case_backlog` | Summarize case backlog, status distribution, severity distribution, and dashboard evidence. |
+| `lc_review_output_health` | Summarize outputs, extension subscriptions, and feedback channel evidence. |
+| `lc_review_access_hygiene` | Summarize users, permissions, groups, and organization API key metadata. |
 
 ### Investigation
 

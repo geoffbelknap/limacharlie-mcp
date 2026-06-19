@@ -29,7 +29,7 @@ Use these LimaCharlie locations before running setup:
 | Value | Where to find it | What to copy |
 | --- | --- | --- |
 | Organization ID, or `oid` | Open the organization in LimaCharlie. The browser URL looks like `https://app.limacharlie.io/orgs/<oid>/...`. You can also go to Organization Settings -> Access Management -> REST API and use the `OID` line. | Copy the UUID-shaped org ID, for example `263c19e9-bd4a-475a-8cd3-5403af446cb9`. |
-| Organization API key | In the target org, go to Organization Settings -> Access Management -> REST API. Under User-Generated API Keys, click Create API Key. | Copy the secret value shown at creation time. It is shown once. This is the recommended key for normal MCP use. |
+| Organization API key | In the target org, go to Organization Settings -> Access Management -> REST API. Under User-Generated API Keys, click Create API Key. | Copy the secret value shown at creation time. It is shown once. For default setup, this is a temporary bootstrap key used to create the dedicated runtime key. |
 | User API key | Click your account/avatar, open Account Settings, then API Keys. Use Create User API Key. | Copy the secret value shown at creation time. Use this only for multi-org discovery. |
 | User ID, or `uid` | On Account Settings -> API Keys, use the copy control associated with the text that describes your User ID. | Copy the JWT-accepted user id. It may not be the email address and may not be the UUID-shaped account id. |
 
@@ -43,30 +43,42 @@ details.
 
 ## Recommended Setup
 
-Use an Organization API key for the org you want the MCP to access. The setup
-stores the key in managed local Vault and keeps JWT refresh hidden from the
+Use an organization API key for the org you want the MCP to access. The default
+setup uses a temporary bootstrap key to create a dedicated runtime key, stores
+the runtime key in managed local Vault, and keeps JWT refresh hidden from the
 user. Raw environment API keys are a local-development fallback, not the
 recommended runtime model.
 
 1. In LimaCharlie, open the organization.
-2. Go to Access Management -> REST API.
-3. Create an API key with the minimum permissions needed for the workflows.
-4. Run `limacharlie-mcp-configure` with the org ID. The helper reads the
-   LimaCharlie key through a hidden prompt and stores it in local Vault.
-5. Start a new Codex or Claude chat with the LimaCharlie MCP plugin enabled.
-6. Ask the agent to check LimaCharlie MCP auth status. It should confirm that
+2. Copy the organization ID from the URL or the REST API page.
+3. Run `limacharlie-mcp-configure --provision-runtime-key` with the org ID.
+   It prints a temporary bootstrap key name and leaves the hidden API key prompt
+   waiting.
+4. Go to Access Management -> REST API.
+5. Create a temporary API key with the exact name printed by setup and only
+   `org.get` and `apikey.ctrl`.
+6. Copy the bootstrap key secret shown once and paste it into the waiting hidden
+   prompt.
+7. Setup creates one dedicated runtime key named `limacharlie-mcp-runtime`,
+   stores it in local Vault, and verifies it. After setup succeeds, delete the
+   printed bootstrap key in LimaCharlie. The generated runtime key is already
+   stored in local Vault.
+8. Start a new Codex or Claude chat with the LimaCharlie MCP plugin enabled.
+9. Ask the agent to check LimaCharlie MCP auth status. It should confirm that
    credentials are configured without showing secrets.
-7. Ask the agent to review your LimaCharlie org posture. For a smaller smoke
+10. Ask the agent to review your LimaCharlie org posture. For a smaller smoke
    test, ask it to list LimaCharlie sensors.
 
 ```bash
 limacharlie-mcp-configure \
-  --oid "263c19e9-bd4a-475a-8cd3-5403af446cb9"
+  --oid "263c19e9-bd4a-475a-8cd3-5403af446cb9" \
+  --provision-runtime-key
 ```
 
-Expected success output is a short checklist: the key was stored in managed
-local Vault, local MCP config was written, JWT refresh was verified, and org
-access was verified. If the output says live verification failed, the key was
+Expected success output is a short checklist: the runtime key was created, the
+runtime key was stored in managed local Vault, local MCP config was written, JWT
+refresh was verified, org access was verified, and the exact bootstrap key name
+to delete was printed. If the output says live verification failed, the key was
 stored locally but LimaCharlie rejected it or the live check could not complete.
 Do not start review or response workflows until JWT refresh verifies
 successfully. Use `--json` only when a script needs the full structured
@@ -76,9 +88,10 @@ For unattended setup, provide all values and pipe the key from an approved
 secret manager:
 
 ```bash
-approved-secret-manager read limacharlie/mcp/api-key \
+approved-secret-manager read limacharlie/mcp/bootstrap-api-key \
   | limacharlie-mcp-configure \
       --oid "263c19e9-bd4a-475a-8cd3-5403af446cb9" \
+      --provision-runtime-key \
       --yes \
       --api-key-stdin
 ```
@@ -238,18 +251,18 @@ runtime stays in org API key mode.
 
 ## Permission Profiles
 
-For the smallest onboarding smoke test, an organization API key only needs:
+For the default setup, create the temporary bootstrap organization API key name
+printed by `limacharlie-mcp-configure --provision-runtime-key` with only:
 
 - `org.get`
-- `sensor.list`
-- `sensor.get`
+- `apikey.ctrl`
 
-That is enough for `limacharlie-mcp-auth-doctor`, `lc_auth_whoami`,
-`lc_get_org_info`, and `lc_list_sensors` to prove the MCP can authenticate and
-reach the target org.
+That is enough for `limacharlie-mcp-configure --provision-runtime-key` to mint a
+short-lived JWT, create the dedicated runtime key, and verify the runtime key.
+After setup succeeds, delete the temporary bootstrap key with the name printed
+by the setup command.
 
-For first run plus read-only posture review, use a dedicated organization API
-key with:
+By default, the generated runtime key gets:
 
 - `org.get`
 - `sensor.list`
@@ -275,7 +288,12 @@ key with:
 
 `replicant.task` is needed for complete service-backed content review, such as
 listing rules managed through LimaCharlie services. The permission name is
-broader than the read path sounds, so grant it only to a dedicated MCP key.
+broader than the read path sounds, so keep it on the dedicated MCP runtime key.
+
+The default setup creates one runtime key, not one key per MCP profile or skill.
+Profile-specific keys are a possible future hardening step, but today each MCP
+profile uses the configured runtime key and the profile itself limits which
+tools are exposed.
 
 Some LimaCharlie read/list endpoints are guarded by broader permission names.
 For example, user inventory may require `user.ctrl`, API key inventory may
@@ -293,8 +311,8 @@ added permission with `lc_auth_whoami` and the specific read tool before adding
 more.
 
 Do not grant write permissions such as `sensor.task`, `sensor.tag`, `dr.set`,
-`dr.del`, `output.set`, or key-management permissions until the matching MCP
-mutation tool has a preview/confirm implementation.
+`dr.del`, or `output.set` until the matching MCP mutation tool has a
+preview/confirm implementation.
 
 ## Troubleshooting
 

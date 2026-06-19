@@ -1,6 +1,6 @@
 ---
 name: limacharlie-recover-verify
-description: Verify LimaCharlie post-incident recovery after containment and eviction. Use when users need to rejoin isolated sensors, unseal hosts, verify telemetry and outputs, close or update cases, confirm no recurrence, or assess readiness to return systems to normal operation.
+description: Verify LimaCharlie recovery after containment and eviction, including sensors, telemetry, outputs, and cases.
 ---
 
 # LimaCharlie Recover Verify

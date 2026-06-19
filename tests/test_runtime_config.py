@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+import httpx
 import pytest
 
 from limacharlie_mcp.api import LimaCharlieAPI
@@ -11,6 +12,7 @@ from limacharlie_mcp.auth_doctor import run_doctor
 from limacharlie_mcp import api as api_module
 from limacharlie_mcp.configure import run_configure
 from limacharlie_mcp import configure as configure_module
+from limacharlie_mcp.configure import ProvisionedRuntimeKey
 from limacharlie_mcp.runtime_config import load_runtime_config
 from limacharlie_mcp.vault_bootstrap import VaultBootstrapResult
 
@@ -448,6 +450,133 @@ def test_configure_managed_vault_writes_lc_key_with_root_token(
     }
     assert saved["vault_token_file"] == str(runtime_token_file)
     assert "lc-secret" not in json.dumps(saved)
+
+
+def test_configure_can_provision_runtime_key_from_bootstrap_key(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clear_lc_env(monkeypatch)
+    config = tmp_path / "config.json"
+    root_token_file = tmp_path / "vault" / "root-token"
+    runtime_token_file = tmp_path / "vault" / "runtime-token"
+    root_token_file.parent.mkdir()
+    root_token_file.write_text("root-token", encoding="utf-8")
+    runtime_token_file.write_text("runtime-token", encoding="utf-8")
+    captured = {}
+
+    monkeypatch.setattr(
+        configure_module,
+        "ensure_managed_vault",
+        lambda mapping=None: SimpleNamespace(
+            addr="http://127.0.0.1:8220",
+            root_token_file=root_token_file,
+            runtime_token_file=runtime_token_file,
+            started=True,
+            initialized=True,
+            sealed=False,
+        ),
+    )
+    monkeypatch.setattr(configure_module, "read_api_key", lambda *, api_key_stdin: "bootstrap-secret")
+
+    def fake_provision(**kwargs):
+        captured["provision"] = kwargs
+        return ProvisionedRuntimeKey(
+            api_key="runtime-secret",
+            name=kwargs["name"],
+            permissions=kwargs["permissions"],
+            key_hash="runtime-hash",
+        )
+
+    def fake_write(config, api_key):
+        captured["written_api_key"] = api_key
+        return VaultBootstrapResult(
+            api_key_ref="vault://secret/data/limacharlie/mcp#api_key",
+            env={},
+        )
+
+    monkeypatch.setattr(configure_module, "_provision_runtime_api_key", fake_provision)
+    monkeypatch.setattr(configure_module, "write_limacharlie_key", fake_write)
+
+    result = run_configure(
+        [
+            "--config",
+            str(config),
+            "--oid",
+            OID,
+            "--provision-runtime-key",
+            "--bootstrap-key-name",
+            "limacharlie-mcp-bootstrap",
+            "--skip-doctor",
+            "--yes",
+        ]
+    )
+
+    saved = json.loads(config.read_text(encoding="utf-8"))
+    assert result["ok"] is True
+    assert result["provisioned_runtime_key"]["name"] == "limacharlie-mcp-runtime"
+    assert result["provisioned_runtime_key"]["key_hash_present"] is True
+    assert "bootstrap-secret" not in json.dumps(result)
+    assert "runtime-secret" not in json.dumps(result)
+    assert captured["provision"]["bootstrap_api_key"] == "bootstrap-secret"
+    assert "org.get" in captured["provision"]["permissions"]
+    assert captured["written_api_key"] == "runtime-secret"
+    assert saved["api_key_ref"] == "vault://secret/data/limacharlie/mcp#api_key"
+    assert "bootstrap-secret" not in json.dumps(saved)
+    assert "runtime-secret" not in json.dumps(saved)
+    assert result["bootstrap_key"] == {
+        "name": "limacharlie-mcp-bootstrap",
+        "delete_manually": True,
+    }
+
+
+def test_configure_generates_bootstrap_key_name_when_not_provided() -> None:
+    args = configure_module.parse_args(["--oid", OID, "--provision-runtime-key", "--skip-doctor", "--yes"])
+
+    name = configure_module._ensure_bootstrap_key_name(args)
+
+    assert name.startswith("limacharlie-mcp-bootstrap-")
+    assert args.bootstrap_key_name == name
+    assert len(name) == len("limacharlie-mcp-bootstrap-") + 8
+
+
+def test_provision_runtime_api_key_exchanges_bootstrap_key_without_leaking_secret() -> None:
+    class FakeProvisionHTTP:
+        def __init__(self) -> None:
+            self.calls = []
+            self.closed = False
+
+        def request(self, method, url, **kwargs):
+            self.calls.append({"method": method, "url": url, **kwargs})
+            if url == "https://jwt.test":
+                return httpx.Response(200, json={"jwt": "jwt-token"})
+            if url == f"https://api.test/v1/orgs/{OID}/keys":
+                return httpx.Response(200, json={"api_key": "runtime-secret", "key_hash": "hash-1"})
+            return httpx.Response(404, json={"error": "not found"})
+
+        def close(self) -> None:
+            self.closed = True
+
+    fake = FakeProvisionHTTP()
+
+    result = configure_module._provision_runtime_api_key(
+        oid=OID,
+        bootstrap_api_key="bootstrap-secret",
+        name="runtime",
+        permissions=["org.get", "sensor.list"],
+        api_root="https://api.test",
+        jwt_root="https://jwt.test",
+        timeout_seconds=5,
+        http_client=fake,
+    )
+
+    assert result.api_key == "runtime-secret"
+    assert result.key_hash == "hash-1"
+    assert result.permissions == ["org.get", "sensor.list"]
+    assert fake.calls[0]["data"] == {"oid": OID, "secret": "bootstrap-secret"}
+    assert fake.calls[1]["headers"]["Authorization"] == "Bearer jwt-token"
+    assert fake.calls[1]["params"] == {"key_name": "runtime", "perms": "org.get,sensor.list"}
+    assert fake.closed is False
 
 
 def test_api_auto_starts_managed_vault_from_config(

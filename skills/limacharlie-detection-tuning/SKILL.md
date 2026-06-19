@@ -1,6 +1,6 @@
 ---
 name: limacharlie-detection-tuning
-description: Tune LimaCharlie detections and false-positive rules from bounded evidence. Use when users ask about noisy alerts, missing alerts, rule quality, D&R tuning, false positives, detection concentration, rule changes, suppression candidates, or MITRE/content coverage improvements.
+description: Tune LimaCharlie detections, false positives, noisy alerts, missing alerts, and content coverage.
 ---
 
 # LimaCharlie Detection Tuning

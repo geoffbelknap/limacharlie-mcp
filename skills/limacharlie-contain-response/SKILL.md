@@ -1,6 +1,6 @@
 ---
 name: limacharlie-contain-response
-description: Contain affected systems in LimaCharlie with guarded preview/confirm actions. Use when users need endpoint isolation, response tasking, reliable tasking, sensor tags, job cancellation, or immediate risk reduction after detection triage.
+description: Contain affected LimaCharlie systems with guarded isolation, tasking, tagging, and job-cancel previews.
 ---
 
 # LimaCharlie Contain Response

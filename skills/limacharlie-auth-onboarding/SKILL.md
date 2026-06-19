@@ -1,6 +1,6 @@
 ---
 name: limacharlie-auth-onboarding
-description: Set up or troubleshoot LimaCharlie MCP authentication with managed local Vault, org API keys, JWT refresh, UID confusion, onboarding smoke tests, and reauth. Use when users need to configure LimaCharlie MCP auth, verify credentials, rotate keys, diagnose missing_credentials or permission errors, or avoid pasting API keys/JWTs into env files.
+description: Configure or troubleshoot LimaCharlie MCP auth, Vault storage, JWT refresh, key rotation, and UID/OID issues.
 ---
 
 # LimaCharlie Auth Onboarding
@@ -19,7 +19,11 @@ prefer the default configure helper for real use.
      access across organizations.
    - Do not ask for an `LC_UID` unless using user API key JWT exchange.
 2. Store or reference the key:
-   - Use `limacharlie-mcp-configure --oid <org-id>` for the default path.
+   - Use `limacharlie-mcp-configure --oid <org-id> --provision-runtime-key` for the default path.
+   - Ask the user to create a temporary org API key with the exact name printed
+     by setup and only `org.get` and `apikey.ctrl`, paste it into the hidden
+     prompt, then delete that printed bootstrap key in LimaCharlie after setup
+     verifies the generated runtime key.
    - Only ask for external credential-store details when the user explicitly
      wants an advanced operator deployment.
    - Use only `LC_MCP_CONFIG` when the runtime config file is not in the
@@ -36,8 +40,13 @@ prefer the default configure helper for real use.
 
 ## Permission Guidance
 
-For read-only review onboarding, start with the smallest permissions needed for
-org, sensor, detection, case, content, output, user, and API key metadata reads.
+For default onboarding, start with a temporary bootstrap key that has only
+`org.get` and `apikey.ctrl`; the configure helper creates and stores the
+dedicated runtime key. The user deletes the temporary bootstrap key after
+verification.
+The generated runtime key gets the permissions needed for org, sensor,
+detection, case, content, output, user, and API key metadata reads. The default
+setup creates one runtime key, not one key per MCP profile.
 For response workflows, add only the specific permissions required by the
 previewed mutation surfaces. Never request broad destructive permissions just to
 make onboarding easier.
@@ -47,6 +56,6 @@ make onboarding easier.
 If auth fails, report the concrete failure class and next check. Do not print
 API keys, credential-store tokens, JWTs, or authorization headers. If an org
 API key works in the LimaCharlie UI but the MCP fails, rerun
-`limacharlie-mcp-configure --oid <org-id>`, then verify the MCP client is
-using the expected profile and config path. Do not ask for `uid` unless user
-API key mode is intentional.
+`limacharlie-mcp-configure --oid <org-id> --provision-runtime-key`, then verify
+the MCP client is using the expected profile and config path. Do not ask for
+`uid` unless user API key mode is intentional.

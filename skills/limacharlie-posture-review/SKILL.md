@@ -1,6 +1,6 @@
 ---
 name: limacharlie-posture-review
-description: Review a LimaCharlie organization for operational posture, fleet health, content coverage, output health, access hygiene, case backlog, and noisy detection signals. Use when users ask for expert review, recurring assessment, tuning opportunities, or whether their LimaCharlie instance is well configured.
+description: Review LimaCharlie org posture across fleet, content, outputs, access, cases, and detection noise.
 ---
 
 # LimaCharlie Posture Review

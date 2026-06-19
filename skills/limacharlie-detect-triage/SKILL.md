@@ -1,6 +1,6 @@
 ---
 name: limacharlie-detect-triage
-description: Triage LimaCharlie detections, events, cases, IOCs, searches, artifacts, jobs, and vulnerability evidence. Use when users ask what happened, whether an alert matters, how to investigate a detection or case, or how to collect bounded evidence before containment.
+description: Triage LimaCharlie detections, cases, events, IOCs, searches, artifacts, jobs, and vulnerabilities.
 ---
 
 # LimaCharlie Detect Triage

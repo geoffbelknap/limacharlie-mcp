@@ -1,6 +1,6 @@
 ---
 name: limacharlie-evict-response
-description: Evict adversary footholds using LimaCharlie evidence, response tasking, YARA, D&R, false-positive, integrity, logging, and content workflows. Use after triage/containment when users need to remove persistence, malicious artifacts, unsafe rules, or attacker access.
+description: Evict adversary footholds with LimaCharlie evidence, response tasking, YARA, D&R, and content workflows.
 ---
 
 # LimaCharlie Evict Response

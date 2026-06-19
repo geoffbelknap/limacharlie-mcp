@@ -27,6 +27,13 @@ The server exposes one combined MCP with cataloged suites. The split is visible
 in `lc_tool_catalog` and can later become separate server entrypoints without
 renaming tools.
 
+This MCP intentionally does not expose live telemetry streaming, spout, or
+firehose tools. Historical event, detection, audit, search, replay, and
+spotcheck workflows remain bounded by explicit limits, cursors, selectors, and
+time windows. Use LimaCharlie outputs, storage, SIEM pipelines, or purpose-built
+stream processors for operational telemetry streams instead of sending an
+unbounded firehose into an LLM.
+
 ### Platform
 
 | Tool | Purpose |
@@ -345,11 +352,11 @@ Mutations are available only through the preview/confirm contract. Current
 typed previews cover sensor response actions, job deletion, sensor tags,
 sensor version policy, case lifecycle/investigation/config/tag changes,
 administration writes, extension/service/config-sync/feedback requests,
-generic Hive records, AI-memory records, payload metadata, and
-artifact/logging/D&R/false-positive/integrity/YARA/exfil content changes.
-Remaining specialized streaming and multi-request helper surfaces stay gated
-until they have typed preview/confirm tools or bounded read contracts with
-request-shape tests.
+generic Hive records, AI-memory records, payload metadata, spotcheck requests,
+and artifact/logging/D&R/false-positive/integrity/YARA/exfil content changes.
+Live telemetry streaming, spout, and firehose surfaces are intentionally
+unsupported. Remaining multi-request helper surfaces stay gated until they have
+typed preview/confirm tools or bounded read contracts with request-shape tests.
 
 Credential-shaped upstream fields such as API keys, JWTs, secrets, passwords,
 and private/client keys are redacted from MCP responses and audit excerpts.

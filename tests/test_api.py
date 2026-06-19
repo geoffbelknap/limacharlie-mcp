@@ -98,6 +98,9 @@ def test_tool_catalog_exposes_operation_contracts(tmp_path: Path) -> None:
     assert result["data"]["operations"]["billing.status"]["suite"] == "administration"
     assert result["data"]["operations"]["replay.validate_rule"]["suite"] == "content"
     assert result["data"]["operations"]["detection.list"]["bounds"]["time_format"] == "unix_seconds"
+    assert result["data"]["unsupported_capabilities"]["telemetry.live_stream"]["status"] == "intentionally_unsupported"
+    assert result["data"]["unsupported_capabilities"]["telemetry.firehose"]["status"] == "intentionally_unsupported"
+    assert result["meta"]["summary"]["unsupported_capability_count"] == 2
 
 
 def test_list_orgs_uses_direct_api_and_jwt(tmp_path: Path) -> None:

@@ -36,6 +36,7 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
 
     tools = anyio.run(collect_tools)
 
+    assert not any("firehose" in name or name.startswith("lc_stream") for name in tools)
     assert {
         "lc_auth_status",
         "lc_auth_refresh",

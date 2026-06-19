@@ -12,6 +12,9 @@ to any external product runtime or schema.
 - Do not store or log API keys, JWTs, OAuth tokens, or personal credentials.
 - Use LimaCharlie API surfaces directly. Do not shell out to the CLI for MCP
   tool implementation.
+- Do not expose live telemetry streaming, spout, or firehose tools. This MCP is
+  not a SIEM ingestion path and should not encourage streaming unbounded
+  telemetry into an LLM.
 
 ## Safety Rules
 
@@ -20,6 +23,9 @@ to any external product runtime or schema.
   config changes need an explicit preview/confirm design before implementation.
 - Every tool call should leave an auditable local trace.
 - Tool outputs must be bounded by limits or explicit time windows.
+- Historical telemetry reads must stay bounded by explicit limits and time
+  windows. Live telemetry streaming and firehose registration are intentionally
+  unsupported.
 
 ## Documentation Boundary
 

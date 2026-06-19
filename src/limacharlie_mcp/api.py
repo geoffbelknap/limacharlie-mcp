@@ -118,6 +118,28 @@ def input_error_response(operation: str, message: str) -> dict[str, Any]:
     ).as_dict()
 
 
+UNSUPPORTED_CAPABILITIES: dict[str, dict[str, Any]] = {
+    "telemetry.live_stream": {
+        "status": "intentionally_unsupported",
+        "scope": "live telemetry streaming via spout-style pull loops",
+        "reason": "MCP tools must stay bounded and auditable; streaming an unbounded telemetry feed into an LLM is not a safe security workflow.",
+        "alternatives": [
+            "Use lc_list_sensor_events, lc_list_detections, lc_list_audit_logs, lc_execute_search_query, or lc_replay_dry_run with explicit limits and time windows.",
+            "Use LimaCharlie outputs, storage, SIEM pipelines, or purpose-built stream processors for operational telemetry streams.",
+        ],
+    },
+    "telemetry.firehose": {
+        "status": "intentionally_unsupported",
+        "scope": "push-mode firehose listener registration and ingestion",
+        "reason": "Running an MCP server as an operational telemetry sink invites misuse and requires listener lifecycle, TLS, output registration, and cleanup outside the bounded MCP contract.",
+        "alternatives": [
+            "Use LimaCharlie output integrations or a dedicated firehose receiver outside the MCP.",
+            "Use bounded historical search/replay tools when an agent needs specific evidence.",
+        ],
+    },
+}
+
+
 OPERATION_CATALOG: dict[str, dict[str, Any]] = {
     "auth.whoami": {
         "suite": "platform",
@@ -4005,11 +4027,15 @@ class LimaCharlieAPI:
                 "auth": "direct_api_jwt_exchange",
                 "default_mode": "read_only",
                 "operations": OPERATION_CATALOG,
+                "unsupported_capabilities": UNSUPPORTED_CAPABILITIES,
             },
             side_effects=[],
             warnings=[],
             meta={
-                "summary": {"operation_count": len(OPERATION_CATALOG)},
+                "summary": {
+                    "operation_count": len(OPERATION_CATALOG),
+                    "unsupported_capability_count": len(UNSUPPORTED_CAPABILITIES),
+                },
                 "truncated": False,
             },
             observed_at=observed_at(),

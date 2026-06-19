@@ -87,6 +87,62 @@ def lc_get_sensor(oid: str, sensor_id: str) -> dict:
 
 
 @mcp.tool()
+def lc_preview_sensor_task(
+    oid: str,
+    sensor_id: str,
+    tasks: str | list[str],
+    investigation_id: str | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview tasking one sensor. No task is queued until confirmation."""
+
+    return _call(
+        "sensor.task.preview",
+        lc.preview_sensor_task,
+        oid=oid,
+        sensor_id=sensor_id,
+        tasks=tasks,
+        investigation_id=investigation_id,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_preview_isolate_sensor(oid: str, sensor_id: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview isolating one sensor from the network."""
+
+    return _call("sensor.isolate.preview", lc.preview_isolate_sensor, oid=oid, sensor_id=sensor_id, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_rejoin_sensor(oid: str, sensor_id: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview removing network isolation from one sensor."""
+
+    return _call("sensor.rejoin.preview", lc.preview_rejoin_sensor, oid=oid, sensor_id=sensor_id, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_seal_sensor(oid: str, sensor_id: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview sealing one sensor against uninstall."""
+
+    return _call("sensor.seal.preview", lc.preview_seal_sensor, oid=oid, sensor_id=sensor_id, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_unseal_sensor(oid: str, sensor_id: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview unsealing one sensor."""
+
+    return _call("sensor.unseal.preview", lc.preview_unseal_sensor, oid=oid, sensor_id=sensor_id, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_delete_sensor(oid: str, sensor_id: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview deleting one sensor record."""
+
+    return _call("sensor.delete.preview", lc.preview_delete_sensor, oid=oid, sensor_id=sensor_id, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
 def lc_list_online_sensors(oid: str, limit: int = 100) -> dict:
     """List currently online sensors or online sensor counts for an explicit org."""
 
@@ -501,6 +557,13 @@ def lc_wait_job(
         timeout_seconds=timeout_seconds,
         poll_interval_seconds=poll_interval_seconds,
     )
+
+
+@mcp.tool()
+def lc_preview_delete_job(oid: str, job_id: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview deleting one service job record."""
+
+    return _call("job.delete.preview", lc.preview_delete_job, oid=oid, job_id=job_id, token_ttl_seconds=token_ttl_seconds)
 
 
 @mcp.tool()

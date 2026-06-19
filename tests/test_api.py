@@ -651,7 +651,7 @@ def test_confirm_add_sensor_tag_executes_exact_preview_once(tmp_path: Path) -> N
     assert fake.calls[0]["data"]["oid"] == OID
     assert fake.calls[1]["method"] == "POST"
     assert fake.calls[1]["url"] == f"https://api.limacharlie.io/v1/{SID}/tags"
-    assert fake.calls[1]["data"] == {"tags": "incident-response", "ttl": 3600}
+    assert fake.calls[1]["params"] == {"tags": "incident-response", "ttl": 3600}
 
     second = client.confirm_mutation(token)
     assert second["ok"] is False
@@ -688,7 +688,58 @@ def test_confirm_remove_sensor_tag_uses_delete_endpoint(tmp_path: Path) -> None:
     assert result["data"]["confirmed_operation"] == "sensor.tag.remove"
     assert result["side_effects"][0]["type"] == "sensor_tag_removed"
     assert fake.calls[1]["method"] == "DELETE"
-    assert fake.calls[1]["data"] == {"tag": "old-tag"}
+    assert fake.calls[1]["params"] == {"tag": "old-tag"}
+
+
+def test_preview_sensor_task_confirms_exact_task_params(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("POST", f"https://api.limacharlie.io/v1/{SID}", {"queued": True})
+    client = make_client(tmp_path, fake)
+
+    preview = client.preview_sensor_task(OID, SID, ["dir C:\\"], investigation_id="inv-1")
+    assert preview["ok"] is True
+    assert preview["operation"] == "sensor.task.preview"
+    assert preview["side_effects"] == []
+    assert fake.calls == []
+
+    confirmed = client.confirm_mutation(preview["data"]["confirmation_token"])
+
+    assert confirmed["ok"] is True
+    assert confirmed["data"]["confirmed_operation"] == "sensor.task"
+    assert confirmed["side_effects"][0]["type"] == "sensor_task_queued"
+    assert fake.calls[1]["method"] == "POST"
+    assert fake.calls[1]["url"] == f"https://api.limacharlie.io/v1/{SID}"
+    assert fake.calls[1]["params"] == {"tasks": ["dir C:\\"], "investigation_id": "inv-1"}
+
+
+def test_preview_sensor_state_and_job_delete_endpoints(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("POST", f"https://api.limacharlie.io/v1/{SID}/isolation", {"ok": True})
+    fake.add("DELETE", f"https://api.limacharlie.io/v1/{SID}/seal", {"ok": True})
+    fake.add("DELETE", f"https://api.limacharlie.io/v1/{SID}", {"ok": True})
+    fake.add("DELETE", f"https://api.limacharlie.io/v1/job/{OID}/job-1", {"ok": True})
+    client = make_client(tmp_path, fake)
+
+    isolate = client.preview_isolate_sensor(OID, SID)
+    unseal = client.preview_unseal_sensor(OID, SID)
+    delete_sensor = client.preview_delete_sensor(OID, SID)
+    delete_job = client.preview_delete_job(OID, "job-1")
+
+    confirmed_isolate = client.confirm_mutation(isolate["data"]["confirmation_token"])
+    confirmed_unseal = client.confirm_mutation(unseal["data"]["confirmation_token"])
+    confirmed_delete_sensor = client.confirm_mutation(delete_sensor["data"]["confirmation_token"])
+    confirmed_delete_job = client.confirm_mutation(delete_job["data"]["confirmation_token"])
+
+    assert confirmed_isolate["side_effects"][0]["type"] == "sensor_isolated"
+    assert confirmed_unseal["side_effects"][0]["type"] == "sensor_unsealed"
+    assert confirmed_delete_sensor["side_effects"][0]["type"] == "sensor_deleted"
+    assert confirmed_delete_job["side_effects"][0]["type"] == "job_deleted"
+    assert [call["url"] for call in fake.calls[1:]] == [
+        f"https://api.limacharlie.io/v1/{SID}/isolation",
+        f"https://api.limacharlie.io/v1/{SID}/seal",
+        f"https://api.limacharlie.io/v1/{SID}",
+        f"https://api.limacharlie.io/v1/job/{OID}/job-1",
+    ]
 
 
 def test_schema_ontology_and_mitre_tools_use_expected_paths(tmp_path: Path) -> None:

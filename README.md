@@ -146,6 +146,13 @@ renaming tools.
 | Tool | Purpose |
 | --- | --- |
 | `lc_list_pending_mutations` | List local mutation previews that can still be confirmed. |
+| `lc_preview_sensor_task` | Preview tasking one sensor. |
+| `lc_preview_isolate_sensor` | Preview isolating one sensor from the network. |
+| `lc_preview_rejoin_sensor` | Preview removing network isolation from one sensor. |
+| `lc_preview_seal_sensor` | Preview sealing one sensor against uninstall. |
+| `lc_preview_unseal_sensor` | Preview unsealing one sensor. |
+| `lc_preview_delete_sensor` | Preview deleting one sensor record. |
+| `lc_preview_delete_job` | Preview deleting one service job record. |
 | `lc_preview_add_sensor_tag` | Preview adding a tag to one sensor, optionally with TTL. |
 | `lc_preview_remove_sensor_tag` | Preview removing a tag from one sensor. |
 | `lc_confirm_mutation` | Execute the exact typed mutation bound to a preview token. |

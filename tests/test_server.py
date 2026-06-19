@@ -40,7 +40,14 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
         "lc_auth_status",
         "lc_auth_refresh",
         "lc_list_sensor_events",
+        "lc_preview_sensor_task",
+        "lc_preview_isolate_sensor",
+        "lc_preview_rejoin_sensor",
+        "lc_preview_seal_sensor",
+        "lc_preview_unseal_sensor",
+        "lc_preview_delete_sensor",
         "lc_wait_job",
+        "lc_preview_delete_job",
         "lc_list_audit_logs",
         "lc_list_yara_rules",
         "lc_list_fp_rules",
@@ -99,6 +106,9 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
     assert set(wait_schema["required"]) == {"oid", "job_id"}
     assert wait_schema["properties"]["timeout_seconds"]["default"] == 60
     assert wait_schema["properties"]["poll_interval_seconds"]["default"] == 5
+    task_schema = tools["lc_preview_sensor_task"]["inputSchema"]
+    assert set(task_schema["required"]) == {"oid", "sensor_id", "tasks"}
+    assert task_schema["properties"]["token_ttl_seconds"]["default"] == 300
     preview_tag_schema = tools["lc_preview_add_sensor_tag"]["inputSchema"]
     assert set(preview_tag_schema["required"]) == {"oid", "sensor_id", "tag"}
     assert preview_tag_schema["properties"]["ttl_seconds"]["default"] == 0

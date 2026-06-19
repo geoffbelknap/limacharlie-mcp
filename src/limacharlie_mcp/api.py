@@ -78,6 +78,7 @@ class PendingMutation:
     method: str
     path: str
     resource: dict[str, Any]
+    params: dict[str, Any] | None
     data: dict[str, Any] | None
     json_body: Any | None
     expected_effect: str
@@ -196,6 +197,72 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "optional_inputs": [],
         "side_effects": "none",
         "notes": "Use to verify hostname, platform, IPs, and online state for one sensor.",
+    },
+    "sensor.task.preview": {
+        "suite": "response",
+        "tool": "lc_preview_sensor_task",
+        "action": "preview",
+        "resource_type": "sensor_task",
+        "required_inputs": ["oid", "sensor_id", "tasks"],
+        "optional_inputs": ["investigation_id", "token_ttl_seconds"],
+        "bounds": {"tasks_max": 20, "token_ttl_min": 30, "token_ttl_max": 900},
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews tasking one sensor. Requires lc_confirm_mutation before remote execution.",
+    },
+    "sensor.isolate.preview": {
+        "suite": "response",
+        "tool": "lc_preview_isolate_sensor",
+        "action": "preview",
+        "resource_type": "sensor_isolation",
+        "required_inputs": ["oid", "sensor_id"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "bounds": {"token_ttl_min": 30, "token_ttl_max": 900},
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews network isolation for one sensor.",
+    },
+    "sensor.rejoin.preview": {
+        "suite": "response",
+        "tool": "lc_preview_rejoin_sensor",
+        "action": "preview",
+        "resource_type": "sensor_isolation",
+        "required_inputs": ["oid", "sensor_id"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "bounds": {"token_ttl_min": 30, "token_ttl_max": 900},
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews removing network isolation from one sensor.",
+    },
+    "sensor.seal.preview": {
+        "suite": "response",
+        "tool": "lc_preview_seal_sensor",
+        "action": "preview",
+        "resource_type": "sensor_seal",
+        "required_inputs": ["oid", "sensor_id"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "bounds": {"token_ttl_min": 30, "token_ttl_max": 900},
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews sealing one sensor against uninstall.",
+    },
+    "sensor.unseal.preview": {
+        "suite": "response",
+        "tool": "lc_preview_unseal_sensor",
+        "action": "preview",
+        "resource_type": "sensor_seal",
+        "required_inputs": ["oid", "sensor_id"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "bounds": {"token_ttl_min": 30, "token_ttl_max": 900},
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews unsealing one sensor.",
+    },
+    "sensor.delete.preview": {
+        "suite": "response",
+        "tool": "lc_preview_delete_sensor",
+        "action": "preview",
+        "resource_type": "sensor",
+        "required_inputs": ["oid", "sensor_id"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "bounds": {"token_ttl_min": 30, "token_ttl_max": 900},
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews deleting one sensor record.",
     },
     "sensor.online.list": {
         "suite": "investigation",
@@ -518,6 +585,17 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "bounds": {"timeout_min": 1, "timeout_max": 600, "poll_interval_min": 1, "poll_interval_max": 30},
         "side_effects": "none",
         "notes": "Polls one job until terminal state or timeout with bounded intervals.",
+    },
+    "job.delete.preview": {
+        "suite": "response",
+        "tool": "lc_preview_delete_job",
+        "action": "preview",
+        "resource_type": "job",
+        "required_inputs": ["oid", "job_id"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "bounds": {"token_ttl_min": 30, "token_ttl_max": 900},
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews deleting one job record.",
     },
     "audit.list": {
         "suite": "investigation",
@@ -1439,6 +1517,27 @@ def require_arl(value: str) -> str:
     return value
 
 
+def require_sensor_tasks(tasks: str | list[str]) -> list[str]:
+    raw_tasks = [tasks] if isinstance(tasks, str) else tasks
+    if not isinstance(raw_tasks, list) or not raw_tasks:
+        raise ValidationError("tasks must be a non-empty string or list of strings")
+    if len(raw_tasks) > 20:
+        raise ValidationError("tasks may contain at most 20 commands")
+    checked: list[str] = []
+    total = 0
+    for task in raw_tasks:
+        if not isinstance(task, str) or not task.strip() or "\x00" in task:
+            raise ValidationError("each task must be a non-empty string without NUL bytes")
+        encoded_size = len(task.encode())
+        if encoded_size > 4000:
+            raise ValidationError("each task must be 4000 bytes or less")
+        total += encoded_size
+        checked.append(task)
+    if total > 20_000:
+        raise ValidationError("tasks must be 20000 total bytes or less")
+    return checked
+
+
 def require_cve(value: str) -> str:
     if not isinstance(value, str) or not _SAFE_CVE.match(value):
         raise ValidationError("cve must look like CVE-YYYY-NNNN")
@@ -1919,6 +2018,110 @@ class LimaCharlieAPI:
             oid=scoped_oid,
             resource={"type": "sensor", "id": safe_sensor_id, "parent": {"type": "organization", "id": scoped_oid}},
         ).as_dict()
+
+    def preview_sensor_task(
+        self,
+        oid: str,
+        sensor_id: str,
+        tasks: str | list[str],
+        investigation_id: str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_sensor_id = require_oid(sensor_id)
+        checked_tasks = require_sensor_tasks(tasks)
+        token_ttl = require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900)
+        data: dict[str, Any] = {"tasks": checked_tasks}
+        if investigation_id:
+            data["investigation_id"] = require_token(investigation_id, "investigation_id")
+        return self._create_mutation_preview(
+            operation="sensor.task",
+            oid=scoped_oid,
+            method="POST",
+            path=safe_sensor_id,
+            resource={"type": "sensor_task", "id": safe_sensor_id, "parent": {"type": "organization", "id": scoped_oid}},
+            params=data,
+            data=None,
+            json_body=None,
+            expected_effect=f"Queue {len(checked_tasks)} task command(s) on sensor {safe_sensor_id}.",
+            reversibility="Tasking is not generally reversible; inspect job/task output and issue compensating commands if needed.",
+            side_effects=[{"type": "sensor_task_queued", "resource": {"type": "sensor", "id": safe_sensor_id}, "task_count": len(checked_tasks)}],
+            token_ttl_seconds=token_ttl,
+        )
+
+    def preview_isolate_sensor(self, oid: str, sensor_id: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        return self._sensor_state_preview(
+            operation="sensor.isolate",
+            oid=oid,
+            sensor_id=sensor_id,
+            method="POST",
+            path_suffix="isolation",
+            resource_type="sensor_isolation",
+            expected_effect="Enable network isolation on the sensor.",
+            reversibility="Call lc_preview_rejoin_sensor and confirm it to remove isolation.",
+            side_effect_type="sensor_isolated",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_rejoin_sensor(self, oid: str, sensor_id: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        return self._sensor_state_preview(
+            operation="sensor.rejoin",
+            oid=oid,
+            sensor_id=sensor_id,
+            method="DELETE",
+            path_suffix="isolation",
+            resource_type="sensor_isolation",
+            expected_effect="Remove network isolation from the sensor.",
+            reversibility="Call lc_preview_isolate_sensor and confirm it to isolate again.",
+            side_effect_type="sensor_rejoined",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_seal_sensor(self, oid: str, sensor_id: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        return self._sensor_state_preview(
+            operation="sensor.seal",
+            oid=oid,
+            sensor_id=sensor_id,
+            method="POST",
+            path_suffix="seal",
+            resource_type="sensor_seal",
+            expected_effect="Seal the sensor against uninstall.",
+            reversibility="Call lc_preview_unseal_sensor and confirm it to unseal.",
+            side_effect_type="sensor_sealed",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_unseal_sensor(self, oid: str, sensor_id: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        return self._sensor_state_preview(
+            operation="sensor.unseal",
+            oid=oid,
+            sensor_id=sensor_id,
+            method="DELETE",
+            path_suffix="seal",
+            resource_type="sensor_seal",
+            expected_effect="Unseal the sensor.",
+            reversibility="Call lc_preview_seal_sensor and confirm it to seal again.",
+            side_effect_type="sensor_unsealed",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_delete_sensor(self, oid: str, sensor_id: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_sensor_id = require_oid(sensor_id)
+        token_ttl = require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900)
+        return self._create_mutation_preview(
+            operation="sensor.delete",
+            oid=scoped_oid,
+            method="DELETE",
+            path=safe_sensor_id,
+            resource={"type": "sensor", "id": safe_sensor_id, "parent": {"type": "organization", "id": scoped_oid}},
+            data=None,
+            json_body=None,
+            expected_effect=f"Delete sensor record {safe_sensor_id}.",
+            reversibility="Deletion may require reinstalling or re-enrolling the sensor.",
+            side_effects=[{"type": "sensor_deleted", "resource": {"type": "sensor", "id": safe_sensor_id}}],
+            token_ttl_seconds=token_ttl,
+        )
 
     def list_online_sensors(self, oid: str, limit: int = 100) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
@@ -2679,6 +2882,24 @@ class LimaCharlieAPI:
                 ],
             },
         ).as_dict()
+
+    def preview_delete_job(self, oid: str, job_id: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_job_id = require_path_segment(job_id, "job_id")
+        token_ttl = require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900)
+        return self._create_mutation_preview(
+            operation="job.delete",
+            oid=scoped_oid,
+            method="DELETE",
+            path=f"job/{scoped_oid}/{quote(safe_job_id, safe='')}",
+            resource={"type": "job", "id": safe_job_id, "parent": {"type": "organization", "id": scoped_oid}},
+            data=None,
+            json_body=None,
+            expected_effect=f"Delete job record {safe_job_id}.",
+            reversibility="Deletion is not generally reversible; list jobs again to verify current state.",
+            side_effects=[{"type": "job_deleted", "resource": {"type": "job", "id": safe_job_id}}],
+            token_ttl_seconds=token_ttl,
+        )
 
     def list_audit_logs(
         self,
@@ -3626,7 +3847,8 @@ class LimaCharlieAPI:
                 "id": safe_tag,
                 "parent": {"type": "sensor", "id": safe_sensor_id, "parent": {"type": "organization", "id": scoped_oid}},
             },
-            data=data,
+            params=data,
+            data=None,
             json_body=None,
             expected_effect=f"Add tag {safe_tag!r} to sensor {safe_sensor_id}.",
             reversibility="Remove the same tag from the sensor. TTL 0 means no automatic expiry.",
@@ -3662,7 +3884,8 @@ class LimaCharlieAPI:
                 "id": safe_tag,
                 "parent": {"type": "sensor", "id": safe_sensor_id, "parent": {"type": "organization", "id": scoped_oid}},
             },
-            data={"tag": safe_tag},
+            params={"tag": safe_tag},
+            data=None,
             json_body=None,
             expected_effect=f"Remove tag {safe_tag!r} from sensor {safe_sensor_id}.",
             reversibility="Add the same tag back to the sensor if removal was unintended.",
@@ -3693,6 +3916,7 @@ class LimaCharlieAPI:
             operation="mutation.confirm",
             oid=mutation.oid,
             resource=mutation.resource,
+            params=mutation.params,
             data=mutation.data,
             json_body=mutation.json_body,
             side_effects=mutation.side_effects,
@@ -3898,6 +4122,37 @@ class LimaCharlieAPI:
             observed_at=observed_at(),
         ).as_dict()
 
+    def _sensor_state_preview(
+        self,
+        *,
+        operation: str,
+        oid: str,
+        sensor_id: str,
+        method: str,
+        path_suffix: str,
+        resource_type: str,
+        expected_effect: str,
+        reversibility: str,
+        side_effect_type: str,
+        token_ttl_seconds: int,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_sensor_id = require_oid(sensor_id)
+        token_ttl = require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900)
+        return self._create_mutation_preview(
+            operation=operation,
+            oid=scoped_oid,
+            method=method,
+            path=f"{safe_sensor_id}/{path_suffix}",
+            resource={"type": resource_type, "id": safe_sensor_id, "parent": {"type": "organization", "id": scoped_oid}},
+            data=None,
+            json_body=None,
+            expected_effect=f"{expected_effect} Target sensor: {safe_sensor_id}.",
+            reversibility=reversibility,
+            side_effects=[{"type": side_effect_type, "resource": {"type": "sensor", "id": safe_sensor_id}}],
+            token_ttl_seconds=token_ttl,
+        )
+
     def _create_mutation_preview(
         self,
         *,
@@ -3912,6 +4167,7 @@ class LimaCharlieAPI:
         reversibility: str,
         side_effects: list[dict[str, Any]],
         token_ttl_seconds: int,
+        params: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         self._prune_expired_mutations()
         token = f"mut_{uuid.uuid4().hex}"
@@ -3923,6 +4179,7 @@ class LimaCharlieAPI:
             method=method,
             path=path,
             resource=resource,
+            params=params,
             data=data,
             json_body=json_body,
             expected_effect=expected_effect,
@@ -3959,6 +4216,7 @@ class LimaCharlieAPI:
             "endpoint": f"{root.rstrip('/')}/{mutation.path.lstrip('/')}",
             "oid": mutation.oid,
             "resource": mutation.resource,
+            "params": mutation.params,
             "expected_effect": mutation.expected_effect,
             "reversibility": mutation.reversibility,
             "expected_side_effects": mutation.side_effects,

@@ -227,6 +227,47 @@ def lc_search_ioc(
 
 
 @mcp.tool()
+def lc_validate_search_query(
+    oid: str,
+    query: str,
+    start: int | None = None,
+    end: int | None = None,
+    stream: str | None = None,
+) -> dict:
+    """Validate LCQL through the org search service before estimation or execution."""
+
+    return _call("search.validate", lc.validate_search_query, oid=oid, query=query, start=start, end=end, stream=stream)
+
+
+@mcp.tool()
+def lc_estimate_search_query(oid: str, query: str, start: int, end: int, stream: str | None = None) -> dict:
+    """Estimate an LCQL query against an explicit unix-second time window."""
+
+    return _call("search.estimate", lc.estimate_search_query, oid=oid, query=query, start=start, end=end, stream=stream)
+
+
+@mcp.tool()
+def lc_execute_search_query(oid: str, query: str, start: int, end: int, stream: str | None = None) -> dict:
+    """Start a paginated LCQL search and return a query_id for bounded polling."""
+
+    return _call("search.execute", lc.execute_search_query, oid=oid, query=query, start=start, end=end, stream=stream)
+
+
+@mcp.tool()
+def lc_poll_search_query(oid: str, query_id: str, token: str | None = None, limit: int = 100) -> dict:
+    """Poll one bounded LCQL search page, returning checkpoint state for resume."""
+
+    return _call("search.poll", lc.poll_search_query, oid=oid, query_id=query_id, token=token, limit=limit)
+
+
+@mcp.tool()
+def lc_cancel_search_query(oid: str, query_id: str) -> dict:
+    """Cancel a running LCQL search job."""
+
+    return _call("search.cancel", lc.cancel_search_query, oid=oid, query_id=query_id)
+
+
+@mcp.tool()
 def lc_list_artifacts(
     oid: str,
     sensor_id: str | None = None,

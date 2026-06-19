@@ -357,6 +357,110 @@ def test_ioc_search_uses_insight_objects_path(tmp_path: Path) -> None:
     }
 
 
+def test_validate_search_query_discovers_search_url_and_posts_json(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("GET", f"https://api.limacharlie.io/v1/orgs/{OID}/url", {"search": "region.replay-search.limacharlie.io"})
+    fake.add("POST", "https://region.replay-search.limacharlie.io/v1/search/validate", {"valid": True, "cost": 7})
+    client = make_client(tmp_path, fake)
+
+    result = client.validate_search_query(
+        OID,
+        "event.FILE_PATH ends with .exe",
+        start=1_771_000_000,
+        end=1_771_003_600,
+        stream="event",
+    )
+
+    assert result["ok"] is True
+    assert_ax_envelope(result, "search.validate")
+    assert fake.calls[0]["url"] == f"https://api.limacharlie.io/v1/orgs/{OID}/url"
+    assert "Authorization" not in fake.calls[0]["headers"]
+    assert fake.calls[1]["url"] == "https://jwt.limacharlie.io"
+    assert fake.calls[2]["url"] == "https://region.replay-search.limacharlie.io/v1/search/validate"
+    assert fake.calls[2]["json"] == {
+        "oid": OID,
+        "query": "event.FILE_PATH ends with .exe",
+        "startTime": "1771000000",
+        "endTime": "1771003600",
+        "stream": "event",
+    }
+
+
+def test_estimate_search_query_uses_explicit_window(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("GET", f"https://api.limacharlie.io/v1/orgs/{OID}/url", {"search_api": "https://search.limacharlie.io"})
+    fake.add("POST", "https://search.limacharlie.io/v1/search/validate", {"valid": True, "estimate": {"cost": 3}})
+    client = make_client(tmp_path, fake)
+
+    result = client.estimate_search_query(OID, "event/COMMAND_LINE contains powershell", 1_771_000_000, 1_771_003_600)
+
+    assert result["ok"] is True
+    assert_ax_envelope(result, "search.estimate")
+    assert result["warnings"]
+    assert fake.calls[2]["url"] == "https://search.limacharlie.io/v1/search/validate"
+    assert fake.calls[2]["json"]["startTime"] == "1771000000"
+
+
+def test_execute_search_query_starts_paginated_job_with_state(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("GET", f"https://api.limacharlie.io/v1/orgs/{OID}/url", {"search": "https://search.limacharlie.io/v1"})
+    fake.add("POST", "https://search.limacharlie.io/v1/search", {"queryId": "query-1"})
+    client = make_client(tmp_path, fake)
+
+    result = client.execute_search_query(OID, "event.FILE_PATH ends with .exe", 1_771_000_000, 1_771_003_600)
+
+    assert result["ok"] is True
+    assert_ax_envelope(result, "search.execute")
+    assert result["state"]["current"] == "running"
+    assert result["state"]["query_id"] == "query-1"
+    assert result["side_effects"][0]["type"] == "search_query_started"
+    assert fake.calls[2]["json"]["paginated"] is True
+
+
+def test_poll_search_query_returns_checkpoint_state_and_bounds_rows(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("GET", f"https://api.limacharlie.io/v1/orgs/{OID}/url", {"search": "https://search.limacharlie.io"})
+    fake.add(
+        "GET",
+        "https://search.limacharlie.io/v1/search/query-1",
+        {
+            "completed": True,
+            "results": [
+                {
+                    "type": "events",
+                    "rows": [{"event": "one"}, {"event": "two"}, {"event": "three"}],
+                    "nextToken": "token-2",
+                }
+            ],
+        },
+    )
+    client = make_client(tmp_path, fake)
+
+    result = client.poll_search_query(OID, "query-1", limit=2)
+
+    assert result["ok"] is True
+    assert_ax_envelope(result, "search.poll")
+    assert result["state"]["current"] == "ready_for_next_page"
+    assert result["state"]["checkpoint"]["next_token"] == "token-2"
+    assert result["state"]["checkpoint"]["rows_returned"] == 2
+    assert result["meta"]["truncated"] is True
+    assert [row["event"] for row in result["data"]["results"][0]["rows"]] == ["one", "two"]
+
+
+def test_cancel_search_query_calls_delete_and_reports_terminal_state(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("GET", f"https://api.limacharlie.io/v1/orgs/{OID}/url", {"search": "https://search.limacharlie.io"})
+    fake.add("DELETE", "https://search.limacharlie.io/v1/search/query-1", {"ok": True})
+    client = make_client(tmp_path, fake)
+
+    result = client.cancel_search_query(OID, "query-1")
+
+    assert result["ok"] is True
+    assert_ax_envelope(result, "search.cancel")
+    assert result["state"] == {"current": "cancelled", "terminal": True, "query_id": "query-1"}
+    assert result["side_effects"][0]["type"] == "search_query_cancelled"
+
+
 def test_artifact_and_job_tools_use_bounded_paths(tmp_path: Path) -> None:
     fake = FakeHTTP()
     fake.add("GET", f"https://api.limacharlie.io/v1/insight/{OID}/artifacts", {"artifacts": [{"id": "a1"}]})

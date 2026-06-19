@@ -141,3 +141,27 @@ def test_ax_trajectory_mutation_boundary_requires_preview_before_confirm(tmp_pat
     assert "test-token" not in json.dumps(preview)
     assert "test-token" not in json.dumps(confirmed)
 
+
+def test_ax_trajectory_lcql_search_is_validate_execute_poll(tmp_path: Path) -> None:
+    fake = SequencedHTTP()
+    fake.add("GET", f"https://api.limacharlie.io/v1/orgs/{OID}/url", {"search": "https://search.limacharlie.io"})
+    fake.add("POST", "https://search.limacharlie.io/v1/search/validate", {"valid": True, "estimate": {"cost": 2}})
+    fake.add("POST", "https://search.limacharlie.io/v1/search", {"queryId": "query-1"})
+    fake.add(
+        "GET",
+        "https://search.limacharlie.io/v1/search/query-1",
+        {"completed": True, "results": [{"type": "events", "rows": [{"atom": "a1"}]}]},
+    )
+    client = make_client(tmp_path, fake)
+
+    validated = client.validate_search_query(OID, "event.FILE_PATH ends with .exe", 1_771_000_000, 1_771_003_600)
+    started = client.execute_search_query(OID, "event.FILE_PATH ends with .exe", 1_771_000_000, 1_771_003_600)
+    polled = client.poll_search_query(OID, started["state"]["query_id"])
+    evidence = [validated["request_id"], started["request_id"], polled["request_id"]]
+
+    assert validated["ok"] is True
+    assert started["state"]["query_id"] == "query-1"
+    assert polled["state"]["current"] == "succeeded"
+    assert polled["data"]["results"][0]["rows"][0]["atom"] == "a1"
+    assert evidence == [validated["request_id"], started["request_id"], polled["request_id"]]
+    assert "test-token" not in json.dumps(polled)

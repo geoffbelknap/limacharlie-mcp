@@ -295,6 +295,60 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "side_effects": "none",
         "notes": "Searches Insight object prevalence and locations for one indicator.",
     },
+    "search.validate": {
+        "suite": "investigation",
+        "tool": "lc_validate_search_query",
+        "action": "read",
+        "resource_type": "lcql_validation",
+        "required_inputs": ["oid", "query"],
+        "optional_inputs": ["start", "end", "stream"],
+        "bounds": {"time_format": "unix_seconds", "stream": ["event", "detect", "audit"]},
+        "side_effects": "none",
+        "notes": "Validates LCQL through the org's search service. Use before estimate or execute.",
+    },
+    "search.estimate": {
+        "suite": "investigation",
+        "tool": "lc_estimate_search_query",
+        "action": "read",
+        "resource_type": "lcql_estimate",
+        "required_inputs": ["oid", "query", "start", "end"],
+        "optional_inputs": ["stream"],
+        "bounds": {"time_format": "unix_seconds", "stream": ["event", "detect", "audit"]},
+        "side_effects": "none",
+        "notes": "Uses LimaCharlie's search validation endpoint with an explicit time window to estimate query cost.",
+    },
+    "search.execute": {
+        "suite": "investigation",
+        "tool": "lc_execute_search_query",
+        "action": "execute",
+        "resource_type": "lcql_search_job",
+        "required_inputs": ["oid", "query", "start", "end"],
+        "optional_inputs": ["stream"],
+        "bounds": {"time_format": "unix_seconds", "stream": ["event", "detect", "audit"]},
+        "side_effects": "starts_server_search_query",
+        "notes": "Starts a paginated LCQL search and returns a query_id. Poll explicitly for bounded results.",
+    },
+    "search.poll": {
+        "suite": "investigation",
+        "tool": "lc_poll_search_query",
+        "action": "read",
+        "resource_type": "lcql_search_page",
+        "required_inputs": ["oid", "query_id"],
+        "optional_inputs": ["token", "limit"],
+        "bounds": {"limit_min": 1, "limit_max": 500},
+        "side_effects": "none",
+        "notes": "Polls one bounded search page and returns checkpoint state including next_token when present.",
+    },
+    "search.cancel": {
+        "suite": "investigation",
+        "tool": "lc_cancel_search_query",
+        "action": "execute",
+        "resource_type": "lcql_search_job",
+        "required_inputs": ["oid", "query_id"],
+        "optional_inputs": [],
+        "side_effects": "cancels_server_search_query",
+        "notes": "Cancels a server-side LCQL search job to release search resources.",
+    },
     "artifact.list": {
         "suite": "investigation",
         "tool": "lc_list_artifacts",
@@ -925,6 +979,7 @@ _UNSAFE_SELECTOR = re.compile(r"[\x00-\x1f;&|`$]")
 _IOC_TYPES = {"domain", "ip", "file_hash", "file_path", "file_name", "user", "service_name", "package_name"}
 _INFO_TYPES = {"summary", "locations"}
 _DR_NAMESPACES = {"general", "managed", "service"}
+_SEARCH_STREAMS = {"event", "detect", "audit"}
 _SAFE_CVE = re.compile(r"^CVE-[0-9]{4}-[0-9]{4,}$", re.IGNORECASE)
 _VULN_SEARCH_OPS = {"is", "contains"}
 _VULN_RESOLUTIONS = {"mitigated", "accepted", "false_positive"}
@@ -1059,6 +1114,26 @@ def require_info_type(info: str) -> str:
     if info not in _INFO_TYPES:
         raise ValidationError("info must be 'summary' or 'locations'")
     return info
+
+
+def require_search_query(query: str) -> str:
+    if not isinstance(query, str):
+        raise ValidationError("query must be a string")
+    stripped = query.strip()
+    if not stripped:
+        raise ValidationError("query must be non-empty")
+    if len(stripped) > 20_000 or "\x00" in stripped:
+        raise ValidationError("query must be under 20000 characters and cannot contain NUL bytes")
+    return stripped
+
+
+def require_search_stream(stream: str | None) -> str | None:
+    if stream is None:
+        return None
+    value = str(stream).lower()
+    if value not in _SEARCH_STREAMS:
+        raise ValidationError("stream must be event, detect, or audit")
+    return value
 
 
 def require_cve(value: str) -> str:
@@ -1329,6 +1404,7 @@ class LimaCharlieAPI:
         self.http: HttpClient = http_client or httpx.Client()
         self._tokens: dict[str, Token] = {}
         self._pending_mutations: dict[str, PendingMutation] = {}
+        self._search_roots: dict[str, str] = {}
 
     def auth_whoami(self, oid: str | None = None, check_perm: str | None = None) -> dict[str, Any]:
         scoped_oid = require_oid(oid) if oid else "-"
@@ -1763,6 +1839,140 @@ class LimaCharlieAPI:
             },
             limit=bounded_limit,
         ).as_dict()
+
+    def validate_search_query(
+        self,
+        oid: str,
+        query: str,
+        start: int | None = None,
+        end: int | None = None,
+        stream: str | None = None,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_query = require_search_query(query)
+        if start is None and end is None:
+            end_ts = int(time.time())
+            start_ts = end_ts - 86_400
+        elif start is not None and end is not None:
+            start_ts, end_ts = require_time_window(start, end)
+        else:
+            raise ValidationError("start and end must both be provided, or both omitted")
+        body = self._search_body(scoped_oid, safe_query, start_ts, end_ts, stream)
+        return self._request(
+            "POST",
+            "search/validate",
+            operation="search.validate",
+            oid=scoped_oid,
+            resource={"type": "lcql_validation", "id": scoped_oid},
+            json_body=body,
+            base_url=self._search_root(scoped_oid),
+        ).as_dict()
+
+    def estimate_search_query(
+        self,
+        oid: str,
+        query: str,
+        start: int,
+        end: int,
+        stream: str | None = None,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_query = require_search_query(query)
+        start_ts, end_ts = require_time_window(start, end)
+        body = self._search_body(scoped_oid, safe_query, start_ts, end_ts, stream)
+        result = self._request(
+            "POST",
+            "search/validate",
+            operation="search.estimate",
+            oid=scoped_oid,
+            resource={"type": "lcql_estimate", "id": scoped_oid},
+            json_body=body,
+            base_url=self._search_root(scoped_oid),
+        ).as_dict()
+        if result.get("ok"):
+            result["warnings"] = [
+                "LimaCharlie exposes estimate data through the search validation endpoint for the supplied time window."
+            ]
+        return result
+
+    def execute_search_query(
+        self,
+        oid: str,
+        query: str,
+        start: int,
+        end: int,
+        stream: str | None = None,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_query = require_search_query(query)
+        start_ts, end_ts = require_time_window(start, end)
+        body = self._search_body(scoped_oid, safe_query, start_ts, end_ts, stream)
+        body["paginated"] = True
+        result = self._request(
+            "POST",
+            "search",
+            operation="search.execute",
+            oid=scoped_oid,
+            resource={"type": "lcql_search_job", "id": scoped_oid},
+            json_body=body,
+            base_url=self._search_root(scoped_oid),
+            side_effects=[{"type": "search_query_started", "resource": {"type": "organization", "id": scoped_oid}}],
+        ).as_dict()
+        if result.get("ok") and isinstance(result.get("data"), dict):
+            query_id = result["data"].get("queryId") or result["data"].get("query_id")
+            result["state"] = {
+                "current": "running" if query_id else "unknown",
+                "terminal": False,
+                "query_id": query_id,
+                "checkpoint": {"next_token": None},
+            }
+            result["meta"]["summary"]["query_id"] = query_id
+            result["meta"]["suggested_next_actions"] = [
+                "Call lc_poll_search_query with query_id to retrieve one bounded result page.",
+                "Call lc_cancel_search_query when the search is no longer needed.",
+            ]
+        return result
+
+    def poll_search_query(
+        self,
+        oid: str,
+        query_id: str,
+        token: str | None = None,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_query_id = require_token(query_id, "query_id")
+        bounded_limit = require_limit(limit)
+        params = {"token": require_token(token, "token")} if token else None
+        result = self._request(
+            "GET",
+            f"search/{quote(safe_query_id, safe='')}",
+            operation="search.poll",
+            oid=scoped_oid,
+            resource={"type": "lcql_search_job", "id": safe_query_id, "parent": {"type": "organization", "id": scoped_oid}},
+            params=params,
+            base_url=self._search_root(scoped_oid),
+            limit=bounded_limit,
+        ).as_dict()
+        if result.get("ok"):
+            self._finalize_search_poll(result, safe_query_id, bounded_limit)
+        return result
+
+    def cancel_search_query(self, oid: str, query_id: str) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_query_id = require_token(query_id, "query_id")
+        result = self._request(
+            "DELETE",
+            f"search/{quote(safe_query_id, safe='')}",
+            operation="search.cancel",
+            oid=scoped_oid,
+            resource={"type": "lcql_search_job", "id": safe_query_id, "parent": {"type": "organization", "id": scoped_oid}},
+            base_url=self._search_root(scoped_oid),
+            side_effects=[{"type": "search_query_cancelled", "resource": {"type": "lcql_search_job", "id": safe_query_id}}],
+        ).as_dict()
+        if result.get("ok"):
+            result["state"] = {"current": "cancelled", "terminal": True, "query_id": safe_query_id}
+        return result
 
     def list_artifacts(
         self,
@@ -3080,6 +3290,113 @@ class LimaCharlieAPI:
                 ],
             },
         ).as_dict()
+
+    def _search_body(
+        self,
+        oid: str,
+        query: str,
+        start: int,
+        end: int,
+        stream: str | None,
+    ) -> dict[str, Any]:
+        body: dict[str, Any] = {
+            "oid": oid,
+            "query": query,
+            "startTime": str(int(start)),
+            "endTime": str(int(end)),
+        }
+        safe_stream = require_search_stream(stream)
+        if safe_stream:
+            body["stream"] = safe_stream
+        return body
+
+    def _search_root(self, oid: str) -> str:
+        cached = self._search_roots.get(oid)
+        if cached:
+            return cached
+        result = self.get_org_urls(oid)
+        url = ""
+        if result.get("ok") and isinstance(result.get("data"), dict):
+            urls = result["data"]
+            value = urls.get("search") or urls.get("search_api")
+            if isinstance(value, str):
+                url = value
+        if not url:
+            url = "https://search.limacharlie.io"
+        if not url.startswith(("http://", "https://")):
+            url = f"https://{url}"
+        root = url.rstrip("/")
+        if not root.endswith("/v1"):
+            root = f"{root}/v1"
+        self._search_roots[oid] = root
+        return root
+
+    def _finalize_search_poll(self, result: dict[str, Any], query_id: str, limit: int) -> None:
+        data = result.get("data")
+        if not isinstance(data, dict):
+            result["state"] = {"current": "unknown", "terminal": False, "query_id": query_id}
+            return
+        results = data.get("results")
+        next_token = None
+        total_rows_seen = 0
+        rows_returned = 0
+        truncated = False
+        if isinstance(results, list):
+            for item in results:
+                if not isinstance(item, dict):
+                    continue
+                token = item.get("nextToken") or item.get("next_token")
+                if token:
+                    next_token = str(token)
+                rows = item.get("rows")
+                if isinstance(rows, list):
+                    total_rows_seen += len(rows)
+                    remaining = max(limit - rows_returned, 0)
+                    if len(rows) > remaining:
+                        item["rows"] = rows[:remaining]
+                        truncated = True
+                    rows_returned += len(item["rows"])
+                    if rows_returned >= limit:
+                        truncated = truncated or total_rows_seen > rows_returned
+        completed = bool(data.get("completed"))
+        if completed and next_token:
+            current = "ready_for_next_page"
+            terminal = False
+        elif completed:
+            current = "succeeded"
+            terminal = True
+        else:
+            current = "running"
+            terminal = False
+        result["state"] = {
+            "current": current,
+            "terminal": terminal,
+            "query_id": query_id,
+            "next_poll_in_ms": data.get("nextPollInMs"),
+            "checkpoint": {
+                "next_token": next_token,
+                "rows_returned": rows_returned,
+                "rows_seen_before_bounding": total_rows_seen,
+                "resume_tool": "lc_poll_search_query" if next_token else None,
+            },
+        }
+        result["meta"]["summary"] = summarize_data(data)
+        result["meta"]["summary"]["search_state"] = current
+        result["meta"]["summary"]["query_id"] = query_id
+        result["meta"]["summary"]["rows_returned"] = rows_returned
+        result["meta"]["truncated"] = bool(result["meta"].get("truncated") or truncated)
+        if result["meta"]["truncated"]:
+            result["meta"]["suggested_next_actions"] = [
+                "Repeat with a lower limit, narrower query, or continue from checkpoint.next_token."
+            ]
+        elif next_token:
+            result["meta"]["suggested_next_actions"] = [
+                "Call lc_poll_search_query with checkpoint.next_token to retrieve the next page."
+            ]
+        elif not completed:
+            result["meta"]["suggested_next_actions"] = [
+                "Wait for next_poll_in_ms, then call lc_poll_search_query again with the same query_id."
+            ]
 
     def _get_jwt(self, oid: str | None, *, force_refresh: bool = False) -> str:
         scoped_oid = "-" if oid == "-" else require_oid(oid or "")

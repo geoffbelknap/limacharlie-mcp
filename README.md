@@ -52,6 +52,11 @@ renaming tools.
 | `lc_list_detections` | List one bounded page of detections for an explicit org and time window. |
 | `lc_get_detection` | Fetch one detection by detection ID. |
 | `lc_search_ioc` | Search Insight prevalence or locations for an IOC/object. |
+| `lc_validate_search_query` | Validate LCQL through the org search service before estimation or execution. |
+| `lc_estimate_search_query` | Estimate LCQL cost for an explicit time window. |
+| `lc_execute_search_query` | Start a paginated LCQL search and return a query ID. |
+| `lc_poll_search_query` | Poll one bounded LCQL result page and return checkpoint state. |
+| `lc_cancel_search_query` | Cancel a running LCQL search job. |
 | `lc_list_artifacts` | List artifacts for an org, sensor, time window, or cursor. |
 | `lc_get_artifact_url` | Request original artifact payload or signed export URL. |
 | `lc_list_jobs` | List service jobs for an explicit org and time window. |
@@ -180,6 +185,19 @@ Errors use structured classes and retryability:
 
 The design follows the AX rule that after each tool call an agent should know
 what happened, what changed, what proves it, and what to do next.
+
+LCQL search follows a bounded lifecycle:
+
+1. `lc_validate_search_query`
+2. `lc_estimate_search_query`
+3. `lc_execute_search_query`
+4. `lc_poll_search_query` until `state.terminal` is true or
+   `state.checkpoint.next_token` is exhausted
+5. `lc_cancel_search_query` when a running query is no longer needed
+
+`lc_poll_search_query` returns at most the requested result rows per poll and
+puts resume state under `state.checkpoint`, so agents can continue explicitly
+without hiding pagination in a long-running tool call.
 
 ## Install
 

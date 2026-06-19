@@ -62,6 +62,11 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
         "lc_list_vulnerability_resolutions",
         "lc_list_vulnerability_snapshots",
         "lc_get_vulnerability_epss_history",
+        "lc_validate_search_query",
+        "lc_estimate_search_query",
+        "lc_execute_search_query",
+        "lc_poll_search_query",
+        "lc_cancel_search_query",
         "lc_list_pending_mutations",
         "lc_preview_add_sensor_tag",
         "lc_preview_remove_sensor_tag",
@@ -93,5 +98,10 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
     vuln_host_schema = tools["lc_list_vulnerability_host_packages"]["inputSchema"]
     assert set(vuln_host_schema["required"]) == {"oid", "sensor_id"}
     assert vuln_host_schema["properties"]["rollup_subpackages"]["default"] is None
+    search_execute_schema = tools["lc_execute_search_query"]["inputSchema"]
+    assert set(search_execute_schema["required"]) == {"oid", "query", "start", "end"}
+    search_poll_schema = tools["lc_poll_search_query"]["inputSchema"]
+    assert set(search_poll_schema["required"]) == {"oid", "query_id"}
+    assert search_poll_schema["properties"]["limit"]["default"] == 100
     confirm_schema = tools["lc_confirm_mutation"]["inputSchema"]
     assert set(confirm_schema["required"]) == {"confirmation_token"}

@@ -1,14 +1,20 @@
-# LimaCharlie MCP
+# Geoff's LimaCharlie MCP
 
-Standalone local MCP server for LimaCharlie investigation, administration, and
-content-review workflows.
+A local MCP for LimaCharlie setup, administration, investigations, and tuning.
 
-This project is a controllable alternative to the hosted LimaCharlie MCP
-endpoint. It uses LimaCharlie API surfaces directly, requires explicit
-organization scope for org data, records a local audit line for each tool call,
-and starts with a broad read-only tool surface.
+This is an alternative to the LimaCharlie hosted MCP. It uses LimaCharlie API surfaces directly, requires explicit
+scope for data, records a local audit lines for each tool call, and can start adding value even with just read-only access.
 
-## Why This Exists
+## Why?
+
+_Doesn't LimaCharlie already have an MCP?_
+Yes.
+
+_Is something wrong with the LimaCharlie MCP?_
+Nope. 
+
+_Then... why?_
+I love LimaCharlie, I had some free time, and wanted something that made LimaCharlie more accessible to people who dont live in 
 
 The official LimaCharlie docs describe:
 
@@ -33,8 +39,8 @@ The easiest agent-facing install path is the `geoffs-plugins` marketplace:
 The plugin handles running the MCP server. Configure auth once before calling
 LimaCharlie tools.
 
-By default, the setup uses a managed local Vault so the long-lived
-LimaCharlie API key is not stored in chat history, `.env` files, MCP client
+By default, the setup uses a managed local [Vault](https://github.com/hashicorp/vault) so the long-lived
+LimaCharlie API key is not accidentally stored in chat history, `.env` files, MCP client
 configuration, or audit logs. The MCP uses that protected key to mint
 short-lived LimaCharlie JWTs when tools need API access.
 
@@ -43,10 +49,17 @@ short-lived LimaCharlie JWTs when tools need API access.
 You need two values from LimaCharlie: an organization ID and an organization
 API key.
 
-1. Open LimaCharlie and choose your organization.
+1. Open [LimaCharlie](https://app.limacharlie.io/), login, and choose your organization.
 2. Copy the org ID from the URL: `app.limacharlie.io/orgs/<org-id>/...`.
-3. Go to `Organization Settings` -> `Access Management` -> `REST API`.
-4. Click `Create API Key` and select permissions for the workflows you want.
+3. Open a terminal on the host running your MCP, swap in your Org ID (where is says paste-your-org-id-here) and run this
+
+```bash
+uvx --from git+https://github.com/geoffbelknap/limacharlie-mcp \
+  limacharlie-mcp-configure \
+  --oid "paste-your-org-id-here"
+```
+4. Go back to your browser and head to `Organization Settings` -> `Access Management` -> `REST API`.
+5. Click `Create API Key` and select permissions for the workflows you want.
 
    For first run plus read-only posture review, start with:
 
@@ -78,19 +91,12 @@ API key.
    as listing rules managed through LimaCharlie services.
 
    Add mutation permissions only when you intend to use response, admin, or
-   content-editing workflows. Do not add `live_stream.ctrl`; this MCP does not
-   expose live firehose or streaming telemetry tools.
-5. Create the key for this MCP, and copy the secret when
-   LimaCharlie shows it.
-6. Run this and paste the API key into the hidden prompt:
+   content-editing workflows. (Don't bother adding `live_stream.ctrl`; this MCP does not
+   expose live firehose or streaming telemetry tools. Spraying high pressure random telemetry at an AI is great for burning tokens, but it ain't going ot make you more secure.)   
+7. Create your key and copy the secret from the LimaCharlie dashboard
+8. Switch back to the terminal and paste the secret into the hiddne prompt (it wont end up in history).
 
-```bash
-uvx --from git+https://github.com/geoffbelknap/limacharlie-mcp \
-  limacharlie-mcp-configure \
-  --oid "paste-your-org-id-here"
-```
-
-Then start a new Codex or Claude chat with the plugin enabled and ask:
+Then start a new with your favorite AI tool (Claude, Codex, Copilot, Cursor, ehatever), with the plugin enabled and ask:
 "Check my LimaCharlie MCP auth status." The agent should confirm credentials
 are configured without showing secrets.
 
@@ -640,11 +646,6 @@ Run the full local readiness gate before release or handoff:
 scripts/readiness-check.sh
 ```
 
-## Documentation Boundary
-
-User-facing setup and auth docs live in this repo. Internal coverage matrices,
-AX reviews, tool contracts, implementation plans, and work tracking live in the
-[LimaCharlie MCP Notion space](https://app.notion.com/p/384bc6319c93816d92f3db88b86f8f19).
 
 ## References
 

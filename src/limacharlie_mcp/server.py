@@ -73,6 +73,13 @@ def lc_get_sensor(oid: str, sensor_id: str) -> dict:
 
 
 @mcp.tool()
+def lc_list_online_sensors(oid: str, limit: int = 100) -> dict:
+    """List currently online sensors or online sensor counts for an explicit org."""
+
+    return _call("sensor.online.list", lc.list_online_sensors, oid=oid, limit=limit)
+
+
+@mcp.tool()
 def lc_list_detections(
     oid: str,
     start: int,
@@ -382,6 +389,60 @@ def lc_list_org_errors(oid: str) -> dict:
     """List current organization component errors."""
 
     return _call("org.errors", lc.list_org_errors, oid=oid)
+
+
+@mcp.tool()
+def lc_get_org_urls(oid: str) -> dict:
+    """Fetch service URLs for an explicit org."""
+
+    return _call("org.urls", lc.get_org_urls, oid=oid)
+
+
+@mcp.tool()
+def lc_get_runtime_metadata(
+    oid: str,
+    entity_type: str | None = None,
+    entity_name: str | None = None,
+    limit: int = 100,
+) -> dict:
+    """Fetch runtime metadata for an explicit org, optionally filtered by entity."""
+
+    return _call(
+        "org.runtime_metadata",
+        lc.get_runtime_metadata,
+        oid=oid,
+        entity_type=entity_type,
+        entity_name=entity_name,
+        limit=limit,
+    )
+
+
+@mcp.tool()
+def lc_get_quota_usage(oid: str) -> dict:
+    """Fetch enforced quota usage for an explicit org."""
+
+    return _call("org.quota_usage", lc.get_quota_usage, oid=oid)
+
+
+@mcp.tool()
+def lc_list_groups(limit: int = 100) -> dict:
+    """List organization groups accessible to the authenticated identity."""
+
+    return _call("group.list", lc.list_groups, limit=limit)
+
+
+@mcp.tool()
+def lc_get_group(group_id: str) -> dict:
+    """Fetch one organization group definition."""
+
+    return _call("group.get", lc.get_group, group_id=group_id)
+
+
+@mcp.tool()
+def lc_list_group_logs(group_id: str, limit: int = 100) -> dict:
+    """List audit logs for one organization group."""
+
+    return _call("group.logs", lc.list_group_logs, group_id=group_id, limit=limit)
 
 
 @mcp.tool()

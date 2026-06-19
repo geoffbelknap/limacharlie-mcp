@@ -43,6 +43,7 @@ renaming tools.
 | --- | --- |
 | `lc_list_sensors` | List sensors for an explicit org, optionally filtered by selector. |
 | `lc_get_sensor` | Fetch one sensor by sensor ID. |
+| `lc_list_online_sensors` | List currently online sensors or online counts for an org. |
 | `lc_list_sensor_events` | List one bounded page of events for a sensor and time window. |
 | `lc_get_sensor_event_overview` | Fetch event timeline overview before pulling full events. |
 | `lc_get_event` | Fetch one event by atom. |
@@ -70,6 +71,12 @@ renaming tools.
 | `lc_get_org_info` | Fetch org inventory and quota metadata. |
 | `lc_get_org_stats` | Fetch org usage statistics. |
 | `lc_list_org_errors` | List current org component errors. |
+| `lc_get_org_urls` | Fetch service URLs for sensors, adapters, webhooks, replay, and related connectivity. |
+| `lc_get_runtime_metadata` | Fetch runtime metadata, optionally filtered by entity type/name. |
+| `lc_get_quota_usage` | Fetch enforced quota usage for capacity checks. |
+| `lc_list_groups` | List organization groups accessible to the authenticated identity. |
+| `lc_get_group` | Fetch one organization group definition. |
+| `lc_list_group_logs` | List audit logs for one organization group. |
 | `lc_list_users` | List org users. |
 | `lc_list_user_permissions` | List org user permission mappings. |
 | `lc_list_api_keys` | List org API key metadata. |

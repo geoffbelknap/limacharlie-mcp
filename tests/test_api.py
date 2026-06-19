@@ -214,6 +214,20 @@ def test_get_sensor_uses_sensor_endpoint(tmp_path: Path) -> None:
     assert fake.calls[1]["url"] == f"https://api.limacharlie.io/v1/{SID}"
 
 
+def test_list_online_sensors_uses_online_endpoint(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("GET", f"https://api.limacharlie.io/v1/online/{OID}", {"sensors": [{"sid": SID}], "online": 1})
+    client = make_client(tmp_path, fake)
+
+    result = client.list_online_sensors(OID, limit=1)
+
+    assert result["ok"] is True
+    assert_ax_envelope(result, "sensor.online.list")
+    assert result["data"]["sensors"] == [{"sid": SID}]
+    assert result["resource"] == {"type": "online_sensor_collection", "id": OID}
+    assert fake.calls[1]["url"] == f"https://api.limacharlie.io/v1/online/{OID}"
+
+
 def test_detection_list_requires_explicit_time_window(tmp_path: Path) -> None:
     client = make_client(tmp_path, FakeHTTP())
 
@@ -568,6 +582,49 @@ def test_admin_inventory_tools_use_org_endpoints(tmp_path: Path) -> None:
     assert client.get_installation_key(OID, "iid-1")["data"]["iid"] == "iid-1"
     assert client.list_outputs(OID)["data"]["outputs"][0]["name"] == "out"
     assert client.list_extension_subscriptions(OID)["data"]["resources"][0]["name"] == "ext"
+
+
+def test_org_platform_read_tools_use_expected_paths(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("GET", f"https://api.limacharlie.io/v1/orgs/{OID}/url", {"url": {"hooks": "https://hooks"}})
+    fake.add("GET", f"https://api.limacharlie.io/v1/runtime_mtd/{OID}", {"records": [{"entity": "sensor"}]})
+    fake.add("GET", f"https://api.limacharlie.io/v1/quota_usage/{OID}", {"usage": 3})
+    client = make_client(tmp_path, fake)
+
+    urls = client.get_org_urls(OID)
+    runtime = client.get_runtime_metadata(OID, entity_type="sensor", entity_name="sensor-1", limit=1)
+    quota = client.get_quota_usage(OID)
+
+    assert urls["ok"] is True
+    assert_ax_envelope(urls, "org.urls")
+    assert urls["data"]["url"]["hooks"] == "https://hooks"
+    assert fake.calls[0]["url"] == f"https://api.limacharlie.io/v1/orgs/{OID}/url"
+    assert "Authorization" not in fake.calls[0]["headers"]
+    assert runtime["data"]["records"] == [{"entity": "sensor"}]
+    assert fake.calls[2]["params"] == {"entity_type": "sensor", "entity_name": "sensor-1"}
+    assert quota["data"]["usage"] == 3
+
+
+def test_group_read_tools_use_expected_paths(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("GET", "https://api.limacharlie.io/v1/groups", {"groups": [{"id": "gid-1"}]})
+    fake.add("GET", "https://api.limacharlie.io/v1/groups/gid-1", {"id": "gid-1", "members": []})
+    fake.add("GET", "https://api.limacharlie.io/v1/groups/gid-1/logs", {"logs": [{"action": "created"}]})
+    client = make_client(tmp_path, fake)
+
+    groups = client.list_groups(limit=10)
+    group = client.get_group("gid-1")
+    logs = client.list_group_logs("gid-1", limit=5)
+
+    assert groups["ok"] is True
+    assert_ax_envelope(groups, "group.list")
+    assert groups["data"]["groups"][0]["id"] == "gid-1"
+    assert group["resource"] == {"type": "group", "id": "gid-1"}
+    assert logs["data"]["logs"][0]["action"] == "created"
+    assert fake.calls[0]["data"]["oid"] == "-"
+    assert fake.calls[1]["url"] == "https://api.limacharlie.io/v1/groups"
+    assert fake.calls[2]["url"] == "https://api.limacharlie.io/v1/groups/gid-1"
+    assert fake.calls[3]["url"] == "https://api.limacharlie.io/v1/groups/gid-1/logs"
 
 
 def test_available_extensions_use_minimal_oid(tmp_path: Path) -> None:

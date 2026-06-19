@@ -176,6 +176,17 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "side_effects": "none",
         "notes": "Use to verify hostname, platform, IPs, and online state for one sensor.",
     },
+    "sensor.online.list": {
+        "suite": "investigation",
+        "tool": "lc_list_online_sensors",
+        "action": "read",
+        "resource_type": "online_sensor_collection",
+        "required_inputs": ["oid"],
+        "optional_inputs": ["limit"],
+        "bounds": {"limit_min": 1, "limit_max": 500},
+        "side_effects": "none",
+        "notes": "Returns currently online sensors/counts from GET /v1/online/{oid}.",
+    },
     "detection.list": {
         "suite": "investigation",
         "tool": "lc_list_detections",
@@ -462,6 +473,69 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "optional_inputs": [],
         "side_effects": "none",
         "notes": "Current organization component errors.",
+    },
+    "org.urls": {
+        "suite": "administration",
+        "tool": "lc_get_org_urls",
+        "action": "read",
+        "resource_type": "organization_urls",
+        "required_inputs": ["oid"],
+        "optional_inputs": [],
+        "side_effects": "none",
+        "notes": "Service URLs for sensors, adapters, webhooks, replay, and other org-scoped connectivity.",
+    },
+    "org.runtime_metadata": {
+        "suite": "administration",
+        "tool": "lc_get_runtime_metadata",
+        "action": "read",
+        "resource_type": "runtime_metadata",
+        "required_inputs": ["oid"],
+        "optional_inputs": ["entity_type", "entity_name", "limit"],
+        "bounds": {"limit_min": 1, "limit_max": 500},
+        "side_effects": "none",
+        "notes": "Lists runtime metadata, optionally filtered by entity type/name.",
+    },
+    "org.quota_usage": {
+        "suite": "administration",
+        "tool": "lc_get_quota_usage",
+        "action": "read",
+        "resource_type": "quota_usage",
+        "required_inputs": ["oid"],
+        "optional_inputs": [],
+        "side_effects": "none",
+        "notes": "Returns enforced quota usage; use with online sensor count for capacity checks.",
+    },
+    "group.list": {
+        "suite": "administration",
+        "tool": "lc_list_groups",
+        "action": "read",
+        "resource_type": "group_collection",
+        "required_inputs": [],
+        "optional_inputs": ["limit"],
+        "bounds": {"limit_min": 1, "limit_max": 500},
+        "side_effects": "none",
+        "notes": "Lists organization groups accessible to the authenticated identity.",
+    },
+    "group.get": {
+        "suite": "administration",
+        "tool": "lc_get_group",
+        "action": "read",
+        "resource_type": "group",
+        "required_inputs": ["group_id"],
+        "optional_inputs": [],
+        "side_effects": "none",
+        "notes": "Fetches one group definition, including members, owners, orgs, and permissions when available.",
+    },
+    "group.logs": {
+        "suite": "administration",
+        "tool": "lc_list_group_logs",
+        "action": "read",
+        "resource_type": "group_log_collection",
+        "required_inputs": ["group_id"],
+        "optional_inputs": ["limit"],
+        "bounds": {"limit_min": 1, "limit_max": 500},
+        "side_effects": "none",
+        "notes": "Lists audit logs for one group.",
     },
     "user.list": {
         "suite": "administration",
@@ -759,8 +833,11 @@ _SUMMARY_LIST_KEYS = (
     "outputs",
     "resources",
     "extensions",
+    "groups",
+    "logs",
     "rules",
     "records",
+    "urls",
 )
 
 
@@ -1249,6 +1326,18 @@ class LimaCharlieAPI:
             operation="sensor.get",
             oid=scoped_oid,
             resource={"type": "sensor", "id": safe_sensor_id, "parent": {"type": "organization", "id": scoped_oid}},
+        ).as_dict()
+
+    def list_online_sensors(self, oid: str, limit: int = 100) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        bounded_limit = require_limit(limit)
+        return self._request(
+            "GET",
+            f"online/{scoped_oid}",
+            operation="sensor.online.list",
+            oid=scoped_oid,
+            resource={"type": "online_sensor_collection", "id": scoped_oid},
+            limit=bounded_limit,
         ).as_dict()
 
     def list_detections(
@@ -1793,6 +1882,84 @@ class LimaCharlieAPI:
             resource={"type": "organization_error_collection", "id": scoped_oid},
         ).as_dict()
 
+    def get_org_urls(self, oid: str) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        return self._request(
+            "GET",
+            f"orgs/{scoped_oid}/url",
+            operation="org.urls",
+            oid=scoped_oid,
+            resource={"type": "organization_urls", "id": scoped_oid},
+            no_auth=True,
+        ).as_dict()
+
+    def get_runtime_metadata(
+        self,
+        oid: str,
+        entity_type: str | None = None,
+        entity_name: str | None = None,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        bounded_limit = require_limit(limit)
+        params: dict[str, Any] = {}
+        if entity_type:
+            params["entity_type"] = require_token(entity_type, "entity_type")
+        if entity_name:
+            params["entity_name"] = require_token(entity_name, "entity_name")
+        return self._request(
+            "GET",
+            f"runtime_mtd/{scoped_oid}",
+            operation="org.runtime_metadata",
+            oid=scoped_oid,
+            resource={"type": "runtime_metadata", "id": scoped_oid},
+            params=params or None,
+            limit=bounded_limit,
+        ).as_dict()
+
+    def get_quota_usage(self, oid: str) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        return self._request(
+            "GET",
+            f"quota_usage/{scoped_oid}",
+            operation="org.quota_usage",
+            oid=scoped_oid,
+            resource={"type": "quota_usage", "id": scoped_oid},
+        ).as_dict()
+
+    def list_groups(self, limit: int = 100) -> dict[str, Any]:
+        bounded_limit = require_limit(limit)
+        return self._request(
+            "GET",
+            "groups",
+            operation="group.list",
+            oid="-",
+            resource={"type": "group_collection", "id": "-"},
+            limit=bounded_limit,
+        ).as_dict()
+
+    def get_group(self, group_id: str) -> dict[str, Any]:
+        safe_group_id = require_path_segment(group_id, "group_id")
+        return self._request(
+            "GET",
+            f"groups/{quote(safe_group_id, safe='')}",
+            operation="group.get",
+            oid="-",
+            resource={"type": "group", "id": safe_group_id},
+        ).as_dict()
+
+    def list_group_logs(self, group_id: str, limit: int = 100) -> dict[str, Any]:
+        safe_group_id = require_path_segment(group_id, "group_id")
+        bounded_limit = require_limit(limit)
+        return self._request(
+            "GET",
+            f"groups/{quote(safe_group_id, safe='')}/logs",
+            operation="group.logs",
+            oid="-",
+            resource={"type": "group_log_collection", "id": safe_group_id},
+            limit=bounded_limit,
+        ).as_dict()
+
     def list_users(self, oid: str, limit: int = 100) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         bounded_limit = require_limit(limit)
@@ -2189,6 +2356,7 @@ class LimaCharlieAPI:
         limit: int = 100,
         base_url: str | None = None,
         side_effects: list[dict[str, Any]] | None = None,
+        no_auth: bool = False,
     ) -> ToolResponse:
         started = time.time()
         request_id = f"req_{uuid.uuid4().hex}"
@@ -2196,9 +2364,10 @@ class LimaCharlieAPI:
         url = f"{root}/{path.lstrip('/')}"
         headers = {"User-Agent": "limacharlie-mcp/0.1.0"}
         try:
-            token_oid = oid or os.environ.get("LC_OID")
-            token = self._get_jwt(token_oid)
-            headers["Authorization"] = f"Bearer {token}"
+            if not no_auth:
+                token_oid = oid or os.environ.get("LC_OID")
+                token = self._get_jwt(token_oid)
+                headers["Authorization"] = f"Bearer {token}"
             response = self.http.request(
                 method,
                 url,

@@ -45,6 +45,13 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
         "lc_list_yara_rules",
         "lc_list_fp_rules",
         "lc_list_schemas",
+        "lc_list_online_sensors",
+        "lc_get_org_urls",
+        "lc_get_runtime_metadata",
+        "lc_get_quota_usage",
+        "lc_list_groups",
+        "lc_get_group",
+        "lc_list_group_logs",
         "lc_list_pending_mutations",
         "lc_preview_add_sensor_tag",
         "lc_preview_remove_sensor_tag",
@@ -63,5 +70,10 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
     assert set(preview_tag_schema["required"]) == {"oid", "sensor_id", "tag"}
     assert preview_tag_schema["properties"]["ttl_seconds"]["default"] == 0
     assert preview_tag_schema["properties"]["token_ttl_seconds"]["default"] == 300
+    runtime_schema = tools["lc_get_runtime_metadata"]["inputSchema"]
+    assert set(runtime_schema["required"]) == {"oid"}
+    assert runtime_schema["properties"]["limit"]["default"] == 100
+    group_schema = tools["lc_get_group"]["inputSchema"]
+    assert set(group_schema["required"]) == {"group_id"}
     confirm_schema = tools["lc_confirm_mutation"]["inputSchema"]
     assert set(confirm_schema["required"]) == {"confirmation_token"}

@@ -46,6 +46,7 @@ renaming tools.
 | `lc_list_sensors` | List sensors for an explicit org, optionally filtered by selector. |
 | `lc_get_sensor` | Fetch one sensor by sensor ID. |
 | `lc_list_online_sensors` | List currently online sensors or online counts for an org. |
+| `lc_wait_sensor_online` | Poll one sensor until it is online or a bounded timeout expires. |
 | `lc_list_sensor_events` | List one bounded page of events for a sensor and time window. |
 | `lc_get_sensor_event_overview` | Fetch event timeline overview before pulling full events. |
 | `lc_get_event` | Fetch one event by atom. |
@@ -272,8 +273,10 @@ renaming tools.
 | --- | --- |
 | `lc_list_pending_mutations` | List local mutation previews that can still be confirmed. |
 | `lc_preview_sensor_task` | Preview tasking one sensor. |
+| `lc_get_sensor_isolation_status` | Check whether one sensor is currently network-isolated. |
 | `lc_preview_isolate_sensor` | Preview isolating one sensor from the network. |
 | `lc_preview_rejoin_sensor` | Preview removing network isolation from one sensor. |
+| `lc_get_sensor_seal_status` | Check whether one sensor is currently sealed. |
 | `lc_preview_seal_sensor` | Preview sealing one sensor against uninstall. |
 | `lc_preview_unseal_sensor` | Preview unsealing one sensor. |
 | `lc_preview_delete_sensor` | Preview deleting one sensor record. |

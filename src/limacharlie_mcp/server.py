@@ -87,6 +87,39 @@ def lc_get_sensor(oid: str, sensor_id: str) -> dict:
 
 
 @mcp.tool()
+def lc_get_sensor_isolation_status(oid: str, sensor_id: str) -> dict:
+    """Check whether one sensor is currently network-isolated."""
+
+    return _call("sensor.isolation_status.get", lc.get_sensor_isolation_status, oid=oid, sensor_id=sensor_id)
+
+
+@mcp.tool()
+def lc_get_sensor_seal_status(oid: str, sensor_id: str) -> dict:
+    """Check whether one sensor is currently sealed."""
+
+    return _call("sensor.seal_status.get", lc.get_sensor_seal_status, oid=oid, sensor_id=sensor_id)
+
+
+@mcp.tool()
+def lc_wait_sensor_online(
+    oid: str,
+    sensor_id: str,
+    timeout_seconds: int = 300,
+    poll_interval_seconds: int = 5,
+) -> dict:
+    """Poll one sensor until it is online or a bounded timeout expires."""
+
+    return _call(
+        "sensor.wait_online",
+        lc.wait_sensor_online,
+        oid=oid,
+        sensor_id=sensor_id,
+        timeout_seconds=timeout_seconds,
+        poll_interval_seconds=poll_interval_seconds,
+    )
+
+
+@mcp.tool()
 def lc_preview_sensor_task(
     oid: str,
     sensor_id: str,

@@ -40,6 +40,9 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
         "lc_auth_status",
         "lc_auth_refresh",
         "lc_list_sensor_events",
+        "lc_get_sensor_isolation_status",
+        "lc_get_sensor_seal_status",
+        "lc_wait_sensor_online",
         "lc_preview_sensor_task",
         "lc_preview_isolate_sensor",
         "lc_preview_rejoin_sensor",
@@ -234,6 +237,14 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
     assert set(wait_schema["required"]) == {"oid", "job_id"}
     assert wait_schema["properties"]["timeout_seconds"]["default"] == 60
     assert wait_schema["properties"]["poll_interval_seconds"]["default"] == 5
+    wait_sensor_schema = tools["lc_wait_sensor_online"]["inputSchema"]
+    assert set(wait_sensor_schema["required"]) == {"oid", "sensor_id"}
+    assert wait_sensor_schema["properties"]["timeout_seconds"]["default"] == 300
+    assert wait_sensor_schema["properties"]["poll_interval_seconds"]["default"] == 5
+    isolation_status_schema = tools["lc_get_sensor_isolation_status"]["inputSchema"]
+    assert set(isolation_status_schema["required"]) == {"oid", "sensor_id"}
+    seal_status_schema = tools["lc_get_sensor_seal_status"]["inputSchema"]
+    assert set(seal_status_schema["required"]) == {"oid", "sensor_id"}
     task_schema = tools["lc_preview_sensor_task"]["inputSchema"]
     assert set(task_schema["required"]) == {"oid", "sensor_id", "tasks"}
     assert task_schema["properties"]["token_ttl_seconds"]["default"] == 300

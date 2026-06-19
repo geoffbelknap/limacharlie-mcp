@@ -200,6 +200,37 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "side_effects": "none",
         "notes": "Use to verify hostname, platform, IPs, and online state for one sensor.",
     },
+    "sensor.isolation_status.get": {
+        "suite": "response",
+        "tool": "lc_get_sensor_isolation_status",
+        "action": "read",
+        "resource_type": "sensor",
+        "required_inputs": ["oid", "sensor_id"],
+        "optional_inputs": [],
+        "side_effects": "none",
+        "notes": "Reads the sensor should_isolate flag for endpoint-policy verification.",
+    },
+    "sensor.seal_status.get": {
+        "suite": "response",
+        "tool": "lc_get_sensor_seal_status",
+        "action": "read",
+        "resource_type": "sensor",
+        "required_inputs": ["oid", "sensor_id"],
+        "optional_inputs": [],
+        "side_effects": "none",
+        "notes": "Reads the sensor should_seal flag for endpoint-policy verification.",
+    },
+    "sensor.wait_online": {
+        "suite": "investigation",
+        "tool": "lc_wait_sensor_online",
+        "action": "read",
+        "resource_type": "sensor",
+        "required_inputs": ["oid", "sensor_id"],
+        "optional_inputs": ["timeout_seconds", "poll_interval_seconds"],
+        "bounds": {"timeout_min": 1, "timeout_max": 3600, "poll_interval_min": 1, "poll_interval_max": 60},
+        "side_effects": "none",
+        "notes": "Polls one sensor until the SDK-compatible online marker is observed or timeout expires.",
+    },
     "sensor.task.preview": {
         "suite": "response",
         "tool": "lc_preview_sensor_task",
@@ -3395,6 +3426,28 @@ def normalize_job_state(data: Any) -> dict[str, Any]:
     return {"current": current, "terminal": terminal}
 
 
+def sensor_info(data: Any) -> dict[str, Any]:
+    if not isinstance(data, dict):
+        return {}
+    info = data.get("info")
+    if isinstance(info, dict):
+        return info
+    return data
+
+
+def sensor_online(data: Any) -> bool:
+    if not isinstance(data, dict):
+        return False
+    online = data.get("online")
+    if isinstance(online, dict):
+        return bool(online) and "error" not in online
+    if isinstance(online, bool):
+        return online
+    info = sensor_info(data)
+    alive = info.get("alive")
+    return bool(alive)
+
+
 def classify_error(status_code: int | None, data: Any, raw_text: str) -> dict[str, Any]:
     message = error_text(data, raw_text)
     if status_code in (401, 403):
@@ -3684,6 +3737,112 @@ class LimaCharlieAPI:
             operation="sensor.get",
             oid=scoped_oid,
             resource={"type": "sensor", "id": safe_sensor_id, "parent": {"type": "organization", "id": scoped_oid}},
+        ).as_dict()
+
+    def get_sensor_isolation_status(self, oid: str, sensor_id: str) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_sensor_id = require_oid(sensor_id)
+        result = self._request(
+            "GET",
+            safe_sensor_id,
+            operation="sensor.isolation_status.get",
+            oid=scoped_oid,
+            resource={"type": "sensor", "id": safe_sensor_id, "parent": {"type": "organization", "id": scoped_oid}},
+        ).as_dict()
+        if result.get("ok"):
+            isolated = bool(sensor_info(result.get("data")).get("should_isolate", False))
+            result["state"] = {"current": "isolated" if isolated else "not_isolated", "terminal": True}
+            result["data"] = {"sid": safe_sensor_id, "is_isolated": isolated, "sensor": result.get("data")}
+            result["meta"]["summary"]["is_isolated"] = isolated
+        return result
+
+    def get_sensor_seal_status(self, oid: str, sensor_id: str) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_sensor_id = require_oid(sensor_id)
+        result = self._request(
+            "GET",
+            safe_sensor_id,
+            operation="sensor.seal_status.get",
+            oid=scoped_oid,
+            resource={"type": "sensor", "id": safe_sensor_id, "parent": {"type": "organization", "id": scoped_oid}},
+        ).as_dict()
+        if result.get("ok"):
+            sealed = bool(sensor_info(result.get("data")).get("should_seal", False))
+            result["state"] = {"current": "sealed" if sealed else "not_sealed", "terminal": True}
+            result["data"] = {"sid": safe_sensor_id, "is_sealed": sealed, "sensor": result.get("data")}
+            result["meta"]["summary"]["is_sealed"] = sealed
+        return result
+
+    def wait_sensor_online(
+        self,
+        oid: str,
+        sensor_id: str,
+        timeout_seconds: int = 300,
+        poll_interval_seconds: int = 5,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_sensor_id = require_oid(sensor_id)
+        timeout = require_seconds(timeout_seconds, "timeout_seconds", minimum=1, maximum=3600)
+        poll_interval = require_seconds(poll_interval_seconds, "poll_interval_seconds", minimum=1, maximum=60)
+        started = time.time()
+        request_id = f"req_{uuid.uuid4().hex}"
+        attempts = 0
+        last_result: dict[str, Any] | None = None
+        while True:
+            attempts += 1
+            result = self._request(
+                "GET",
+                safe_sensor_id,
+                operation="sensor.wait_online",
+                oid=scoped_oid,
+                resource={"type": "sensor", "id": safe_sensor_id, "parent": {"type": "organization", "id": scoped_oid}},
+            ).as_dict()
+            last_result = result
+            if not result["ok"]:
+                result["meta"]["attempts"] = attempts
+                return result
+            if sensor_online(result.get("data")):
+                duration_ms = int((time.time() - started) * 1000)
+                result["request_id"] = request_id
+                result["state"] = {"current": "online", "terminal": True}
+                result["data"] = {"sid": safe_sensor_id, "is_online": True, "sensor": result.get("data")}
+                result["meta"]["duration_ms"] = duration_ms
+                result["meta"]["attempts"] = attempts
+                result["meta"]["summary"]["is_online"] = True
+                return result
+            elapsed = time.time() - started
+            if elapsed + poll_interval > timeout:
+                break
+            time.sleep(poll_interval)
+
+        duration_ms = int((time.time() - started) * 1000)
+        return ToolResponse(
+            ok=False,
+            operation="sensor.wait_online",
+            request_id=request_id,
+            resource={"type": "sensor", "id": safe_sensor_id, "parent": {"type": "organization", "id": scoped_oid}},
+            state={"current": "offline", "terminal": False},
+            data={"last_observation": last_result.get("data") if last_result else None},
+            side_effects=[],
+            warnings=[],
+            meta={
+                "duration_ms": duration_ms,
+                "attempts": attempts,
+                "summary": {"is_online": False, "timed_out": True},
+                "truncated": False,
+            },
+            observed_at=observed_at(),
+            error={
+                "code": "sensor_wait_online_timeout",
+                "class": "transient",
+                "message": f"Sensor {safe_sensor_id} did not come online within {timeout} seconds.",
+                "retryable": True,
+                "same_input_retryable": True,
+                "suggested_next_actions": [
+                    "Call lc_get_sensor to inspect the latest sensor record.",
+                    "Retry lc_wait_sensor_online with a longer timeout if the sensor is expected to check in.",
+                ],
+            },
         ).as_dict()
 
     def preview_sensor_task(

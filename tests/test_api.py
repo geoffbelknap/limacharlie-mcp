@@ -243,6 +243,33 @@ def test_get_sensor_uses_sensor_endpoint(tmp_path: Path) -> None:
     assert fake.calls[1]["url"] == f"https://api.limacharlie.io/v1/{SID}"
 
 
+def test_sensor_status_and_wait_online_tools_use_sensor_record(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add(
+        "GET",
+        f"https://api.limacharlie.io/v1/{SID}",
+        {"info": {"sid": SID, "should_isolate": True, "should_seal": False}, "online": {"connected": True}},
+    )
+    client = make_client(tmp_path, fake)
+
+    isolation = client.get_sensor_isolation_status(OID, SID)
+    seal = client.get_sensor_seal_status(OID, SID)
+    online = client.wait_sensor_online(OID, SID, timeout_seconds=1, poll_interval_seconds=1)
+
+    assert isolation["ok"] is True
+    assert_ax_envelope(isolation, "sensor.isolation_status.get")
+    assert isolation["state"]["current"] == "isolated"
+    assert isolation["data"]["is_isolated"] is True
+    assert seal["ok"] is True
+    assert seal["state"]["current"] == "not_sealed"
+    assert seal["data"]["is_sealed"] is False
+    assert online["ok"] is True
+    assert online["operation"] == "sensor.wait_online"
+    assert online["state"]["current"] == "online"
+    assert online["data"]["is_online"] is True
+    assert online["meta"]["attempts"] == 1
+
+
 def test_list_online_sensors_uses_online_endpoint(tmp_path: Path) -> None:
     fake = FakeHTTP()
     fake.add("GET", f"https://api.limacharlie.io/v1/online/{OID}", {"sensors": [{"sid": SID}], "online": 1})

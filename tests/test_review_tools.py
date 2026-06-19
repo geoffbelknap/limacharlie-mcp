@@ -125,6 +125,59 @@ def test_review_access_hygiene_keeps_partial_permission_failure(tmp_path) -> Non
     assert any(finding["id"] == "access.no_org_api_keys" for finding in result["data"]["findings"])
 
 
+def test_review_access_hygiene_does_not_flag_extension_managed_key_volume(tmp_path) -> None:
+    class ExtensionKeyClient(ReviewClient):
+        def list_api_keys(self, oid: str, limit: int = 100) -> dict[str, Any]:
+            api_keys = {
+                f"hash-{index}": {
+                    "name": f"_ext-service-{index}[bulk]",
+                    "priv": ["org.get"],
+                }
+                for index in range(12)
+            }
+            api_keys["hash-mcp"] = {
+                "name": "mcp runtime",
+                "by": "analyst@example.com",
+                "priv": ["org.get", "sensor.list"],
+            }
+            return self.response("api_key.list", {"api_keys": api_keys})
+
+    client = ExtensionKeyClient(tmp_path)
+
+    result = client.review_access_hygiene(OID)
+
+    assert result["data"]["metrics"]["api_key_count"] == 13
+    assert result["data"]["metrics"]["service_managed_api_key_count"] == 12
+    assert result["data"]["metrics"]["user_generated_api_key_count"] == 1
+    assert all(finding["id"] != "access.many_org_api_keys" for finding in result["data"]["findings"])
+
+
+def test_review_access_hygiene_flags_many_user_generated_keys(tmp_path) -> None:
+    class UserKeyClient(ReviewClient):
+        def list_api_keys(self, oid: str, limit: int = 100) -> dict[str, Any]:
+            return self.response(
+                "api_key.list",
+                {
+                    "api_keys": {
+                        f"hash-{index}": {
+                            "name": f"automation-{index}",
+                            "by": "analyst@example.com",
+                            "priv": ["org.get"],
+                        }
+                        for index in range(10)
+                    }
+                },
+            )
+
+    client = UserKeyClient(tmp_path)
+
+    result = client.review_access_hygiene(OID)
+
+    finding = next(finding for finding in result["data"]["findings"] if finding["id"] == "access.many_org_api_keys")
+    assert finding["evidence"]["user_generated_api_key_count"] == 10
+    assert finding["evidence"]["service_managed_api_key_count"] == 0
+
+
 def test_review_fleet_health_prefers_sensor_list_online_flags(tmp_path) -> None:
     class OnlineFlagClient(ReviewClient):
         def list_sensors(self, oid: str, selector: str | None = None, limit: int = 100) -> dict[str, Any]:
@@ -163,6 +216,37 @@ def test_review_org_posture_aggregates_component_findings(tmp_path) -> None:
     assert result["state"]["current"] == "needs_attention"
     assert result["data"]["metrics"]["component_count"] == 6
     assert any(finding["id"] == "org.component_errors" for finding in result["data"]["findings"])
+
+
+def test_review_org_posture_explains_service_managed_rule_state_errors(tmp_path) -> None:
+    class ServiceRuleErrorClient(ReviewClient):
+        def list_org_errors(self, oid: str) -> dict[str, Any]:
+            return self.response(
+                "org.errors",
+                {
+                    "errors": [
+                        {
+                            "component": "c2/analytics/rules/service.WIN-LSASS_Dump_File_Creation",
+                            "error": "rule produced too many states @ sensor-1",
+                        },
+                        {
+                            "component": "c2/analytics/rules/service.WIN-Startup_Folder_Modification",
+                            "error": "rule produced too many states @ sensor-1",
+                        },
+                    ]
+                },
+            )
+
+    client = ServiceRuleErrorClient(tmp_path)
+
+    result = client.review_org_posture(OID, limit=20)
+
+    finding_ids = {finding["id"] for finding in result["data"]["findings"]}
+    assert "org.component_errors" not in finding_ids
+    assert "org.service_managed_rule_state_pressure" in finding_ids
+    assert result["data"]["metrics"]["org_error_count"] == 2
+    assert result["data"]["metrics"]["actionable_org_error_count"] == 0
+    assert result["data"]["metrics"]["service_managed_rule_state_error_count"] == 2
 
 
 def test_review_org_posture_exposes_failed_component_sources(tmp_path) -> None:

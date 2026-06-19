@@ -4603,6 +4603,52 @@ class LimaCharlieAPI:
             for value, count in sorted(counts.items(), key=lambda pair: (-pair[1], pair[0]))[:limit]
         ]
 
+    def _api_key_inventory_counts(self, result: dict[str, Any]) -> dict[str, int]:
+        items = self._review_items(result, "api_keys", "keys")
+        total = len(items)
+        service_managed = 0
+        user_generated = 0
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("name") or "")
+            if name.startswith("_") or ("by" not in item and name.startswith(("ext-", "soteria-"))):
+                service_managed += 1
+            else:
+                user_generated += 1
+        return {
+            "api_key_count": total,
+            "service_managed_api_key_count": service_managed,
+            "user_generated_api_key_count": user_generated,
+        }
+
+    def _classify_org_errors(self, result: dict[str, Any]) -> dict[str, Any]:
+        errors = self._review_items(result, "errors")
+        service_rule_state_errors: list[dict[str, Any]] = []
+        other_errors: list[dict[str, Any]] = []
+        for item in errors:
+            if not isinstance(item, dict):
+                continue
+            component = str(item.get("component") or "")
+            message = str(item.get("error") or "")
+            if component.startswith("c2/analytics/rules/service.") and "rule produced too many states" in message:
+                service_rule_state_errors.append(item)
+            else:
+                other_errors.append(item)
+        return {
+            "org_error_count": len(errors),
+            "service_managed_rule_state_error_count": len(service_rule_state_errors),
+            "actionable_org_error_count": len(other_errors),
+            "service_managed_rule_state_components": sorted(
+                {
+                    str(item.get("component") or "")
+                    .removeprefix("c2/analytics/rules/")
+                    for item in service_rule_state_errors
+                    if item.get("component")
+                }
+            )[:10],
+        }
+
     def _review_response(
         self,
         operation: str,
@@ -4932,10 +4978,11 @@ class LimaCharlieAPI:
         permissions, permissions_source = self._review_call("user.permission.list", self.list_user_permissions, scoped_oid)
         keys, keys_source = self._review_call("api_key.list", self.list_api_keys, scoped_oid, limit=bounded_limit)
         groups, groups_source = self._review_call("group.list", self.list_groups, limit=bounded_limit)
+        key_counts = self._api_key_inventory_counts(keys) if keys.get("ok") else {"api_key_count": 0}
         metrics = {
             "user_count": self._review_count(users, "users"),
             "permission_principal_count": self._review_count(permissions, "users", "permissions"),
-            "api_key_count": self._review_count(keys, "api_keys", "keys"),
+            **key_counts,
             "group_count": self._review_count(groups, "groups"),
         }
         findings: list[dict[str, Any]] = []
@@ -4961,14 +5008,18 @@ class LimaCharlieAPI:
                     category="access",
                 )
             )
-        elif keys.get("ok") and metrics["api_key_count"] >= 10:
+        elif keys.get("ok") and metrics.get("user_generated_api_key_count", metrics["api_key_count"]) >= 10:
             findings.append(
                 self._review_finding(
                     "access.many_org_api_keys",
                     "low",
-                    "Many organization API keys returned in the bounded sample",
-                    {"api_key_count": metrics["api_key_count"]},
-                    "Review key ownership, last-used metadata, and permissions; retire unused keys through preview/confirm deletion.",
+                    "Many user-generated organization API keys returned in the bounded sample",
+                    {
+                        "api_key_count": metrics["api_key_count"],
+                        "user_generated_api_key_count": metrics.get("user_generated_api_key_count"),
+                        "service_managed_api_key_count": metrics.get("service_managed_api_key_count"),
+                    },
+                    "Review user-generated key ownership, last-used metadata, and permissions; do not delete extension-managed keys directly.",
                     category="access",
                 )
             )
@@ -5021,15 +5072,39 @@ class LimaCharlieAPI:
             if isinstance(data, dict):
                 findings.extend(data.get("findings", []))
                 component_sources.extend(sources)
-        org_error_count = self._review_count(org_errors, "errors")
-        if org_errors.get("ok") and org_error_count > 0:
+        org_error_metrics = self._classify_org_errors(org_errors) if org_errors.get("ok") else {
+            "org_error_count": 0,
+            "service_managed_rule_state_error_count": 0,
+            "actionable_org_error_count": 0,
+            "service_managed_rule_state_components": [],
+        }
+        org_error_count = org_error_metrics["org_error_count"]
+        if org_errors.get("ok") and org_error_metrics["actionable_org_error_count"] > 0:
             findings.append(
                 self._review_finding(
                     "org.component_errors",
                     "medium",
                     "Organization component errors are present",
-                    {"org_error_count": org_error_count},
+                    {
+                        "org_error_count": org_error_count,
+                        "actionable_org_error_count": org_error_metrics["actionable_org_error_count"],
+                        "service_managed_rule_state_error_count": org_error_metrics["service_managed_rule_state_error_count"],
+                    },
                     "Inspect lc_list_org_errors and dismiss only after validating the underlying component issue is resolved.",
+                    category="organization",
+                )
+            )
+        if org_errors.get("ok") and org_error_metrics["service_managed_rule_state_error_count"] > 0:
+            findings.append(
+                self._review_finding(
+                    "org.service_managed_rule_state_pressure",
+                    "info",
+                    "Service-managed D&R rules are reporting rule-state pressure",
+                    {
+                        "service_managed_rule_state_error_count": org_error_metrics["service_managed_rule_state_error_count"],
+                        "components": org_error_metrics["service_managed_rule_state_components"],
+                    },
+                    "Treat this as a LimaCharlie-managed content signal unless matching detections are noisy or suspicious; normal org API keys may not expose these rule bodies for tuning.",
                     category="organization",
                 )
             )
@@ -5050,7 +5125,7 @@ class LimaCharlieAPI:
                     }
                     for source in failed_sources
                 ],
-                "org_error_count": org_error_count,
+                **org_error_metrics,
                 "detection_window": {"start": start_ts, "end": end_ts} if start_ts is not None and end_ts is not None else None,
                 "components": component_summaries,
             },

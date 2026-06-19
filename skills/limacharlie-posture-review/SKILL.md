@@ -27,6 +27,26 @@ into concrete records only where findings justify the context cost.
    - Separate evidence, risk, and recommendation.
    - Include source reads that failed due to missing permissions.
 
+## Interpretation Notes
+
+Treat service-managed LimaCharlie objects as explanatory context unless there is
+independent evidence they are causing risk or noise:
+
+- API keys whose names begin with `_ext-` or `_soteria-` are normally managed by
+  extension subscriptions. Do not recommend deleting them directly; inspect
+  extension subscriptions instead.
+- If `lc_review_access_hygiene` reports many total API keys, distinguish
+  user-generated keys from service-managed keys before calling it an access
+  hygiene issue.
+- Org errors for components shaped like
+  `c2/analytics/rules/service.*` with `rule produced too many states` are
+  service-managed rule-state pressure. Normal org API keys may not expose those
+  hidden rule bodies for tuning. Report them as LimaCharlie-managed content
+  signals, not as missing user permissions.
+- Dismiss org errors only after deciding the underlying signal has been
+  investigated or accepted; dismissal clears the symptom, not necessarily the
+  cause.
+
 ## Guardrails
 
 Do not pull a firehose, spout, or unbounded telemetry stream. Do not imply that

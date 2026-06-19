@@ -22,6 +22,7 @@ dev = [
 
 [project.scripts]
 limacharlie-mcp = "limacharlie_mcp.server:main"
+limacharlie-mcp-auth-doctor = "limacharlie_mcp.auth_doctor:main"
 limacharlie-mcp-vault-bootstrap = "limacharlie_mcp.vault_bootstrap:main"
 
 [tool.setuptools.packages.find]

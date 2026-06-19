@@ -52,6 +52,9 @@ vault policy write limacharlie-mcp-runtime deploy/vault/policies/limacharlie-mcp
 If your KV mount or secret path differs from `secret/data/limacharlie/mcp`,
 update the policies and `LC_API_KEY_REF` together.
 
+For user API key mode, store the key at a separate path and use
+`LC_USER_API_KEY_REF` instead of `LC_API_KEY_REF`.
+
 ## Vault Agent Token File
 
 The MCP runtime should usually read a Vault token from a file:
@@ -73,11 +76,25 @@ Run the bootstrap helper with a token that has the bootstrap policy:
 ```bash
 limacharlie-mcp-vault-bootstrap \
   --vault-addr "https://vault.example.com" \
-  --token-file "/run/secrets/limacharlie-mcp-bootstrap-token"
+  --token-file "/run/secrets/limacharlie-mcp-bootstrap-token" \
+  --runtime-token-file "/run/secrets/limacharlie-mcp-vault-token"
 ```
 
 The helper prompts for the LimaCharlie API key without echoing it, writes it to
-Vault, and prints a nonsecret MCP env block.
+Vault, and prints a nonsecret MCP env block. The bootstrap token should have
+write access only for setup or rotation; the runtime token file printed in the
+env block should use the narrower runtime policy.
+
+For user-scoped API key mode, keep the secret separate from the org key:
+
+```bash
+limacharlie-mcp-vault-bootstrap \
+  --vault-addr "https://vault.example.com" \
+  --token-file "/run/secrets/limacharlie-mcp-bootstrap-token" \
+  --runtime-token-file "/run/secrets/limacharlie-mcp-vault-token" \
+  --path "limacharlie/mcp-user" \
+  --user-api-key
+```
 
 For unattended setup, pipe the key from an approved secret manager:
 
@@ -86,6 +103,7 @@ approved-secret-manager read limacharlie/mcp/api-key \
   | limacharlie-mcp-vault-bootstrap \
       --vault-addr "https://vault.example.com" \
       --token-file "/run/secrets/limacharlie-mcp-bootstrap-token" \
+      --runtime-token-file "/run/secrets/limacharlie-mcp-vault-token" \
       --api-key-stdin
 ```
 

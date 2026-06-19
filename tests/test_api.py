@@ -119,6 +119,94 @@ def test_list_orgs_uses_direct_api_and_jwt(tmp_path: Path) -> None:
     assert fake.calls[1]["headers"]["Authorization"] == "Bearer test-token"
 
 
+def test_auth_error_redacts_uid_from_response_and_audit(tmp_path: Path) -> None:
+    uid = "12345678-1234-1234-1234-123456789abc"
+    fake = FakeHTTP()
+    fake.add("POST", "https://jwt.limacharlie.io", {"error": f"user not found: {uid}"}, status_code=400)
+    client = LimaCharlieAPI(
+        api_key="secret",
+        uid=uid,
+        credential_provider="env",
+        audit_path=tmp_path / "audit.jsonl",
+        http_client=fake,
+    )
+
+    refresh = client.auth_refresh(OID)
+    assert refresh["ok"] is False
+    assert uid not in refresh["error"]["message"]
+    assert "[redacted]" in refresh["error"]["message"]
+
+    result = client.get_org_info(OID)
+    assert result["ok"] is False
+    assert uid not in result["error"]["message"]
+    audit_text = (tmp_path / "audit.jsonl").read_text()
+    assert uid not in audit_text
+    assert "[redacted]" in audit_text
+
+
+def test_env_uid_without_user_key_keeps_org_api_key_mode(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LC_API_KEY", "org-secret")
+    monkeypatch.setenv("LC_UID", "firebase-user-id-1234567890")
+    monkeypatch.delenv("LC_USER_API_KEY", raising=False)
+    monkeypatch.delenv("LC_USER_API_KEY_REF", raising=False)
+    fake = FakeHTTP()
+    fake.add("POST", "https://jwt.limacharlie.io", {"jwt": "test-token", "expires_in": 3000})
+    client = LimaCharlieAPI(audit_path=tmp_path / "audit.jsonl", http_client=fake)
+
+    status = client.auth_status(OID)
+    refresh = client.auth_refresh(OID)
+
+    assert status["data"]["credential_mode"] == "org_api_key"
+    assert status["data"]["api_key_source"] == "direct"
+    assert any("using organization API key mode" in warning for warning in status["warnings"])
+    assert refresh["ok"] is True
+    assert refresh["data"]["credential_mode"] == "org_api_key"
+    assert fake.calls[0]["data"]["secret"] == "org-secret"
+    assert "uid" not in fake.calls[0]["data"]
+
+
+def test_env_user_api_key_uses_separate_user_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LC_API_KEY", "org-secret")
+    monkeypatch.setenv("LC_USER_API_KEY", "user-secret")
+    monkeypatch.setenv("LC_UID", "firebase-user-id-1234567890")
+    monkeypatch.setenv("LC_AUTH_MODE", "user_api_key")
+    fake = FakeHTTP()
+    fake.add("POST", "https://jwt.limacharlie.io", {"jwt": "test-token", "expires_in": 3000})
+    client = LimaCharlieAPI(audit_path=tmp_path / "audit.jsonl", http_client=fake)
+
+    status = client.auth_status(OID)
+    refresh = client.auth_refresh(OID)
+
+    assert status["data"]["credential_mode"] == "user_api_key"
+    assert status["data"]["api_key_source"] == "user_direct"
+    assert refresh["ok"] is True
+    assert refresh["data"]["credential_mode"] == "user_api_key"
+    assert fake.calls[0]["data"]["secret"] == "user-secret"
+    assert fake.calls[0]["data"]["uid"] == "firebase-user-id-1234567890"
+    assert "org-secret" not in json.dumps(refresh)
+    assert "user-secret" not in json.dumps(refresh)
+
+
+def test_env_both_keys_default_to_org_mode(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LC_API_KEY", "org-secret")
+    monkeypatch.setenv("LC_USER_API_KEY", "user-secret")
+    monkeypatch.setenv("LC_UID", "firebase-user-id-1234567890")
+    monkeypatch.delenv("LC_AUTH_MODE", raising=False)
+    fake = FakeHTTP()
+    fake.add("POST", "https://jwt.limacharlie.io", {"jwt": "test-token", "expires_in": 3000})
+    client = LimaCharlieAPI(audit_path=tmp_path / "audit.jsonl", http_client=fake)
+
+    status = client.auth_status(OID)
+    refresh = client.auth_refresh(OID)
+
+    assert status["data"]["credential_mode"] == "org_api_key"
+    assert any("LC_AUTH_MODE=user_api_key" in warning for warning in status["warnings"])
+    assert refresh["ok"] is True
+    assert refresh["data"]["credential_mode"] == "org_api_key"
+    assert fake.calls[0]["data"]["secret"] == "org-secret"
+    assert "uid" not in fake.calls[0]["data"]
+
+
 def test_download_target_tools_are_local_metadata(tmp_path: Path) -> None:
     fake = FakeHTTP()
     client = make_client(tmp_path, fake)

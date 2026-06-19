@@ -21,11 +21,13 @@ DEFAULT_FIELD = "api_key"
 class VaultBootstrapConfig:
     vault_addr: str
     token_file: Path
+    runtime_token_file: Path | None
     namespace: str | None
     mount: str
     path: str
     field: str
     kv_version: int
+    credential_kind: str = "org"
 
 
 @dataclass(frozen=True)
@@ -54,11 +56,12 @@ def build_api_key_ref(config: VaultBootstrapConfig) -> str:
 
 
 def build_mcp_env(config: VaultBootstrapConfig, api_key_ref: str) -> dict[str, str]:
+    ref_env_var = "LC_USER_API_KEY_REF" if config.credential_kind == "user" else "LC_API_KEY_REF"
     env = {
         "LC_SECRET_PROVIDER": "vault",
         "LC_VAULT_ADDR": config.vault_addr,
-        "LC_VAULT_TOKEN_FILE": str(config.token_file),
-        "LC_API_KEY_REF": api_key_ref,
+        "LC_VAULT_TOKEN_FILE": str(config.runtime_token_file or "<path-to-runtime-vault-token-file>"),
+        ref_env_var: api_key_ref,
     }
     if config.namespace:
         env["LC_VAULT_NAMESPACE"] = config.namespace
@@ -115,11 +118,22 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--vault-addr", default=os.environ.get("LC_VAULT_ADDR") or os.environ.get("VAULT_ADDR"))
     parser.add_argument("--token-file", type=Path, default=default_token_file())
+    parser.add_argument(
+        "--runtime-token-file",
+        type=Path,
+        default=os.environ.get("LC_RUNTIME_VAULT_TOKEN_FILE"),
+        help="Runtime Vault token file to print in the MCP env block. Do not reuse the bootstrap token for runtime.",
+    )
     parser.add_argument("--namespace", default=os.environ.get("LC_VAULT_NAMESPACE") or os.environ.get("VAULT_NAMESPACE"))
     parser.add_argument("--mount", default=DEFAULT_MOUNT)
     parser.add_argument("--path", default=DEFAULT_PATH)
     parser.add_argument("--field", default=DEFAULT_FIELD)
     parser.add_argument("--kv-version", type=int, choices=[1, 2], default=2)
+    parser.add_argument(
+        "--user-api-key",
+        action="store_true",
+        help="Print LC_USER_API_KEY_REF instead of LC_API_KEY_REF for user-scoped API key mode.",
+    )
     parser.add_argument(
         "--api-key-stdin",
         action="store_true",
@@ -145,11 +159,13 @@ def config_from_args(args: argparse.Namespace) -> VaultBootstrapConfig:
     return VaultBootstrapConfig(
         vault_addr=args.vault_addr.rstrip("/"),
         token_file=args.token_file.expanduser(),
+        runtime_token_file=args.runtime_token_file.expanduser() if args.runtime_token_file else None,
         namespace=args.namespace,
         mount=mount,
         path=path,
         field=field,
         kv_version=args.kv_version,
+        credential_kind="user" if args.user_api_key else "org",
     )
 
 
@@ -157,6 +173,7 @@ def result_payload(result: VaultBootstrapResult) -> dict[str, Any]:
     return {
         "ok": True,
         "api_key_ref": result.api_key_ref,
+        "ref_env_var": "LC_USER_API_KEY_REF" if "LC_USER_API_KEY_REF" in result.env else "LC_API_KEY_REF",
         "mcp_env": result.env,
     }
 

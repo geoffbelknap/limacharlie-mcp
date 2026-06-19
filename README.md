@@ -451,7 +451,8 @@ nonsecret MCP env block.
 ```bash
 limacharlie-mcp-vault-bootstrap \
   --vault-addr "https://vault.example.com" \
-  --token-file "/run/secrets/vault-token"
+  --token-file "/run/secrets/limacharlie-mcp-bootstrap-token" \
+  --runtime-token-file "/run/secrets/limacharlie-mcp-vault-token"
 ```
 
 Store the LimaCharlie API key in Vault KV v2 at
@@ -475,7 +476,7 @@ Example stdio config:
       "env": {
         "LC_SECRET_PROVIDER": "vault",
         "LC_VAULT_ADDR": "https://vault.example.com",
-        "LC_VAULT_TOKEN_FILE": "/run/secrets/vault-token",
+        "LC_VAULT_TOKEN_FILE": "/run/secrets/limacharlie-mcp-vault-token",
         "LC_API_KEY_REF": "vault://secret/data/limacharlie/mcp#api_key"
       }
     }
@@ -486,6 +487,12 @@ Example stdio config:
 After starting the server, call `lc_auth_status`. If credentials are configured
 correctly, call `lc_auth_refresh` only when you want to force a new JWT after
 credential rotation or auth troubleshooting.
+
+For first-time setup, read [Onboarding And Auth](docs/onboarding-auth.md)
+before creating keys. LimaCharlie organization API keys and user API keys come
+from different UI locations and should be kept in separate MCP variables.
+Run `limacharlie-mcp-auth-doctor` to validate the selected auth mode before
+connecting the MCP to an agent client.
 
 ## Environment
 
@@ -498,7 +505,10 @@ credential rotation or auth troubleshooting.
 | `LC_VAULT_TOKEN` | unset | Vault token value. Useful for local tests; avoid in shared configs. |
 | `LC_VAULT_NAMESPACE` | unset | Optional Vault Enterprise namespace. |
 | `LC_API_KEY` | unset | Local-development fallback when `LC_SECRET_PROVIDER=env`, or direct override when explicitly set. |
-| `LC_UID` | unset | Optional user ID for user-scoped API keys. |
+| `LC_USER_API_KEY` | unset | Local-development fallback for user-scoped API key mode. Keep separate from `LC_API_KEY`. |
+| `LC_USER_API_KEY_REF` | unset | Vault reference for a user-scoped LimaCharlie API key. |
+| `LC_UID` | unset | User ID for user-scoped API keys. Does not switch org-key mode unless a user key source is configured. |
+| `LC_AUTH_MODE` | `auto` | Optional auth selector. Use `user_api_key` when both org and user keys are present and you want user-key mode. |
 | `LC_API_ROOT` | `https://api.limacharlie.io` | LimaCharlie API root. |
 | `LC_JWT_ROOT` | `https://jwt.limacharlie.io` | JWT exchange root. |
 | `LC_CASES_API_ROOT` | `https://cases.limacharlie.io` | Cases API root. |

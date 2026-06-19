@@ -3087,8 +3087,11 @@ _BASE64_JSON_PREVIEW_KEYS = frozenset({"request_data"})
 _GZIP_BASE64_JSON_PREVIEW_KEYS = frozenset({"gzdata"})
 _JSON_STRING_PREVIEW_KEYS = frozenset({"config", "data", "usr_mtd"})
 _SENSITIVE_TEXT_RE = re.compile(
-    r"(?i)\b(api[_-]?key|authorization|client[_-]?secret|credential|jwt|password|private[_-]?key|refresh[_-]?token|secret|session[_-]?token|token)"
+    r"(?i)\b(api[_-]?key|authorization|client[_-]?secret|credential|jwt|password|private[_-]?key|refresh[_-]?token|secret|session[_-]?token|token|uid|user[_-]?id)"
     r"([\"']?\s*[:=]\s*[\"']?)([^\"'\s,}]+)"
+)
+_AUTH_IDENTIFIER_TEXT_RES = (
+    re.compile(r"(?i)(\buser\s+not\s+found\s*:\s*)([A-Za-z0-9][A-Za-z0-9_-]{7,})"),
 )
 
 
@@ -3642,14 +3645,17 @@ def redact_sensitive(data: Any, *, extra_keys: frozenset[str] = frozenset()) -> 
 
 
 def redact_text(text: str) -> str:
-    return _SENSITIVE_TEXT_RE.sub(lambda match: f"{match.group(1)}{match.group(2)}{REDACTED}", text)
+    redacted = _SENSITIVE_TEXT_RE.sub(lambda match: f"{match.group(1)}{match.group(2)}{REDACTED}", text)
+    for pattern in _AUTH_IDENTIFIER_TEXT_RES:
+        redacted = pattern.sub(lambda match: f"{match.group(1)}{REDACTED}", redacted)
+    return redacted
 
 
 def redacted_response_excerpt(data: Any, raw_text: str) -> str:
     redacted = redact_sensitive(data, extra_keys=_AUDIT_ONLY_SENSITIVE_KEYS)
     if redacted is not None and not isinstance(redacted, str):
         try:
-            return json.dumps(redacted, sort_keys=True, default=str)[:500]
+            return redact_text(json.dumps(redacted, sort_keys=True, default=str))[:500]
         except (TypeError, ValueError):
             pass
     return redact_text(raw_text or str(redacted or ""))[:500]
@@ -3799,7 +3805,7 @@ def sensor_online(data: Any) -> bool:
 
 
 def classify_error(status_code: int | None, data: Any, raw_text: str) -> dict[str, Any]:
-    message = error_text(data, raw_text)
+    message = redact_text(error_text(data, raw_text))
     if status_code in (401, 403):
         error_class = "auth" if status_code == 401 else "policy"
         code = "unauthorized" if status_code == 401 else "forbidden"
@@ -3856,9 +3862,12 @@ class LimaCharlieAPI:
         self,
         *,
         api_key: str | None = None,
+        user_api_key: str | None = None,
         uid: str | None = None,
+        auth_mode: str | None = None,
         credential_provider: str | None = None,
         api_key_ref: str | None = None,
+        user_api_key_ref: str | None = None,
         vault_addr: str | None = None,
         vault_token: str | None = None,
         vault_token_file: str | None = None,
@@ -3871,14 +3880,32 @@ class LimaCharlieAPI:
         audit_path: Path | None = None,
         http_client: HttpClient | None = None,
     ) -> None:
+        self._explicit_api_key = api_key is not None
+        self._explicit_api_key_ref = api_key_ref is not None
+        self._explicit_user_api_key = user_api_key is not None
+        self._explicit_user_api_key_ref = user_api_key_ref is not None
         self.api_key = api_key if api_key is not None else os.environ.get("LC_API_KEY")
+        self.user_api_key = (
+            user_api_key if user_api_key is not None else os.environ.get("LC_USER_API_KEY")
+        )
         self.uid = uid or os.environ.get("LC_UID")
+        raw_auth_mode = (auth_mode or os.environ.get("LC_AUTH_MODE") or "auto").strip().lower()
+        if raw_auth_mode in {"", "auto"}:
+            self.auth_mode: str | None = None
+        elif raw_auth_mode in {"org", "org_api_key"}:
+            self.auth_mode = "org_api_key"
+        elif raw_auth_mode in {"user", "user_api_key"}:
+            self.auth_mode = "user_api_key"
+        else:
+            raise ValidationError("auth_mode must be auto, org_api_key, or user_api_key")
         configured_provider = (
             credential_provider
             or os.environ.get("LC_SECRET_PROVIDER")
             or os.environ.get("LC_CREDENTIAL_PROVIDER")
         )
-        self.credential_provider = (configured_provider or ("env" if self.api_key else "vault")).strip().lower()
+        self.credential_provider = (
+            configured_provider or ("env" if self.api_key or self.user_api_key else "vault")
+        ).strip().lower()
         if self.credential_provider not in {"env", "vault"}:
             raise ValidationError("credential_provider must be env or vault")
         self.api_key_ref = (
@@ -3886,7 +3913,12 @@ class LimaCharlieAPI:
             if api_key_ref is not None
             else os.environ.get("LC_API_KEY_REF") or os.environ.get("LC_API_KEY_SECRET_REF")
         )
-        if self.credential_provider == "vault" and not self.api_key_ref:
+        self.user_api_key_ref = (
+            user_api_key_ref
+            if user_api_key_ref is not None
+            else os.environ.get("LC_USER_API_KEY_REF") or os.environ.get("LC_USER_API_KEY_SECRET_REF")
+        )
+        if self.credential_provider == "vault" and not self.api_key_ref and not self.user_api_key_ref:
             self.api_key_ref = "vault://secret/data/limacharlie/mcp#api_key"
         self.vault_addr = (
             vault_addr or os.environ.get("LC_VAULT_ADDR") or os.environ.get("VAULT_ADDR") or ""
@@ -3916,6 +3948,28 @@ class LimaCharlieAPI:
         self._tokens: dict[str, Token] = {}
         self._pending_mutations: dict[str, PendingMutation] = {}
         self._search_roots: dict[str, str] = {}
+
+    def _uses_user_api_key(self) -> bool:
+        if not self.uid:
+            return False
+        user_key_configured = bool(self.user_api_key or self.user_api_key_ref)
+        org_key_configured = bool(self.api_key or self.api_key_ref)
+        if self.auth_mode == "org_api_key":
+            return False
+        if self.auth_mode == "user_api_key":
+            return user_key_configured or (self._explicit_api_key and bool(self.api_key)) or (
+                self._explicit_api_key_ref and bool(self.api_key_ref)
+            )
+        if self._explicit_user_api_key or self._explicit_user_api_key_ref:
+            return user_key_configured and not org_key_configured
+        if self._explicit_api_key and self.api_key:
+            return True
+        if self.credential_provider == "vault" and self._explicit_api_key_ref and self.api_key_ref:
+            return True
+        return user_key_configured and not org_key_configured
+
+    def _credential_mode(self) -> str:
+        return "user_api_key" if self._uses_user_api_key() else "org_api_key"
 
     def _vault_token(self) -> str | None:
         if self.vault_token:
@@ -3972,6 +4026,15 @@ class LimaCharlieAPI:
         return value
 
     def _api_key_configured(self) -> bool:
+        if self._uses_user_api_key():
+            if self.user_api_key or (self._explicit_api_key and self.api_key):
+                return True
+            if self.credential_provider != "vault":
+                return False
+            try:
+                return bool((self.user_api_key_ref or self.api_key_ref) and self.vault_addr and self._vault_token())
+            except RuntimeError:
+                return False
         if self.api_key:
             return True
         if self.credential_provider != "vault":
@@ -3982,6 +4045,16 @@ class LimaCharlieAPI:
             return False
 
     def _resolve_api_key(self) -> str | None:
+        if self._uses_user_api_key():
+            if self.user_api_key:
+                return self.user_api_key
+            if self._explicit_api_key and self.api_key:
+                return self.api_key
+            if self.credential_provider == "vault":
+                ref = self.user_api_key_ref or self.api_key_ref
+                if ref:
+                    return self._resolve_vault_secret(ref)
+            return None
         if self.api_key:
             return self.api_key
         if self.credential_provider == "vault" and self.api_key_ref:
@@ -4022,14 +4095,22 @@ class LimaCharlieAPI:
         token = self._tokens.get(scoped_oid)
         now = time.time()
         expires_in = int(token.expires_at - now) if token else None
-        credential_mode = "user_api_key" if self.uid else "org_api_key"
+        credential_mode = self._credential_mode()
         api_key_configured = self._api_key_configured()
-        if self.api_key:
-            api_key_source = "direct"
-        elif self.credential_provider == "vault" and api_key_configured:
-            api_key_source = "vault_ref"
+        if credential_mode == "user_api_key":
+            if self.user_api_key or (self._explicit_api_key and self.api_key):
+                api_key_source = "user_direct"
+            elif self.credential_provider == "vault" and api_key_configured:
+                api_key_source = "user_vault_ref"
+            else:
+                api_key_source = "missing"
         else:
-            api_key_source = "missing"
+            if self.api_key:
+                api_key_source = "direct"
+            elif self.credential_provider == "vault" and api_key_configured:
+                api_key_source = "vault_ref"
+            else:
+                api_key_source = "missing"
         try:
             vault_token_configured = bool(self._vault_token()) if self.credential_provider == "vault" else False
         except RuntimeError:
@@ -4039,7 +4120,14 @@ class LimaCharlieAPI:
             warnings.append("Vault credential provider is not fully configured.")
         elif not api_key_configured:
             warnings.append("LC_API_KEY is not configured.")
-        if self.uid and scoped_oid == "-":
+        if self.uid and credential_mode == "org_api_key":
+            if self.user_api_key or self.user_api_key_ref:
+                warnings.append(
+                    "LC_UID and a user API key source are set, but organization API key mode is active; set LC_AUTH_MODE=user_api_key to use the user key."
+                )
+            else:
+                warnings.append("LC_UID is set but no user API key source is configured; using organization API key mode.")
+        if credential_mode == "user_api_key" and scoped_oid == "-":
             warnings.append(
                 "User API key mode can produce large multi-org JWTs; pass oid for org-scoped refresh if needed."
             )
@@ -4066,6 +4154,8 @@ class LimaCharlieAPI:
                 "configured": {
                     "api_key": api_key_configured,
                     "api_key_ref": bool(self.api_key_ref) if self.credential_provider == "vault" else False,
+                    "user_api_key": bool(self.user_api_key),
+                    "user_api_key_ref": bool(self.user_api_key_ref) if self.credential_provider == "vault" else False,
                     "vault_addr": bool(self.vault_addr),
                     "vault_token": vault_token_configured,
                     "vault_namespace": bool(self.vault_namespace),
@@ -4097,8 +4187,9 @@ class LimaCharlieAPI:
                 "retryable": False,
                 "same_input_retryable": False,
                 "suggested_next_actions": [
-                    "Configure Vault with LC_SECRET_PROVIDER=vault, LC_VAULT_ADDR, and LC_API_KEY_REF.",
-                    "For local development only, set LC_SECRET_PROVIDER=env and LC_API_KEY.",
+                    "Configure Vault with LC_SECRET_PROVIDER=vault, LC_VAULT_ADDR, and LC_API_KEY_REF for org mode.",
+                    "For user API key mode, configure LC_UID and LC_USER_API_KEY_REF.",
+                    "For local development only, set LC_SECRET_PROVIDER=env and LC_API_KEY or LC_USER_API_KEY.",
                 ],
             },
         ).as_dict()
@@ -4127,6 +4218,7 @@ class LimaCharlieAPI:
             ).as_dict()
         token = self._tokens[scoped_oid]
         duration_ms = int((time.time() - started) * 1000)
+        credential_mode = self._credential_mode()
         return ToolResponse(
             ok=True,
             operation="auth.refresh",
@@ -4134,7 +4226,7 @@ class LimaCharlieAPI:
             resource={"type": "auth_session", "id": scoped_oid},
             state={"previous": "unknown_or_expiring", "current": "refreshed"},
             data={
-                "credential_mode": "user_api_key" if self.uid else "org_api_key",
+                "credential_mode": credential_mode,
                 "credential_provider": self.credential_provider,
                 "jwt_managed_by_server": True,
                 "jwt_cached": True,
@@ -4144,7 +4236,7 @@ class LimaCharlieAPI:
             warnings=[],
             meta={
                 "duration_ms": duration_ms,
-                "summary": {"jwt_cached": True, "credential_mode": "user_api_key" if self.uid else "org_api_key"},
+                "summary": {"jwt_cached": True, "credential_mode": credential_mode},
                 "truncated": False,
             },
             observed_at=observed_at(),
@@ -11081,10 +11173,10 @@ class LimaCharlieAPI:
             return cached.value
         api_key = self._resolve_api_key()
         if not api_key:
-            raise RuntimeError("LimaCharlie API credentials are required; configure Vault or LC_API_KEY")
+            raise RuntimeError("LimaCharlie API credentials are required; configure Vault, LC_API_KEY, or LC_USER_API_KEY")
 
         data: dict[str, Any] = {"oid": scoped_oid, "secret": api_key}
-        if self.uid:
+        if self._uses_user_api_key() and self.uid:
             data["uid"] = self.uid
         response = self.http.request(
             "POST",
@@ -11132,12 +11224,12 @@ class LimaCharlieAPI:
             "operation": operation,
             "oid": oid,
             "method": method,
-            "url": url,
+            "url": redact_text(url),
             "params": redact_preview_data(params or {}),
             "status_code": status_code,
             "duration_ms": duration_ms,
             "response_bytes": response_bytes,
-            "response_excerpt": response_excerpt,
+            "response_excerpt": redact_text(response_excerpt),
         }
         self.audit_path.parent.mkdir(parents=True, exist_ok=True)
         with self.audit_path.open("a", encoding="utf-8") as f:

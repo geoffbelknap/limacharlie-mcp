@@ -4,6 +4,29 @@ This MCP should make LimaCharlie authentication feel like a normal local
 credential setup. Users should not manually create, paste, rotate, or re-paste
 JWTs.
 
+## Choose The Right Auth Mode
+
+Most deployments should use organization API key mode. User API key mode exists
+for multi-org workflows, but it is easier to misconfigure.
+
+| Need | Key source | Required MCP values | Notes |
+| --- | --- | --- | --- |
+| Work in one LimaCharlie org | Org page -> Access Management -> REST API | `LC_API_KEY` or `LC_API_KEY_REF`, plus explicit `oid` tool inputs | Recommended default. The org REST API page may say "User-Generated API Keys"; those are still org-scoped keys. |
+| Discover/list orgs across the user's account | Account Settings -> API Keys | `LC_AUTH_MODE=user_api_key`, `LC_UID`, and `LC_USER_API_KEY` or `LC_USER_API_KEY_REF` | Use only when multi-org access is needed. Keep separate from the org key. |
+
+Do not overwrite a working organization API key with a user API key. Keep both
+values separate:
+
+```bash
+LC_API_KEY=your-organization-api-key
+LC_USER_API_KEY=your-user-api-key
+LC_UID=your-user-id
+LC_ORG_ID=your-organization-id
+```
+
+When both keys are present, the runtime stays in organization API key mode
+unless `LC_AUTH_MODE=user_api_key` is set.
+
 ## Recommended Setup
 
 Use an Organization API key for the org you want the MCP to access, stored in
@@ -24,7 +47,8 @@ API keys are a local-development fallback, not the recommended runtime model.
 ```bash
 limacharlie-mcp-vault-bootstrap \
   --vault-addr "https://vault.example.com" \
-  --token-file "/run/secrets/vault-token"
+  --token-file "/run/secrets/limacharlie-mcp-bootstrap-token" \
+  --runtime-token-file "/run/secrets/limacharlie-mcp-vault-token"
 ```
 
 For unattended setup, pipe the key from an approved secret manager:
@@ -33,7 +57,8 @@ For unattended setup, pipe the key from an approved secret manager:
 approved-secret-manager read limacharlie/mcp/api-key \
   | limacharlie-mcp-vault-bootstrap \
       --vault-addr "https://vault.example.com" \
-      --token-file "/run/secrets/vault-token" \
+      --token-file "/run/secrets/limacharlie-mcp-bootstrap-token" \
+      --runtime-token-file "/run/secrets/limacharlie-mcp-vault-token" \
       --api-key-stdin
 ```
 
@@ -47,7 +72,7 @@ Example stdio config:
       "env": {
         "LC_SECRET_PROVIDER": "vault",
         "LC_VAULT_ADDR": "https://vault.example.com",
-        "LC_VAULT_TOKEN_FILE": "/run/secrets/vault-token",
+        "LC_VAULT_TOKEN_FILE": "/run/secrets/limacharlie-mcp-vault-token",
         "LC_API_KEY_REF": "vault://secret/data/limacharlie/mcp#api_key"
       }
     }
@@ -66,6 +91,38 @@ Do not use `.env` files for production LimaCharlie API keys.
 
 See [Deployment](deployment.md) for Vault policies, Vault Agent token-file
 setup, and MCP client config templates.
+
+## Preflight With Auth Doctor
+
+Use `limacharlie-mcp-auth-doctor` before adding the MCP to an agent client. It
+prints configuration shape, selected auth mode, bounded live-check status, and
+secret leak checks without printing API keys, UID values, Vault tokens, or JWTs.
+
+For local development:
+
+```bash
+limacharlie-mcp-auth-doctor --env-file /path/to/local-env
+```
+
+For user-key mode with both org and user keys present:
+
+```bash
+limacharlie-mcp-auth-doctor --env-file /path/to/local-env --mode user_api_key
+```
+
+For production Vault-backed runtime, pass the same nonsecret env values your MCP
+client will pass and run:
+
+```bash
+limacharlie-mcp-auth-doctor
+```
+
+If you only want to inspect which variables are present, without calling
+LimaCharlie:
+
+```bash
+limacharlie-mcp-auth-doctor --no-live
+```
 
 ## What Happens Internally
 
@@ -106,12 +163,40 @@ Use `lc_auth_status` when:
 
 ## User API Key Mode
 
+Only use this mode when the MCP needs account-level multi-org discovery such as
+`lc_list_orgs`.
+
+Create the key in LimaCharlie under Account Settings -> API Keys, not under the
+organization REST API page. The key table shows the key name later, but the
+secret value is shown only once at creation time. If the secret was not copied
+then, delete that user key and create a new one.
+
+The `LC_UID` value must be the user id accepted by `https://jwt.limacharlie.io`.
+On the account API key page, use the copy control associated with the text that
+describes "your User ID"; do not use the email copy control or the API key row
+name. If LimaCharlie shows more than one user-shaped identifier, validate the
+pair by attempting a JWT exchange before wiring it into the MCP. In practice
+the JWT-accepted UID may look like a Firebase-style non-UUID string rather than
+the UUID-shaped account id shown in some UI places.
+
 User API keys are supported by setting both:
 
 ```bash
 LC_SECRET_PROVIDER=vault
+LC_AUTH_MODE=user_api_key
 LC_UID=your-user-id
-LC_API_KEY_REF=vault://secret/data/limacharlie/mcp-user#api_key
+LC_USER_API_KEY_REF=vault://secret/data/limacharlie/mcp-user#api_key
+```
+
+Bootstrap a user API key with:
+
+```bash
+limacharlie-mcp-vault-bootstrap \
+  --vault-addr "https://vault.example.com" \
+  --token-file "/run/secrets/limacharlie-mcp-bootstrap-token" \
+  --runtime-token-file "/run/secrets/limacharlie-mcp-vault-token" \
+  --path "limacharlie/mcp-user" \
+  --user-api-key
 ```
 
 User API key mode can list orgs and then mint org-scoped JWTs for individual
@@ -119,8 +204,15 @@ org operations. It is more powerful than an organization API key because it
 inherits the user's permissions across organizations. Prefer organization API
 keys for routine local MCP use unless multi-org access is required.
 
+Keep user API key material separate from the organization API key. `LC_API_KEY`
+remains the org-scoped local-development key; `LC_USER_API_KEY` is the
+local-development fallback for user-scoped mode.
+
 For local development only, user API key mode can also use
-`LC_SECRET_PROVIDER=env` with `LC_API_KEY`.
+`LC_SECRET_PROVIDER=env` with `LC_USER_API_KEY`. If both `LC_API_KEY` and
+`LC_USER_API_KEY` are present in the same environment, set
+`LC_AUTH_MODE=user_api_key` to select the user key. Without that selector, the
+runtime stays in org API key mode.
 
 ## Other KMS Or HSM Providers
 
@@ -161,12 +253,22 @@ mutation tool has a preview/confirm implementation.
 
 If `lc_auth_status` returns `missing_credentials`, the MCP process did not
 receive a complete Vault configuration. Check `LC_VAULT_ADDR`,
-`LC_VAULT_TOKEN_FILE`, and `LC_API_KEY_REF` in the MCP client config `env`
-block. For local development fallback, check `LC_SECRET_PROVIDER=env` and
-`LC_API_KEY`.
+`LC_VAULT_TOKEN_FILE`, and `LC_API_KEY_REF` or `LC_USER_API_KEY_REF` in the MCP
+client config `env` block. For local development fallback, check
+`LC_SECRET_PROVIDER=env` with `LC_API_KEY` for org mode or `LC_USER_API_KEY`
+for user mode.
 
 If org-scoped tools fail with `error.class: auth` or `error.class: policy`,
 call `lc_auth_whoami` with the target `oid` and optional `check_perm`.
+
+Common auth mistakes:
+
+| Symptom | Likely cause | Fix |
+| --- | --- | --- |
+| `lc_list_orgs` fails in org-key mode | Organization API keys cannot do unscoped account org discovery | Use org-scoped tools with explicit `oid`, or switch to user API key mode. |
+| JWT exchange returns `unknown api key` in user mode | `LC_USER_API_KEY` is missing, wrong, or actually an org API key | Create a fresh user API key under Account Settings -> API Keys and copy the secret shown once. |
+| JWT exchange returns `user not found` in user mode | `LC_UID` is not the JWT-accepted user id | Re-copy the user id from the account user API key guidance, or validate with the direct JWT exchange before using the MCP. |
+| `LC_UID` is set and org tools unexpectedly fail | Older configs may accidentally pair `LC_UID` with an org key | Current runtime defaults to org mode unless `LC_AUTH_MODE=user_api_key` is set; remove stale `LC_AUTH_MODE` if needed. |
 
 If a user API key produces large JWT issues, pass explicit `oid` values to
 org-scoped tools. This causes the server to request org-scoped JWTs instead of

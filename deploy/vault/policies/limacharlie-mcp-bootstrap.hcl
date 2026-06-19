@@ -10,3 +10,11 @@ path "secret/data/limacharlie/mcp" {
 path "secret/metadata/limacharlie/mcp" {
   capabilities = ["read", "list"]
 }
+
+path "secret/data/limacharlie/mcp-user" {
+  capabilities = ["create", "update", "read"]
+}
+
+path "secret/metadata/limacharlie/mcp-user" {
+  capabilities = ["read", "list"]
+}

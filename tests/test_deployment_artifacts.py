@@ -31,7 +31,9 @@ def test_mcp_client_templates_use_vault_refs_without_raw_api_keys() -> None:
             env = server["env"]
             assert env["LC_SECRET_PROVIDER"] == "vault"
             assert "LC_API_KEY" not in env
-            assert env["LC_API_KEY_REF"].startswith("vault://")
+            assert "LC_USER_API_KEY" not in env
+            ref_key = "LC_USER_API_KEY_REF" if "LC_UID" in env else "LC_API_KEY_REF"
+            assert env[ref_key].startswith("vault://")
             assert "LC_VAULT_TOKEN" not in env
             assert "LC_VAULT_TOKEN_FILE" in env
 
@@ -44,4 +46,8 @@ def test_vault_policies_split_bootstrap_and_runtime_access() -> None:
     assert 'capabilities = ["read"]' in runtime
     assert '"update"' not in runtime
     assert '"create"' not in runtime
+    assert "secret/data/limacharlie/mcp" in runtime
+    assert "secret/data/limacharlie/mcp-user" in runtime
     assert '"create", "update", "read"' in bootstrap
+    assert "secret/data/limacharlie/mcp" in bootstrap
+    assert "secret/data/limacharlie/mcp-user" in bootstrap

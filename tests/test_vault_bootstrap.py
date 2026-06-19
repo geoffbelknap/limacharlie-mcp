@@ -51,6 +51,7 @@ def test_vault_bootstrap_writes_lc_key_without_returning_it(tmp_path: Path, monk
     config = vault_bootstrap.VaultBootstrapConfig(
         vault_addr="http://vault.local",
         token_file=token_file,
+        runtime_token_file=tmp_path / "runtime-token",
         namespace="team-a",
         mount="secret",
         path="limacharlie/mcp",
@@ -66,7 +67,7 @@ def test_vault_bootstrap_writes_lc_key_without_returning_it(tmp_path: Path, monk
     assert result.env == {
         "LC_SECRET_PROVIDER": "vault",
         "LC_VAULT_ADDR": "http://vault.local",
-        "LC_VAULT_TOKEN_FILE": str(token_file),
+        "LC_VAULT_TOKEN_FILE": str(tmp_path / "runtime-token"),
         "LC_API_KEY_REF": "vault://secret/data/limacharlie/mcp#api_key",
         "LC_VAULT_NAMESPACE": "team-a",
     }
@@ -89,6 +90,7 @@ def test_vault_bootstrap_supports_kv1_refs(tmp_path: Path, monkeypatch: pytest.M
     config = vault_bootstrap.VaultBootstrapConfig(
         vault_addr="http://vault.local",
         token_file=token_file,
+        runtime_token_file=None,
         namespace=None,
         mount="kv",
         path="limacharlie/mcp",
@@ -99,6 +101,7 @@ def test_vault_bootstrap_supports_kv1_refs(tmp_path: Path, monkeypatch: pytest.M
     result = vault_bootstrap.write_limacharlie_key(config, "lc-api-key")
 
     assert result.api_key_ref == "vault://kv/limacharlie/mcp#api_key"
+    assert result.env["LC_VAULT_TOKEN_FILE"] == "<path-to-runtime-vault-token-file>"
     assert "LC_VAULT_NAMESPACE" not in result.env
     client = FakeVaultClient.instances[0]
     assert client.secrets.kv.v1.calls == [
@@ -106,10 +109,39 @@ def test_vault_bootstrap_supports_kv1_refs(tmp_path: Path, monkeypatch: pytest.M
     ]
 
 
+def test_vault_bootstrap_can_emit_user_api_key_ref(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    FakeVaultClient.instances = []
+    monkeypatch.setattr(vault_bootstrap.hvac, "Client", FakeVaultClient)
+    token_file = tmp_path / "vault-token"
+    token_file.write_text("vault-token", encoding="utf-8")
+    config = vault_bootstrap.VaultBootstrapConfig(
+        vault_addr="http://vault.local",
+        token_file=token_file,
+        runtime_token_file=tmp_path / "runtime-token",
+        namespace=None,
+        mount="secret",
+        path="limacharlie/mcp-user",
+        field="api_key",
+        kv_version=2,
+        credential_kind="user",
+    )
+
+    result = vault_bootstrap.write_limacharlie_key(config, "lc-user-api-key")
+    payload = vault_bootstrap.result_payload(result)
+    serialized = json.dumps(payload)
+
+    assert payload["ref_env_var"] == "LC_USER_API_KEY_REF"
+    assert result.api_key_ref == "vault://secret/data/limacharlie/mcp-user#api_key"
+    assert result.env["LC_USER_API_KEY_REF"] == "vault://secret/data/limacharlie/mcp-user#api_key"
+    assert "LC_API_KEY_REF" not in result.env
+    assert "lc-user-api-key" not in serialized
+
+
 def test_vault_bootstrap_rejects_missing_token_file(tmp_path: Path) -> None:
     config = vault_bootstrap.VaultBootstrapConfig(
         vault_addr="http://vault.local",
         token_file=tmp_path / "missing-token",
+        runtime_token_file=None,
         namespace=None,
         mount="secret",
         path="limacharlie/mcp",

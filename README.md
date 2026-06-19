@@ -323,6 +323,7 @@ renaming tools.
 | --- | --- |
 | `lc_list_pending_mutations` | List local mutation previews that can still be confirmed. |
 | `lc_preview_sensor_task` | Preview tasking one sensor. |
+| `lc_preview_spotcheck_run` | Preview running a fleet-wide spotcheck task. |
 | `lc_get_sensor_isolation_status` | Check whether one sensor is currently network-isolated. |
 | `lc_preview_isolate_sensor` | Preview isolating one sensor from the network. |
 | `lc_preview_rejoin_sensor` | Preview removing network isolation from one sensor. |

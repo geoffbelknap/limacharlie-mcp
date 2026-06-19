@@ -157,6 +157,7 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
         "lc_preview_set_sensor_version",
         "lc_list_available_services",
         "lc_preview_service_request",
+        "lc_preview_spotcheck_run",
         "lc_fetch_config",
         "lc_preview_push_config",
         "lc_list_exfil_rules",
@@ -366,6 +367,8 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
     assert set(case_tag_schema["required"]) == {"oid", "case_number", "tags"}
     service_schema = tools["lc_preview_service_request"]["inputSchema"]
     assert set(service_schema["required"]) == {"oid", "service_name", "request_data"}
+    spotcheck_schema = tools["lc_preview_spotcheck_run"]["inputSchema"]
+    assert set(spotcheck_schema["required"]) == {"oid", "task"}
     push_config_schema = tools["lc_preview_push_config"]["inputSchema"]
     assert set(push_config_schema["required"]) == {"oid", "config"}
     exfil_watch_schema = tools["lc_preview_create_exfil_watch"]["inputSchema"]

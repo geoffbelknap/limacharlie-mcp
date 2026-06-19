@@ -1267,6 +1267,27 @@ def lc_preview_service_request(
 
 
 @mcp.tool()
+def lc_preview_spotcheck_run(
+    oid: str,
+    task: str,
+    tag: str | None = None,
+    selector: str | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview running a fleet-wide spotcheck task through the spotcheck service."""
+
+    return _call(
+        "spotcheck.run.preview",
+        lc.preview_spotcheck_run,
+        oid=oid,
+        task=task,
+        tag=tag,
+        selector=selector,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
 def lc_fetch_config(
     oid: str,
     sync_outputs: bool = False,

@@ -2275,6 +2275,17 @@ OPERATION_CATALOG.update(
             "side_effects": "none_until_confirmed",
             "notes": "Previews a generic non-impersonated service request. JWT impersonation is intentionally not exposed.",
         },
+        "spotcheck.run.preview": {
+            "suite": "response",
+            "tool": "lc_preview_spotcheck_run",
+            "action": "preview",
+            "resource_type": "spotcheck_run",
+            "required_inputs": ["oid", "task"],
+            "optional_inputs": ["tag", "selector", "token_ttl_seconds"],
+            "bounds": {"task_max_chars": 8192, "selector_max_chars": 300, "token_ttl_min": 30, "token_ttl_max": 900},
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews an ad-hoc fleet-wide spotcheck task through the spotcheck service.",
+        },
         "config.fetch": {
             "suite": "administration",
             "tool": "lc_fetch_config",
@@ -6383,6 +6394,39 @@ class LimaCharlieAPI:
             side_effect_type="service_request_sent",
             token_ttl_seconds=token_ttl_seconds,
             is_async=is_async,
+        )
+
+    def preview_spotcheck_run(
+        self,
+        oid: str,
+        task: str,
+        tag: str | None = None,
+        selector: str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        checked_task = require_case_text(task, "task", maximum=8192, required=True)
+        assert checked_task is not None
+        request_data: dict[str, Any] = {"action": "spotcheck", "task": checked_task}
+        checked_tag = require_case_text(tag, "tag", maximum=1000)
+        if checked_tag is not None:
+            if not checked_tag.strip():
+                raise ValidationError("tag must be non-empty when provided")
+            request_data["tag"] = checked_tag
+        checked_selector = require_selector(selector)
+        if checked_selector is not None:
+            request_data["selector"] = checked_selector
+        return self._preview_service_request(
+            operation="spotcheck.run",
+            oid=scoped_oid,
+            service="spotcheck",
+            request_data=request_data,
+            resource_type="spotcheck_run",
+            resource_id=scoped_oid,
+            expected_effect="Run an ad-hoc spotcheck sensor task across the selected fleet scope.",
+            reversibility="Spotcheck tasking is not reversible; review returned results and issue compensating tasks if needed.",
+            side_effect_type="spotcheck_requested",
+            token_ttl_seconds=token_ttl_seconds,
         )
 
     def _config_sync_options(

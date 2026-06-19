@@ -1407,6 +1407,35 @@ def test_generic_service_config_and_exfil_tools_use_exact_requests(tmp_path: Pat
     assert decode_request_data(calls[8]["params"]["request_data"]) == {"action": "remove_watch", "name": "watch-1"}
 
 
+def test_spotcheck_preview_uses_bounded_service_request(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("POST", f"https://api.limacharlie.io/v1/service/{OID}/spotcheck", {"job": "spotcheck-1"})
+    client = make_client(tmp_path, fake)
+
+    preview = client.preview_spotcheck_run(OID, "os_processes", tag="production", selector="hostname startswith 'web-'")
+
+    assert preview["operation"] == "spotcheck.run.preview"
+    assert preview["resource"]["type"] == "spotcheck_run"
+    assert preview["data"]["http_method"] == "POST"
+    assert preview["data"]["endpoint"] == f"https://api.limacharlie.io/v1/service/{OID}/spotcheck"
+    assert preview["data"]["params"]["request_data"]["decoded_redacted"] == {
+        "action": "spotcheck",
+        "task": "os_processes",
+        "tag": "production",
+        "selector": "hostname startswith 'web-'",
+    }
+
+    confirmed = client.confirm_mutation(preview["data"]["confirmation_token"])
+
+    assert confirmed["data"]["confirmed_operation"] == "spotcheck.run"
+    assert decode_request_data(fake.calls[1]["params"]["request_data"]) == {
+        "action": "spotcheck",
+        "task": "os_processes",
+        "tag": "production",
+        "selector": "hostname startswith 'web-'",
+    }
+
+
 def test_feedback_tools_preview_extension_and_hive_requests(tmp_path: Path) -> None:
     fake = FakeHTTP()
     fake.add("GET", f"https://api.limacharlie.io/v1/hive/extension_config/{OID}/ext-feedback/data", {"data": {"channels": []}})

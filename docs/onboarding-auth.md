@@ -248,19 +248,34 @@ That is enough for `limacharlie-mcp-auth-doctor`, `lc_auth_whoami`,
 `lc_get_org_info`, and `lc_list_sensors` to prove the MCP can authenticate and
 reach the target org.
 
-For broader read-only investigation, add only the permissions for the data
-families you expect the MCP to inspect:
+For first run plus read-only posture review, use a dedicated organization API
+key with:
 
+- `org.get`
 - `sensor.list`
 - `sensor.get`
+- `insight.list`
 - `insight.evt.get`
 - `insight.det.get`
 - `insight.stat`
+- `audit.get`
+- `output.list`
 - `dr.list`
+- `dr.list.managed`
 - `fp.ctrl`
 - `yara.get`
 - `lookup.get`
-- `audit.get`
+- `ikey.list`
+- `ingestkey.ctrl`
+- `user.ctrl`
+- `apikey.ctrl`
+- `job.get`
+- `replicant.get`
+- `replicant.task`
+
+`replicant.task` is needed for complete service-backed content review, such as
+listing rules managed through LimaCharlie services. The permission name is
+broader than the read path sounds, so grant it only to a dedicated MCP key.
 
 Some LimaCharlie read/list endpoints are guarded by broader permission names.
 For example, user inventory may require `user.ctrl`, API key inventory may
@@ -268,6 +283,9 @@ require `apikey.ctrl`, AI session and usage inventory may require
 `ai_agent.get`, and Hive-backed secret or lookup inventory may require
 `secret.get.mtd` or `lookup.get.mtd`. Treat those as elevated permissions:
 grant them only to a dedicated MCP key when the matching tool family is needed.
+
+For broader investigation beyond posture review, add only the permissions for
+the data families you expect the MCP to inspect.
 
 For administration inventory, add only the needed read/list permissions for API
 keys, installation keys, outputs, extensions, and org config. Validate each

@@ -46,9 +46,43 @@ API key.
 1. Open LimaCharlie and choose your organization.
 2. Copy the org ID from the URL: `app.limacharlie.io/orgs/<org-id>/...`.
 3. Go to `Organization Settings` -> `Access Management` -> `REST API`.
-4. Click `Create API Key`, create a key for this MCP, and copy the secret when
+4. Click `Create API Key` and select permissions for the workflows you want.
+
+   For first run plus read-only posture review, start with:
+
+   ```text
+   org.get
+   sensor.list
+   sensor.get
+   insight.list
+   insight.det.get
+   insight.evt.get
+   insight.stat
+   audit.get
+   output.list
+   dr.list
+   dr.list.managed
+   fp.ctrl
+   yara.get
+   lookup.get
+   ikey.list
+   ingestkey.ctrl
+   user.ctrl
+   apikey.ctrl
+   job.get
+   replicant.get
+   replicant.task
+   ```
+
+   `replicant.task` is needed for complete service-backed content review, such
+   as listing rules managed through LimaCharlie services.
+
+   Add mutation permissions only when you intend to use response, admin, or
+   content-editing workflows. Do not add `live_stream.ctrl`; this MCP does not
+   expose live firehose or streaming telemetry tools.
+5. Create the key for this MCP, and copy the secret when
    LimaCharlie shows it.
-5. Run this and paste the API key into the hidden prompt:
+6. Run this and paste the API key into the hidden prompt:
 
 ```bash
 uvx --from git+https://github.com/geoffbelknap/limacharlie-mcp \

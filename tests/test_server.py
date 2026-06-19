@@ -220,6 +220,41 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
         "lc_preview_set_lookup",
         "lc_preview_delete_lookup",
         "lc_preview_set_lookup_enabled",
+        "lc_list_cloud_adapters",
+        "lc_get_cloud_adapter",
+        "lc_preview_set_cloud_adapter",
+        "lc_preview_delete_cloud_adapter",
+        "lc_preview_set_cloud_adapter_enabled",
+        "lc_list_external_adapters",
+        "lc_get_external_adapter",
+        "lc_preview_set_external_adapter",
+        "lc_preview_delete_external_adapter",
+        "lc_preview_set_external_adapter_enabled",
+        "lc_list_playbooks",
+        "lc_get_playbook",
+        "lc_preview_set_playbook",
+        "lc_preview_delete_playbook",
+        "lc_preview_set_playbook_enabled",
+        "lc_list_sops",
+        "lc_get_sop",
+        "lc_preview_set_sop",
+        "lc_preview_delete_sop",
+        "lc_preview_set_sop_enabled",
+        "lc_list_org_notes",
+        "lc_get_org_note",
+        "lc_preview_set_org_note",
+        "lc_preview_delete_org_note",
+        "lc_preview_set_org_note_enabled",
+        "lc_list_ai_agents",
+        "lc_get_ai_agent",
+        "lc_preview_set_ai_agent",
+        "lc_preview_delete_ai_agent",
+        "lc_preview_set_ai_agent_enabled",
+        "lc_list_ai_skills",
+        "lc_get_ai_skill",
+        "lc_preview_set_ai_skill",
+        "lc_preview_delete_ai_skill",
+        "lc_preview_set_ai_skill_enabled",
         "lc_list_ai_memory_records",
         "lc_get_ai_memory_record",
         "lc_list_ai_memories",
@@ -381,6 +416,18 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
     assert set(lookup_set_schema["required"]) == {"oid", "name"}
     lookup_enabled_schema = tools["lc_preview_set_lookup_enabled"]["inputSchema"]
     assert set(lookup_enabled_schema["required"]) == {"oid", "name", "enabled"}
+    cloud_adapter_set_schema = tools["lc_preview_set_cloud_adapter"]["inputSchema"]
+    assert set(cloud_adapter_set_schema["required"]) == {"oid", "name", "data"}
+    playbook_set_schema = tools["lc_preview_set_playbook"]["inputSchema"]
+    assert set(playbook_set_schema["required"]) == {"oid", "name", "data"}
+    sop_get_schema = tools["lc_get_sop"]["inputSchema"]
+    assert set(sop_get_schema["required"]) == {"oid", "name"}
+    org_note_enabled_schema = tools["lc_preview_set_org_note_enabled"]["inputSchema"]
+    assert set(org_note_enabled_schema["required"]) == {"oid", "name", "enabled"}
+    ai_agent_set_schema = tools["lc_preview_set_ai_agent"]["inputSchema"]
+    assert set(ai_agent_set_schema["required"]) == {"oid", "name", "data"}
+    ai_skill_delete_schema = tools["lc_preview_delete_ai_skill"]["inputSchema"]
+    assert set(ai_skill_delete_schema["required"]) == {"oid", "name"}
     ai_memory_set_schema = tools["lc_preview_set_ai_memory"]["inputSchema"]
     assert set(ai_memory_set_schema["required"]) == {"oid", "agent", "memory_name", "content"}
     ai_memory_get_schema = tools["lc_get_ai_memory"]["inputSchema"]

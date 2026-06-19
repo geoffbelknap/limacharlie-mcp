@@ -2746,6 +2746,144 @@ OPERATION_CATALOG.update(
     }
 )
 
+_STRUCTURED_HIVE_SHORTCUTS: tuple[dict[str, str], ...] = (
+    {
+        "operation_prefix": "cloud_adapter",
+        "hive_name": "cloud_sensor",
+        "suite": "administration",
+        "tool_singular": "cloud_adapter",
+        "tool_plural": "cloud_adapters",
+        "resource_type": "cloud_adapter",
+        "label": "cloud adapter",
+        "description": "cloud-hosted adapter configuration",
+    },
+    {
+        "operation_prefix": "external_adapter",
+        "hive_name": "external_adapter",
+        "suite": "administration",
+        "tool_singular": "external_adapter",
+        "tool_plural": "external_adapters",
+        "resource_type": "external_adapter",
+        "label": "external adapter",
+        "description": "self-hosted adapter configuration",
+    },
+    {
+        "operation_prefix": "playbook",
+        "hive_name": "playbook",
+        "suite": "content",
+        "tool_singular": "playbook",
+        "tool_plural": "playbooks",
+        "resource_type": "playbook",
+        "label": "playbook",
+        "description": "serverless automation playbook",
+    },
+    {
+        "operation_prefix": "sop",
+        "hive_name": "sop",
+        "suite": "content",
+        "tool_singular": "sop",
+        "tool_plural": "sops",
+        "resource_type": "sop",
+        "label": "SOP",
+        "description": "standard operating procedure",
+    },
+    {
+        "operation_prefix": "org_note",
+        "hive_name": "org_notes",
+        "suite": "content",
+        "tool_singular": "org_note",
+        "tool_plural": "org_notes",
+        "resource_type": "org_note",
+        "label": "org note",
+        "description": "organization note",
+    },
+    {
+        "operation_prefix": "ai_agent",
+        "hive_name": "ai_agent",
+        "suite": "administration",
+        "tool_singular": "ai_agent",
+        "tool_plural": "ai_agents",
+        "resource_type": "ai_agent",
+        "label": "AI agent",
+        "description": "AI agent configuration",
+    },
+    {
+        "operation_prefix": "ai_skill",
+        "hive_name": "ai_skill",
+        "suite": "content",
+        "tool_singular": "ai_skill",
+        "tool_plural": "ai_skills",
+        "resource_type": "ai_skill",
+        "label": "AI skill",
+        "description": "Claude Code skill definition",
+    },
+)
+
+
+def _structured_hive_catalog_entries() -> dict[str, dict[str, Any]]:
+    entries: dict[str, dict[str, Any]] = {}
+    for spec in _STRUCTURED_HIVE_SHORTCUTS:
+        prefix = spec["operation_prefix"]
+        resource_type = spec["resource_type"]
+        suite = spec["suite"]
+        label = spec["label"]
+        description = spec["description"]
+        entries[f"{prefix}.list"] = {
+            "suite": suite,
+            "tool": f"lc_list_{spec['tool_plural']}",
+            "action": "read",
+            "resource_type": f"{resource_type}_collection",
+            "required_inputs": ["oid"],
+            "optional_inputs": ["limit"],
+            "bounds": {"limit_min": 1, "limit_max": 500},
+            "side_effects": "none",
+            "notes": f"Lists {description} records from the {spec['hive_name']} hive.",
+        }
+        entries[f"{prefix}.get"] = {
+            "suite": suite,
+            "tool": f"lc_get_{spec['tool_singular']}",
+            "action": "read",
+            "resource_type": resource_type,
+            "required_inputs": ["oid", "name"],
+            "optional_inputs": [],
+            "side_effects": "none",
+            "notes": f"Fetches one {label} record. Secret-shaped fields are redacted.",
+        }
+        entries[f"{prefix}.set.preview"] = {
+            "suite": suite,
+            "tool": f"lc_preview_set_{spec['tool_singular']}",
+            "action": "preview",
+            "resource_type": resource_type,
+            "required_inputs": ["oid", "name", "data"],
+            "optional_inputs": ["enabled", "tags", "comment", "expiry", "etag", "ui_actions", "token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": f"Previews creating or updating one {label} record. Preview/audit outputs redact credential-shaped fields.",
+        }
+        entries[f"{prefix}.delete.preview"] = {
+            "suite": suite,
+            "tool": f"lc_preview_delete_{spec['tool_singular']}",
+            "action": "preview",
+            "resource_type": resource_type,
+            "required_inputs": ["oid", "name"],
+            "optional_inputs": ["token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": f"Previews deleting one {label} record.",
+        }
+        entries[f"{prefix}.enabled.set.preview"] = {
+            "suite": suite,
+            "tool": f"lc_preview_set_{spec['tool_singular']}_enabled",
+            "action": "preview",
+            "resource_type": resource_type,
+            "required_inputs": ["oid", "name", "enabled"],
+            "optional_inputs": ["token_ttl_seconds"],
+            "side_effects": "metadata_read_before_preview_then_none_until_confirmed",
+            "notes": f"Reads {label} metadata, then previews changing only usr_mtd.enabled with etag preservation.",
+        }
+    return entries
+
+
+OPERATION_CATALOG.update(_structured_hive_catalog_entries())
+
 
 _SAFE_DETECT_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,160}$")
 _SAFE_CASE_NUMBER = re.compile(r"^[0-9]{1,20}$")
@@ -2859,11 +2997,15 @@ _SENSITIVE_RESPONSE_KEYS = frozenset(
     {
         "api_key",
         "apikey",
+        "access_key",
+        "accesskey",
         "authorization",
         "client_secret",
         "clientsecret",
         "credential",
         "credentials",
+        "installation_key",
+        "installationkey",
         "jwt",
         "key",
         "key_material",
@@ -2880,6 +3022,8 @@ _SENSITIVE_RESPONSE_KEYS = frozenset(
         "refresh_token",
         "refreshtoken",
         "secret",
+        "secret_key",
+        "secretkey",
         "session_token",
         "sessiontoken",
         "token",
@@ -7030,13 +7174,25 @@ class LimaCharlieAPI:
         resource_type: str,
         side_effect_type: str,
         *,
+        enabled: bool | None = None,
         tags: list[str] | str | None = None,
         comment: str | None = None,
+        expiry: int | None = None,
+        etag: str | None = None,
+        ui_actions: list[dict[str, Any]] | None = None,
         token_ttl_seconds: int = 300,
     ) -> dict[str, Any]:
         scoped_oid, safe_hive, partition = self._hive_context(oid, hive_name, None)
         safe_key = require_hive_record_key(key, "name")
-        params = self._hive_record_params(data=data, tags=tags, comment=comment)
+        params = self._hive_record_params(
+            data=data,
+            enabled=enabled,
+            tags=tags,
+            comment=comment,
+            expiry=expiry,
+            etag=etag,
+            ui_actions=ui_actions,
+        )
         resource = self._typed_hive_record_resource(resource_type, scoped_oid, safe_key)
         return self._create_mutation_preview(
             operation=operation,
@@ -7262,6 +7418,498 @@ class LimaCharlieAPI:
             "lookup.enabled.set",
             "lookup",
             "lookup_metadata_set",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def _preview_set_structured_hive_shortcut(
+        self,
+        oid: str,
+        hive_name: str,
+        name: str,
+        data: dict[str, Any],
+        operation: str,
+        resource_type: str,
+        side_effect_type: str,
+        *,
+        enabled: bool | None = None,
+        tags: list[str] | str | None = None,
+        comment: str | None = None,
+        expiry: int | None = None,
+        etag: str | None = None,
+        ui_actions: list[dict[str, Any]] | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        checked_data = require_dict(data, "data")
+        assert checked_data is not None
+        return self._preview_set_typed_hive_record(
+            oid,
+            hive_name,
+            name,
+            checked_data,
+            operation,
+            resource_type,
+            side_effect_type,
+            enabled=enabled,
+            tags=tags,
+            comment=comment,
+            expiry=expiry,
+            etag=etag,
+            ui_actions=ui_actions,
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def list_cloud_adapters(self, oid: str, limit: int = 100) -> dict[str, Any]:
+        return self._list_typed_hive_records(oid, "cloud_sensor", "cloud_adapter.list", "cloud_adapter", limit)
+
+    def get_cloud_adapter(self, oid: str, name: str) -> dict[str, Any]:
+        return self._get_typed_hive_record(oid, "cloud_sensor", name, "cloud_adapter.get", "cloud_adapter")
+
+    def preview_set_cloud_adapter(
+        self,
+        oid: str,
+        name: str,
+        data: dict[str, Any],
+        enabled: bool | None = None,
+        tags: list[str] | str | None = None,
+        comment: str | None = None,
+        expiry: int | None = None,
+        etag: str | None = None,
+        ui_actions: list[dict[str, Any]] | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        return self._preview_set_structured_hive_shortcut(
+            oid,
+            "cloud_sensor",
+            name,
+            data,
+            "cloud_adapter.set",
+            "cloud_adapter",
+            "cloud_adapter_set",
+            enabled=enabled,
+            tags=tags,
+            comment=comment,
+            expiry=expiry,
+            etag=etag,
+            ui_actions=ui_actions,
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_delete_cloud_adapter(self, oid: str, name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        return self._preview_delete_typed_hive_record(
+            oid,
+            "cloud_sensor",
+            name,
+            "cloud_adapter.delete",
+            "cloud_adapter",
+            "cloud_adapter_deleted",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_set_cloud_adapter_enabled(
+        self,
+        oid: str,
+        name: str,
+        enabled: bool,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        return self._preview_set_typed_hive_record_enabled(
+            oid,
+            "cloud_sensor",
+            name,
+            enabled,
+            "cloud_adapter.enabled.set",
+            "cloud_adapter",
+            "cloud_adapter_metadata_set",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def list_external_adapters(self, oid: str, limit: int = 100) -> dict[str, Any]:
+        return self._list_typed_hive_records(oid, "external_adapter", "external_adapter.list", "external_adapter", limit)
+
+    def get_external_adapter(self, oid: str, name: str) -> dict[str, Any]:
+        return self._get_typed_hive_record(oid, "external_adapter", name, "external_adapter.get", "external_adapter")
+
+    def preview_set_external_adapter(
+        self,
+        oid: str,
+        name: str,
+        data: dict[str, Any],
+        enabled: bool | None = None,
+        tags: list[str] | str | None = None,
+        comment: str | None = None,
+        expiry: int | None = None,
+        etag: str | None = None,
+        ui_actions: list[dict[str, Any]] | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        return self._preview_set_structured_hive_shortcut(
+            oid,
+            "external_adapter",
+            name,
+            data,
+            "external_adapter.set",
+            "external_adapter",
+            "external_adapter_set",
+            enabled=enabled,
+            tags=tags,
+            comment=comment,
+            expiry=expiry,
+            etag=etag,
+            ui_actions=ui_actions,
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_delete_external_adapter(self, oid: str, name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        return self._preview_delete_typed_hive_record(
+            oid,
+            "external_adapter",
+            name,
+            "external_adapter.delete",
+            "external_adapter",
+            "external_adapter_deleted",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_set_external_adapter_enabled(
+        self,
+        oid: str,
+        name: str,
+        enabled: bool,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        return self._preview_set_typed_hive_record_enabled(
+            oid,
+            "external_adapter",
+            name,
+            enabled,
+            "external_adapter.enabled.set",
+            "external_adapter",
+            "external_adapter_metadata_set",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def list_playbooks(self, oid: str, limit: int = 100) -> dict[str, Any]:
+        return self._list_typed_hive_records(oid, "playbook", "playbook.list", "playbook", limit)
+
+    def get_playbook(self, oid: str, name: str) -> dict[str, Any]:
+        return self._get_typed_hive_record(oid, "playbook", name, "playbook.get", "playbook")
+
+    def preview_set_playbook(
+        self,
+        oid: str,
+        name: str,
+        data: dict[str, Any],
+        enabled: bool | None = None,
+        tags: list[str] | str | None = None,
+        comment: str | None = None,
+        expiry: int | None = None,
+        etag: str | None = None,
+        ui_actions: list[dict[str, Any]] | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        return self._preview_set_structured_hive_shortcut(
+            oid,
+            "playbook",
+            name,
+            data,
+            "playbook.set",
+            "playbook",
+            "playbook_set",
+            enabled=enabled,
+            tags=tags,
+            comment=comment,
+            expiry=expiry,
+            etag=etag,
+            ui_actions=ui_actions,
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_delete_playbook(self, oid: str, name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        return self._preview_delete_typed_hive_record(
+            oid,
+            "playbook",
+            name,
+            "playbook.delete",
+            "playbook",
+            "playbook_deleted",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_set_playbook_enabled(
+        self,
+        oid: str,
+        name: str,
+        enabled: bool,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        return self._preview_set_typed_hive_record_enabled(
+            oid,
+            "playbook",
+            name,
+            enabled,
+            "playbook.enabled.set",
+            "playbook",
+            "playbook_metadata_set",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def list_sops(self, oid: str, limit: int = 100) -> dict[str, Any]:
+        return self._list_typed_hive_records(oid, "sop", "sop.list", "sop", limit)
+
+    def get_sop(self, oid: str, name: str) -> dict[str, Any]:
+        return self._get_typed_hive_record(oid, "sop", name, "sop.get", "sop")
+
+    def preview_set_sop(
+        self,
+        oid: str,
+        name: str,
+        data: dict[str, Any],
+        enabled: bool | None = None,
+        tags: list[str] | str | None = None,
+        comment: str | None = None,
+        expiry: int | None = None,
+        etag: str | None = None,
+        ui_actions: list[dict[str, Any]] | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        return self._preview_set_structured_hive_shortcut(
+            oid,
+            "sop",
+            name,
+            data,
+            "sop.set",
+            "sop",
+            "sop_set",
+            enabled=enabled,
+            tags=tags,
+            comment=comment,
+            expiry=expiry,
+            etag=etag,
+            ui_actions=ui_actions,
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_delete_sop(self, oid: str, name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        return self._preview_delete_typed_hive_record(
+            oid,
+            "sop",
+            name,
+            "sop.delete",
+            "sop",
+            "sop_deleted",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_set_sop_enabled(
+        self,
+        oid: str,
+        name: str,
+        enabled: bool,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        return self._preview_set_typed_hive_record_enabled(
+            oid,
+            "sop",
+            name,
+            enabled,
+            "sop.enabled.set",
+            "sop",
+            "sop_metadata_set",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def list_org_notes(self, oid: str, limit: int = 100) -> dict[str, Any]:
+        return self._list_typed_hive_records(oid, "org_notes", "org_note.list", "org_note", limit)
+
+    def get_org_note(self, oid: str, name: str) -> dict[str, Any]:
+        return self._get_typed_hive_record(oid, "org_notes", name, "org_note.get", "org_note")
+
+    def preview_set_org_note(
+        self,
+        oid: str,
+        name: str,
+        data: dict[str, Any],
+        enabled: bool | None = None,
+        tags: list[str] | str | None = None,
+        comment: str | None = None,
+        expiry: int | None = None,
+        etag: str | None = None,
+        ui_actions: list[dict[str, Any]] | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        return self._preview_set_structured_hive_shortcut(
+            oid,
+            "org_notes",
+            name,
+            data,
+            "org_note.set",
+            "org_note",
+            "org_note_set",
+            enabled=enabled,
+            tags=tags,
+            comment=comment,
+            expiry=expiry,
+            etag=etag,
+            ui_actions=ui_actions,
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_delete_org_note(self, oid: str, name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        return self._preview_delete_typed_hive_record(
+            oid,
+            "org_notes",
+            name,
+            "org_note.delete",
+            "org_note",
+            "org_note_deleted",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_set_org_note_enabled(
+        self,
+        oid: str,
+        name: str,
+        enabled: bool,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        return self._preview_set_typed_hive_record_enabled(
+            oid,
+            "org_notes",
+            name,
+            enabled,
+            "org_note.enabled.set",
+            "org_note",
+            "org_note_metadata_set",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def list_ai_agents(self, oid: str, limit: int = 100) -> dict[str, Any]:
+        return self._list_typed_hive_records(oid, "ai_agent", "ai_agent.list", "ai_agent", limit)
+
+    def get_ai_agent(self, oid: str, name: str) -> dict[str, Any]:
+        return self._get_typed_hive_record(oid, "ai_agent", name, "ai_agent.get", "ai_agent")
+
+    def preview_set_ai_agent(
+        self,
+        oid: str,
+        name: str,
+        data: dict[str, Any],
+        enabled: bool | None = None,
+        tags: list[str] | str | None = None,
+        comment: str | None = None,
+        expiry: int | None = None,
+        etag: str | None = None,
+        ui_actions: list[dict[str, Any]] | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        return self._preview_set_structured_hive_shortcut(
+            oid,
+            "ai_agent",
+            name,
+            data,
+            "ai_agent.set",
+            "ai_agent",
+            "ai_agent_set",
+            enabled=enabled,
+            tags=tags,
+            comment=comment,
+            expiry=expiry,
+            etag=etag,
+            ui_actions=ui_actions,
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_delete_ai_agent(self, oid: str, name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        return self._preview_delete_typed_hive_record(
+            oid,
+            "ai_agent",
+            name,
+            "ai_agent.delete",
+            "ai_agent",
+            "ai_agent_deleted",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_set_ai_agent_enabled(
+        self,
+        oid: str,
+        name: str,
+        enabled: bool,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        return self._preview_set_typed_hive_record_enabled(
+            oid,
+            "ai_agent",
+            name,
+            enabled,
+            "ai_agent.enabled.set",
+            "ai_agent",
+            "ai_agent_metadata_set",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def list_ai_skills(self, oid: str, limit: int = 100) -> dict[str, Any]:
+        return self._list_typed_hive_records(oid, "ai_skill", "ai_skill.list", "ai_skill", limit)
+
+    def get_ai_skill(self, oid: str, name: str) -> dict[str, Any]:
+        return self._get_typed_hive_record(oid, "ai_skill", name, "ai_skill.get", "ai_skill")
+
+    def preview_set_ai_skill(
+        self,
+        oid: str,
+        name: str,
+        data: dict[str, Any],
+        enabled: bool | None = None,
+        tags: list[str] | str | None = None,
+        comment: str | None = None,
+        expiry: int | None = None,
+        etag: str | None = None,
+        ui_actions: list[dict[str, Any]] | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        return self._preview_set_structured_hive_shortcut(
+            oid,
+            "ai_skill",
+            name,
+            data,
+            "ai_skill.set",
+            "ai_skill",
+            "ai_skill_set",
+            enabled=enabled,
+            tags=tags,
+            comment=comment,
+            expiry=expiry,
+            etag=etag,
+            ui_actions=ui_actions,
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_delete_ai_skill(self, oid: str, name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        return self._preview_delete_typed_hive_record(
+            oid,
+            "ai_skill",
+            name,
+            "ai_skill.delete",
+            "ai_skill",
+            "ai_skill_deleted",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_set_ai_skill_enabled(
+        self,
+        oid: str,
+        name: str,
+        enabled: bool,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        return self._preview_set_typed_hive_record_enabled(
+            oid,
+            "ai_skill",
+            name,
+            enabled,
+            "ai_skill.enabled.set",
+            "ai_skill",
+            "ai_skill_metadata_set",
             token_ttl_seconds=token_ttl_seconds,
         )
 

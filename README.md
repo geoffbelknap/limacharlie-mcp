@@ -256,6 +256,41 @@ renaming tools.
 | `lc_preview_set_lookup` | Preview creating or updating a lookup Hive record. |
 | `lc_preview_delete_lookup` | Preview deleting a lookup Hive record. |
 | `lc_preview_set_lookup_enabled` | Preview toggling a lookup Hive record's enabled metadata. |
+| `lc_list_cloud_adapters` | List cloud adapter Hive records. |
+| `lc_get_cloud_adapter` | Fetch one cloud adapter Hive record. |
+| `lc_preview_set_cloud_adapter` | Preview creating or updating a cloud adapter Hive record. |
+| `lc_preview_delete_cloud_adapter` | Preview deleting a cloud adapter Hive record. |
+| `lc_preview_set_cloud_adapter_enabled` | Preview toggling a cloud adapter Hive record's enabled metadata. |
+| `lc_list_external_adapters` | List external adapter Hive records. |
+| `lc_get_external_adapter` | Fetch one external adapter Hive record. |
+| `lc_preview_set_external_adapter` | Preview creating or updating an external adapter Hive record. |
+| `lc_preview_delete_external_adapter` | Preview deleting an external adapter Hive record. |
+| `lc_preview_set_external_adapter_enabled` | Preview toggling an external adapter Hive record's enabled metadata. |
+| `lc_list_playbooks` | List playbook Hive records. |
+| `lc_get_playbook` | Fetch one playbook Hive record. |
+| `lc_preview_set_playbook` | Preview creating or updating a playbook Hive record. |
+| `lc_preview_delete_playbook` | Preview deleting a playbook Hive record. |
+| `lc_preview_set_playbook_enabled` | Preview toggling a playbook Hive record's enabled metadata. |
+| `lc_list_sops` | List SOP Hive records. |
+| `lc_get_sop` | Fetch one SOP Hive record. |
+| `lc_preview_set_sop` | Preview creating or updating an SOP Hive record. |
+| `lc_preview_delete_sop` | Preview deleting an SOP Hive record. |
+| `lc_preview_set_sop_enabled` | Preview toggling an SOP Hive record's enabled metadata. |
+| `lc_list_org_notes` | List organization-note Hive records. |
+| `lc_get_org_note` | Fetch one organization-note Hive record. |
+| `lc_preview_set_org_note` | Preview creating or updating an organization-note Hive record. |
+| `lc_preview_delete_org_note` | Preview deleting an organization-note Hive record. |
+| `lc_preview_set_org_note_enabled` | Preview toggling an organization-note Hive record's enabled metadata. |
+| `lc_list_ai_agents` | List AI agent Hive records. |
+| `lc_get_ai_agent` | Fetch one AI agent Hive record. |
+| `lc_preview_set_ai_agent` | Preview creating or updating an AI agent Hive record. |
+| `lc_preview_delete_ai_agent` | Preview deleting an AI agent Hive record. |
+| `lc_preview_set_ai_agent_enabled` | Preview toggling an AI agent Hive record's enabled metadata. |
+| `lc_list_ai_skills` | List AI skill Hive records. |
+| `lc_get_ai_skill` | Fetch one AI skill Hive record. |
+| `lc_preview_set_ai_skill` | Preview creating or updating an AI skill Hive record. |
+| `lc_preview_delete_ai_skill` | Preview deleting an AI skill Hive record. |
+| `lc_preview_set_ai_skill_enabled` | Preview toggling an AI skill Hive record's enabled metadata. |
 | `lc_list_ai_memory_records` | List ai_memory Hive records. |
 | `lc_get_ai_memory_record` | Fetch the full ai_memory record for an agent. |
 | `lc_list_ai_memories` | List memory entries for an ai_memory agent record. |

@@ -1801,6 +1801,328 @@ def lc_preview_set_lookup_enabled(
 
 
 @mcp.tool()
+def lc_list_cloud_adapters(oid: str, limit: int = 100) -> dict:
+    """List cloud adapter Hive records."""
+
+    return _call("cloud_adapter.list", lc.list_cloud_adapters, oid=oid, limit=limit)
+
+
+@mcp.tool()
+def lc_get_cloud_adapter(oid: str, name: str) -> dict:
+    """Fetch one cloud adapter Hive record."""
+
+    return _call("cloud_adapter.get", lc.get_cloud_adapter, oid=oid, name=name)
+
+
+@mcp.tool()
+def lc_preview_set_cloud_adapter(
+    oid: str,
+    name: str,
+    data: dict[str, Any],
+    enabled: bool | None = None,
+    tags: list[str] | str | None = None,
+    comment: str | None = None,
+    expiry: int | None = None,
+    etag: str | None = None,
+    ui_actions: list[dict[str, Any]] | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview creating or updating a cloud adapter Hive record."""
+
+    return _call("cloud_adapter.set.preview", lc.preview_set_cloud_adapter, oid=oid, name=name, data=data, enabled=enabled, tags=tags, comment=comment, expiry=expiry, etag=etag, ui_actions=ui_actions, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_delete_cloud_adapter(oid: str, name: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview deleting a cloud adapter Hive record."""
+
+    return _call("cloud_adapter.delete.preview", lc.preview_delete_cloud_adapter, oid=oid, name=name, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_set_cloud_adapter_enabled(oid: str, name: str, enabled: bool, token_ttl_seconds: int = 300) -> dict:
+    """Preview toggling a cloud adapter Hive record's enabled metadata."""
+
+    return _call("cloud_adapter.enabled.set.preview", lc.preview_set_cloud_adapter_enabled, oid=oid, name=name, enabled=enabled, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_list_external_adapters(oid: str, limit: int = 100) -> dict:
+    """List external adapter Hive records."""
+
+    return _call("external_adapter.list", lc.list_external_adapters, oid=oid, limit=limit)
+
+
+@mcp.tool()
+def lc_get_external_adapter(oid: str, name: str) -> dict:
+    """Fetch one external adapter Hive record."""
+
+    return _call("external_adapter.get", lc.get_external_adapter, oid=oid, name=name)
+
+
+@mcp.tool()
+def lc_preview_set_external_adapter(
+    oid: str,
+    name: str,
+    data: dict[str, Any],
+    enabled: bool | None = None,
+    tags: list[str] | str | None = None,
+    comment: str | None = None,
+    expiry: int | None = None,
+    etag: str | None = None,
+    ui_actions: list[dict[str, Any]] | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview creating or updating an external adapter Hive record."""
+
+    return _call("external_adapter.set.preview", lc.preview_set_external_adapter, oid=oid, name=name, data=data, enabled=enabled, tags=tags, comment=comment, expiry=expiry, etag=etag, ui_actions=ui_actions, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_delete_external_adapter(oid: str, name: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview deleting an external adapter Hive record."""
+
+    return _call("external_adapter.delete.preview", lc.preview_delete_external_adapter, oid=oid, name=name, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_set_external_adapter_enabled(oid: str, name: str, enabled: bool, token_ttl_seconds: int = 300) -> dict:
+    """Preview toggling an external adapter Hive record's enabled metadata."""
+
+    return _call("external_adapter.enabled.set.preview", lc.preview_set_external_adapter_enabled, oid=oid, name=name, enabled=enabled, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_list_playbooks(oid: str, limit: int = 100) -> dict:
+    """List playbook Hive records."""
+
+    return _call("playbook.list", lc.list_playbooks, oid=oid, limit=limit)
+
+
+@mcp.tool()
+def lc_get_playbook(oid: str, name: str) -> dict:
+    """Fetch one playbook Hive record."""
+
+    return _call("playbook.get", lc.get_playbook, oid=oid, name=name)
+
+
+@mcp.tool()
+def lc_preview_set_playbook(
+    oid: str,
+    name: str,
+    data: dict[str, Any],
+    enabled: bool | None = None,
+    tags: list[str] | str | None = None,
+    comment: str | None = None,
+    expiry: int | None = None,
+    etag: str | None = None,
+    ui_actions: list[dict[str, Any]] | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview creating or updating a playbook Hive record."""
+
+    return _call("playbook.set.preview", lc.preview_set_playbook, oid=oid, name=name, data=data, enabled=enabled, tags=tags, comment=comment, expiry=expiry, etag=etag, ui_actions=ui_actions, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_delete_playbook(oid: str, name: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview deleting a playbook Hive record."""
+
+    return _call("playbook.delete.preview", lc.preview_delete_playbook, oid=oid, name=name, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_set_playbook_enabled(oid: str, name: str, enabled: bool, token_ttl_seconds: int = 300) -> dict:
+    """Preview toggling a playbook Hive record's enabled metadata."""
+
+    return _call("playbook.enabled.set.preview", lc.preview_set_playbook_enabled, oid=oid, name=name, enabled=enabled, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_list_sops(oid: str, limit: int = 100) -> dict:
+    """List SOP Hive records."""
+
+    return _call("sop.list", lc.list_sops, oid=oid, limit=limit)
+
+
+@mcp.tool()
+def lc_get_sop(oid: str, name: str) -> dict:
+    """Fetch one SOP Hive record."""
+
+    return _call("sop.get", lc.get_sop, oid=oid, name=name)
+
+
+@mcp.tool()
+def lc_preview_set_sop(
+    oid: str,
+    name: str,
+    data: dict[str, Any],
+    enabled: bool | None = None,
+    tags: list[str] | str | None = None,
+    comment: str | None = None,
+    expiry: int | None = None,
+    etag: str | None = None,
+    ui_actions: list[dict[str, Any]] | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview creating or updating an SOP Hive record."""
+
+    return _call("sop.set.preview", lc.preview_set_sop, oid=oid, name=name, data=data, enabled=enabled, tags=tags, comment=comment, expiry=expiry, etag=etag, ui_actions=ui_actions, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_delete_sop(oid: str, name: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview deleting an SOP Hive record."""
+
+    return _call("sop.delete.preview", lc.preview_delete_sop, oid=oid, name=name, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_set_sop_enabled(oid: str, name: str, enabled: bool, token_ttl_seconds: int = 300) -> dict:
+    """Preview toggling an SOP Hive record's enabled metadata."""
+
+    return _call("sop.enabled.set.preview", lc.preview_set_sop_enabled, oid=oid, name=name, enabled=enabled, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_list_org_notes(oid: str, limit: int = 100) -> dict:
+    """List organization-note Hive records."""
+
+    return _call("org_note.list", lc.list_org_notes, oid=oid, limit=limit)
+
+
+@mcp.tool()
+def lc_get_org_note(oid: str, name: str) -> dict:
+    """Fetch one organization-note Hive record."""
+
+    return _call("org_note.get", lc.get_org_note, oid=oid, name=name)
+
+
+@mcp.tool()
+def lc_preview_set_org_note(
+    oid: str,
+    name: str,
+    data: dict[str, Any],
+    enabled: bool | None = None,
+    tags: list[str] | str | None = None,
+    comment: str | None = None,
+    expiry: int | None = None,
+    etag: str | None = None,
+    ui_actions: list[dict[str, Any]] | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview creating or updating an organization-note Hive record."""
+
+    return _call("org_note.set.preview", lc.preview_set_org_note, oid=oid, name=name, data=data, enabled=enabled, tags=tags, comment=comment, expiry=expiry, etag=etag, ui_actions=ui_actions, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_delete_org_note(oid: str, name: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview deleting an organization-note Hive record."""
+
+    return _call("org_note.delete.preview", lc.preview_delete_org_note, oid=oid, name=name, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_set_org_note_enabled(oid: str, name: str, enabled: bool, token_ttl_seconds: int = 300) -> dict:
+    """Preview toggling an organization-note Hive record's enabled metadata."""
+
+    return _call("org_note.enabled.set.preview", lc.preview_set_org_note_enabled, oid=oid, name=name, enabled=enabled, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_list_ai_agents(oid: str, limit: int = 100) -> dict:
+    """List AI agent Hive records."""
+
+    return _call("ai_agent.list", lc.list_ai_agents, oid=oid, limit=limit)
+
+
+@mcp.tool()
+def lc_get_ai_agent(oid: str, name: str) -> dict:
+    """Fetch one AI agent Hive record."""
+
+    return _call("ai_agent.get", lc.get_ai_agent, oid=oid, name=name)
+
+
+@mcp.tool()
+def lc_preview_set_ai_agent(
+    oid: str,
+    name: str,
+    data: dict[str, Any],
+    enabled: bool | None = None,
+    tags: list[str] | str | None = None,
+    comment: str | None = None,
+    expiry: int | None = None,
+    etag: str | None = None,
+    ui_actions: list[dict[str, Any]] | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview creating or updating an AI agent Hive record."""
+
+    return _call("ai_agent.set.preview", lc.preview_set_ai_agent, oid=oid, name=name, data=data, enabled=enabled, tags=tags, comment=comment, expiry=expiry, etag=etag, ui_actions=ui_actions, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_delete_ai_agent(oid: str, name: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview deleting an AI agent Hive record."""
+
+    return _call("ai_agent.delete.preview", lc.preview_delete_ai_agent, oid=oid, name=name, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_set_ai_agent_enabled(oid: str, name: str, enabled: bool, token_ttl_seconds: int = 300) -> dict:
+    """Preview toggling an AI agent Hive record's enabled metadata."""
+
+    return _call("ai_agent.enabled.set.preview", lc.preview_set_ai_agent_enabled, oid=oid, name=name, enabled=enabled, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_list_ai_skills(oid: str, limit: int = 100) -> dict:
+    """List AI skill Hive records."""
+
+    return _call("ai_skill.list", lc.list_ai_skills, oid=oid, limit=limit)
+
+
+@mcp.tool()
+def lc_get_ai_skill(oid: str, name: str) -> dict:
+    """Fetch one AI skill Hive record."""
+
+    return _call("ai_skill.get", lc.get_ai_skill, oid=oid, name=name)
+
+
+@mcp.tool()
+def lc_preview_set_ai_skill(
+    oid: str,
+    name: str,
+    data: dict[str, Any],
+    enabled: bool | None = None,
+    tags: list[str] | str | None = None,
+    comment: str | None = None,
+    expiry: int | None = None,
+    etag: str | None = None,
+    ui_actions: list[dict[str, Any]] | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview creating or updating an AI skill Hive record."""
+
+    return _call("ai_skill.set.preview", lc.preview_set_ai_skill, oid=oid, name=name, data=data, enabled=enabled, tags=tags, comment=comment, expiry=expiry, etag=etag, ui_actions=ui_actions, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_delete_ai_skill(oid: str, name: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview deleting an AI skill Hive record."""
+
+    return _call("ai_skill.delete.preview", lc.preview_delete_ai_skill, oid=oid, name=name, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_set_ai_skill_enabled(oid: str, name: str, enabled: bool, token_ttl_seconds: int = 300) -> dict:
+    """Preview toggling an AI skill Hive record's enabled metadata."""
+
+    return _call("ai_skill.enabled.set.preview", lc.preview_set_ai_skill_enabled, oid=oid, name=name, enabled=enabled, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
 def lc_list_ai_memory_records(oid: str, partition_key: str | None = None, limit: int = 100) -> dict:
     """List ai_memory Hive records."""
 

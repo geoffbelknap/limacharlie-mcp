@@ -1628,6 +1628,174 @@ def test_typed_secret_and_lookup_tools_use_safe_hive_shortcuts(tmp_path: Path) -
         client.preview_set_lookup(OID, "lookup-1", lookup_data={"a": "b"}, yaml_content="a: b")
 
 
+def test_structured_hive_shortcuts_cover_cli_hive_resources(tmp_path: Path) -> None:
+    specs = [
+        (
+            "cloud_adapter",
+            "cloud_sensor",
+            "cloud-adapter-1",
+            "cloud_adapter",
+            "list_cloud_adapters",
+            "get_cloud_adapter",
+            "preview_set_cloud_adapter",
+            "preview_delete_cloud_adapter",
+            "preview_set_cloud_adapter_enabled",
+            {
+                "sensor_type": "s3",
+                "s3": {
+                    "access_key": "access-secret",
+                    "secret_key": "raw-secret",
+                    "client_options": {"identity": {"installation_key": "install-secret"}},
+                },
+            },
+        ),
+        (
+            "external_adapter",
+            "external_adapter",
+            "external-adapter-1",
+            "external_adapter",
+            "list_external_adapters",
+            "get_external_adapter",
+            "preview_set_external_adapter",
+            "preview_delete_external_adapter",
+            "preview_set_external_adapter_enabled",
+            {"sensor_type": "syslog", "syslog": {"client_options": {"hostname": "corp-syslog"}}},
+        ),
+        (
+            "playbook",
+            "playbook",
+            "playbook-1",
+            "playbook",
+            "list_playbooks",
+            "get_playbook",
+            "preview_set_playbook",
+            "preview_delete_playbook",
+            "preview_set_playbook_enabled",
+            {"python": "def playbook(sdk, data):\n    return {'data': data}\n"},
+        ),
+        (
+            "sop",
+            "sop",
+            "sop-1",
+            "sop",
+            "list_sops",
+            "get_sop",
+            "preview_set_sop",
+            "preview_delete_sop",
+            "preview_set_sop_enabled",
+            {"text": "1. Inspect the alert\n2. Record the decision\n"},
+        ),
+        (
+            "org_note",
+            "org_notes",
+            "note-1",
+            "org_note",
+            "list_org_notes",
+            "get_org_note",
+            "preview_set_org_note",
+            "preview_delete_org_note",
+            "preview_set_org_note_enabled",
+            {"text": "Tenant prefers case notes for containment approvals."},
+        ),
+        (
+            "ai_agent",
+            "ai_agent",
+            "triage-agent",
+            "ai_agent",
+            "list_ai_agents",
+            "get_ai_agent",
+            "preview_set_ai_agent",
+            "preview_delete_ai_agent",
+            "preview_set_ai_agent_enabled",
+            {"prompt": "Summarize detections.", "anthropic_secret": "ai-secret"},
+        ),
+        (
+            "ai_skill",
+            "ai_skill",
+            "skill-1",
+            "ai_skill",
+            "list_ai_skills",
+            "get_ai_skill",
+            "preview_set_ai_skill",
+            "preview_delete_ai_skill",
+            "preview_set_ai_skill_enabled",
+            {"name": "lc-triage", "content": "# Skill\nUse LC evidence only.\n"},
+        ),
+    ]
+    fake = FakeHTTP()
+    for operation, hive_name, name, _resource_type, *_methods, data in specs:
+        fake.add(
+            "GET",
+            f"https://api.limacharlie.io/v1/hive/{hive_name}/{OID}",
+            {name: {"usr_mtd": {"enabled": True}, "sys_mtd": {"etag": f"{operation}-etag"}}},
+        )
+        fake.add(
+            "GET",
+            f"https://api.limacharlie.io/v1/hive/{hive_name}/{OID}/{name}/data",
+            {"data": data, "usr_mtd": {}, "sys_mtd": {"etag": f"{operation}-etag"}},
+        )
+        fake.add(
+            "GET",
+            f"https://api.limacharlie.io/v1/hive/{hive_name}/{OID}/{name}/mtd",
+            {"usr_mtd": {"comment": "existing"}, "sys_mtd": {"etag": f"{operation}-etag"}},
+        )
+        fake.add("POST", f"https://api.limacharlie.io/v1/hive/{hive_name}/{OID}/{name}/data", {"ok": True})
+        fake.add("POST", f"https://api.limacharlie.io/v1/hive/{hive_name}/{OID}/{name}/mtd", {"ok": True})
+        fake.add("DELETE", f"https://api.limacharlie.io/v1/hive/{hive_name}/{OID}/{name}", {"ok": True})
+    client = make_client(tmp_path, fake)
+    previews: list[dict[str, Any]] = []
+
+    for (
+        operation,
+        hive_name,
+        name,
+        resource_type,
+        list_method,
+        get_method,
+        set_method,
+        delete_method,
+        enabled_method,
+        data,
+    ) in specs:
+        listed = getattr(client, list_method)(OID)
+        fetched = getattr(client, get_method)(OID, name)
+        set_preview = getattr(client, set_method)(OID, name, data, enabled=True, tags=["managed"], etag=f"{operation}-etag")
+        delete_preview = getattr(client, delete_method)(OID, name)
+        enabled_preview = getattr(client, enabled_method)(OID, name, False)
+
+        assert listed["operation"] == f"{operation}.list"
+        assert listed["resource"]["type"] == f"{resource_type}_collection"
+        assert fetched["operation"] == f"{operation}.get"
+        assert fetched["resource"]["type"] == resource_type
+        assert set_preview["operation"] == f"{operation}.set.preview"
+        assert set_preview["resource"]["type"] == resource_type
+        assert delete_preview["operation"] == f"{operation}.delete.preview"
+        assert enabled_preview["operation"] == f"{operation}.enabled.set.preview"
+        assert enabled_preview["data"]["params"]["usr_mtd"] == {"comment": "existing", "enabled": False}
+        previews.extend([set_preview, delete_preview, enabled_preview])
+
+    cloud_get = getattr(client, "get_cloud_adapter")(OID, "cloud-adapter-1")
+    assert cloud_get["data"]["data"]["s3"]["access_key"] == "[redacted]"
+    assert cloud_get["data"]["data"]["s3"]["secret_key"] == "[redacted]"
+    assert cloud_get["data"]["data"]["s3"]["client_options"]["identity"]["installation_key"] == "[redacted]"
+    cloud_preview = next(preview for preview in previews if preview["operation"] == "cloud_adapter.set.preview")
+    assert cloud_preview["data"]["params"]["data"]["s3"]["access_key"] == "[redacted]"
+    assert cloud_preview["data"]["params"]["data"]["s3"]["secret_key"] == "[redacted]"
+    ai_preview = next(preview for preview in previews if preview["operation"] == "ai_agent.set.preview")
+    assert ai_preview["data"]["params"]["data"]["anthropic_secret"] == "[redacted]"
+
+    for preview in previews:
+        client.confirm_mutation(preview["data"]["confirmation_token"])
+
+    calls = [call for call in fake.calls if call["url"] != "https://jwt.limacharlie.io"]
+    cloud_set_call = next(call for call in calls if call["method"] == "POST" and call["url"].endswith("/cloud-adapter-1/data"))
+    assert json.loads(cloud_set_call["params"]["data"])["s3"]["secret_key"] == "raw-secret"
+    audit_text = (tmp_path / "audit.jsonl").read_text()
+    assert "raw-secret" not in audit_text
+    assert "install-secret" not in audit_text
+    assert "ai-secret" not in audit_text
+
+
 def test_ai_memory_tools_use_hive_partial_merge_requests(tmp_path: Path) -> None:
     fake = FakeHTTP()
     fake.add(

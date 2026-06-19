@@ -36,7 +36,16 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
 
     tools = anyio.run(collect_tools)
 
-    assert {"lc_auth_status", "lc_auth_refresh", "lc_list_sensor_events", "lc_wait_job"} <= set(tools)
+    assert {
+        "lc_auth_status",
+        "lc_auth_refresh",
+        "lc_list_sensor_events",
+        "lc_wait_job",
+        "lc_list_audit_logs",
+        "lc_list_yara_rules",
+        "lc_list_fp_rules",
+        "lc_list_schemas",
+    } <= set(tools)
     event_schema = tools["lc_list_sensor_events"]["inputSchema"]
     assert set(event_schema["required"]) == {"oid", "sensor_id", "start", "end"}
     assert event_schema["properties"]["limit"]["default"] == 100

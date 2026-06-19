@@ -82,6 +82,8 @@ def test_tool_catalog_exposes_operation_contracts(tmp_path: Path) -> None:
     assert result["data"]["operations"]["sensor.list"]["required_inputs"] == ["oid"]
     assert result["data"]["operations"]["event.list"]["suite"] == "investigation"
     assert result["data"]["operations"]["api_key.list"]["suite"] == "administration"
+    assert result["data"]["operations"]["audit.list"]["suite"] == "investigation"
+    assert result["data"]["operations"]["yara_rule.list"]["suite"] == "content"
     assert result["data"]["operations"]["detection.list"]["bounds"]["time_format"] == "unix_seconds"
 
 
@@ -363,6 +365,95 @@ def test_wait_job_returns_terminal_state(tmp_path: Path) -> None:
     assert result["state"] == {"current": "succeeded", "terminal": True}
     assert result["meta"]["attempts"] == 1
     assert result["meta"]["summary"]["job_state"] == "succeeded"
+
+
+def test_audit_logs_are_decoded_and_bounded(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add(
+        "GET",
+        f"https://api.limacharlie.io/v1/insight/{OID}/audit",
+        {"events": compressed_json([{"event_type": "audit"}, {"event_type": "audit2"}]), "next_cursor": "c2"},
+    )
+    client = make_client(tmp_path, fake)
+
+    result = client.list_audit_logs(OID, start=1_771_000_000, end=1_771_003_600, limit=1)
+
+    assert result["ok"] is True
+    assert_ax_envelope(result, "audit.list")
+    assert result["data"]["events"] == [{"event_type": "audit"}]
+    assert result["meta"]["truncated"] is True
+    assert fake.calls[1]["params"] == {
+        "start": 1_771_000_000,
+        "end": 1_771_003_600,
+        "cursor": "-",
+        "is_compressed": "true",
+        "limit": 1,
+    }
+
+
+def test_tag_and_hostname_read_tools_use_expected_paths(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("GET", f"https://api.limacharlie.io/v1/tags/{OID}", {"tags": ["prod", "windows"]})
+    fake.add("GET", f"https://api.limacharlie.io/v1/tags/{OID}/prod", {"sensors": [{"sid": SID}]})
+    fake.add("GET", f"https://api.limacharlie.io/v1/hostnames/{OID}", {"sensors": [{"sid": SID}]})
+    client = make_client(tmp_path, fake)
+
+    assert client.list_tags(OID)["data"]["tags"] == ["prod", "windows"]
+    assert client.find_sensors_by_tag(OID, "prod")["operation"] == "tag.sensor_search"
+    assert client.find_sensors_by_hostname(OID, "host")["operation"] == "sensor.hostname_search"
+    assert fake.calls[3]["params"] == {"hostname": "host"}
+
+
+def test_schema_ontology_and_mitre_tools_use_expected_paths(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("GET", f"https://api.limacharlie.io/v1/orgs/{OID}/schema", {"schemas": [{"name": "NEW_PROCESS"}]})
+    fake.add("GET", f"https://api.limacharlie.io/v1/orgs/{OID}/schema/NEW_PROCESS", {"name": "NEW_PROCESS"})
+    fake.add("GET", "https://api.limacharlie.io/v1/ontology", {"events": [{"name": "NEW_PROCESS"}]})
+    fake.add("GET", "https://api.limacharlie.io/v1/events", {"events": ["NEW_PROCESS"]})
+    fake.add("GET", f"https://api.limacharlie.io/v1/mitre/{OID}", {"coverage": []})
+    client = make_client(tmp_path, fake)
+
+    assert client.list_schemas(OID)["operation"] == "schema.list"
+    assert client.get_schema(OID, "NEW_PROCESS")["data"]["name"] == "NEW_PROCESS"
+    assert client.get_ontology()["operation"] == "ontology.get"
+    assert client.list_event_types()["data"]["events"] == ["NEW_PROCESS"]
+    assert client.get_mitre_report(OID)["operation"] == "mitre.get"
+
+
+def test_extension_artifact_and_ingestion_read_tools_use_expected_paths(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("GET", "https://api.limacharlie.io/v1/extension/definition/ext-vuln", {"name": "ext-vuln"})
+    fake.add("GET", "https://api.limacharlie.io/v1/extension/schema/ext-vuln", {"schema": {}})
+    fake.add("GET", f"https://api.limacharlie.io/v1/insight/{OID}/artifacts/rules", {"rules": [{"name": "collect"}]})
+    fake.add("GET", f"https://api.limacharlie.io/v1/insight/{OID}/ingestion_keys", {"keys": [{"name": "log"}]})
+    client = make_client(tmp_path, fake)
+
+    assert client.get_extension("ext-vuln")["data"]["name"] == "ext-vuln"
+    assert client.get_extension_schema(OID, "ext-vuln")["operation"] == "extension.schema.get"
+    assert fake.calls[3]["params"] == {"oid": OID}
+    assert client.list_artifact_rules(OID)["data"]["rules"][0]["name"] == "collect"
+    assert client.list_ingestion_keys(OID)["data"]["keys"][0]["name"] == "log"
+
+
+def test_fp_yara_and_logging_read_tools_use_expected_paths(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("GET", f"https://api.limacharlie.io/v1/hive/fp/{OID}", {"fp-1": {"data": "{}"}})
+    fake.add("GET", f"https://api.limacharlie.io/v1/hive/fp/{OID}/fp-1/data", {"data": {"detect": {}}})
+    fake.add("POST", f"https://api.limacharlie.io/v1/service/{OID}/yara", {"rules": {"r1": {}}})
+    fake.add("POST", f"https://api.limacharlie.io/v1/service/{OID}/yara", {"sources": ["s1"]})
+    fake.add("POST", f"https://api.limacharlie.io/v1/service/{OID}/yara", {"source": "rule x { condition: true }"})
+    fake.add("POST", f"https://api.limacharlie.io/v1/service/{OID}/logging", {"rules": {"log1": {}}})
+    client = make_client(tmp_path, fake)
+
+    assert client.list_fp_rules(OID)["operation"] == "fp_rule.list"
+    assert client.get_fp_rule(OID, "fp-1")["operation"] == "fp_rule.get"
+    assert client.list_yara_rules(OID)["operation"] == "yara_rule.list"
+    assert client.list_yara_sources(OID)["operation"] == "yara_source.list"
+    assert client.get_yara_source(OID, "s1")["operation"] == "yara_source.get"
+    assert client.list_logging_rules(OID)["operation"] == "logging_rule.list"
+    encoded = fake.calls[3]["params"]["request_data"]
+    decoded = json.loads(base64.b64decode(encoded).decode())
+    assert decoded == {"action": "list_rules"}
 
 
 def test_artifact_list_requires_time_window_without_cursor(tmp_path: Path) -> None:

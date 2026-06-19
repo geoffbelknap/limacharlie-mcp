@@ -283,6 +283,87 @@ def lc_wait_job(
 
 
 @mcp.tool()
+def lc_list_audit_logs(
+    oid: str,
+    start: int,
+    end: int,
+    event_type: str | None = None,
+    sensor_id: str | None = None,
+    limit: int = 100,
+    cursor: str = "-",
+) -> dict:
+    """List one bounded page of org audit logs for a time window."""
+
+    return _call(
+        "audit.list",
+        lc.list_audit_logs,
+        oid=oid,
+        start=start,
+        end=end,
+        event_type=event_type,
+        sensor_id=sensor_id,
+        limit=limit,
+        cursor=cursor,
+    )
+
+
+@mcp.tool()
+def lc_list_tags(oid: str, limit: int = 100) -> dict:
+    """List tags observed across sensors in an org."""
+
+    return _call("tag.list", lc.list_tags, oid=oid, limit=limit)
+
+
+@mcp.tool()
+def lc_find_sensors_by_tag(oid: str, tag: str, limit: int = 100) -> dict:
+    """Find sensors with a specific tag."""
+
+    return _call("tag.sensor_search", lc.find_sensors_by_tag, oid=oid, tag=tag, limit=limit)
+
+
+@mcp.tool()
+def lc_find_sensors_by_hostname(oid: str, hostname: str, limit: int = 100) -> dict:
+    """Find sensors by hostname prefix."""
+
+    return _call("sensor.hostname_search", lc.find_sensors_by_hostname, oid=oid, hostname=hostname, limit=limit)
+
+
+@mcp.tool()
+def lc_list_schemas(oid: str, platform: str | None = None, limit: int = 100) -> dict:
+    """List event schemas for an org, optionally filtered by platform."""
+
+    return _call("schema.list", lc.list_schemas, oid=oid, platform=platform, limit=limit)
+
+
+@mcp.tool()
+def lc_get_schema(oid: str, name: str) -> dict:
+    """Fetch one event schema definition."""
+
+    return _call("schema.get", lc.get_schema, oid=oid, name=name)
+
+
+@mcp.tool()
+def lc_get_ontology(limit: int = 100) -> dict:
+    """Fetch LimaCharlie ontology/event definitions."""
+
+    return _call("ontology.get", lc.get_ontology, limit=limit)
+
+
+@mcp.tool()
+def lc_list_event_types(limit: int = 100) -> dict:
+    """List available LimaCharlie event types."""
+
+    return _call("event_type.list", lc.list_event_types, limit=limit)
+
+
+@mcp.tool()
+def lc_get_mitre_report(oid: str) -> dict:
+    """Fetch MITRE ATT&CK coverage data for an org."""
+
+    return _call("mitre.get", lc.get_mitre_report, oid=oid)
+
+
+@mcp.tool()
 def lc_get_org_info(oid: str) -> dict:
     """Fetch organization inventory and quota metadata."""
 
@@ -365,6 +446,41 @@ def lc_list_available_extensions(limit: int = 100) -> dict:
 
 
 @mcp.tool()
+def lc_get_extension(extension_name: str) -> dict:
+    """Fetch one globally available extension definition."""
+
+    return _call("extension.get", lc.get_extension, extension_name=extension_name)
+
+
+@mcp.tool()
+def lc_get_extension_schema(oid: str, extension_name: str) -> dict:
+    """Fetch one extension schema for an org context."""
+
+    return _call("extension.schema.get", lc.get_extension_schema, oid=oid, extension_name=extension_name)
+
+
+@mcp.tool()
+def lc_list_artifact_rules(oid: str, limit: int = 100) -> dict:
+    """List artifact collection rules for an org."""
+
+    return _call("artifact_rule.list", lc.list_artifact_rules, oid=oid, limit=limit)
+
+
+@mcp.tool()
+def lc_list_ingestion_keys(oid: str, limit: int = 100) -> dict:
+    """List ingestion key metadata for an org."""
+
+    return _call("ingestion_key.list", lc.list_ingestion_keys, oid=oid, limit=limit)
+
+
+@mcp.tool()
+def lc_list_logging_rules(oid: str, limit: int = 100) -> dict:
+    """List logging collection rules for an org."""
+
+    return _call("logging_rule.list", lc.list_logging_rules, oid=oid, limit=limit)
+
+
+@mcp.tool()
 def lc_list_dr_rules(oid: str, namespace: str | None = None, limit: int = 100) -> dict:
     """List D&R rules from a hive namespace."""
 
@@ -376,6 +492,41 @@ def lc_get_dr_rule(oid: str, name: str, namespace: str | None = None) -> dict:
     """Fetch one D&R rule by name from a hive namespace."""
 
     return _call("dr_rule.get", lc.get_dr_rule, oid=oid, name=name, namespace=namespace)
+
+
+@mcp.tool()
+def lc_list_fp_rules(oid: str, limit: int = 100) -> dict:
+    """List false-positive rules for an org."""
+
+    return _call("fp_rule.list", lc.list_fp_rules, oid=oid, limit=limit)
+
+
+@mcp.tool()
+def lc_get_fp_rule(oid: str, name: str) -> dict:
+    """Fetch one false-positive rule by name."""
+
+    return _call("fp_rule.get", lc.get_fp_rule, oid=oid, name=name)
+
+
+@mcp.tool()
+def lc_list_yara_rules(oid: str, limit: int = 100) -> dict:
+    """List YARA scanning rules for an org."""
+
+    return _call("yara_rule.list", lc.list_yara_rules, oid=oid, limit=limit)
+
+
+@mcp.tool()
+def lc_list_yara_sources(oid: str, limit: int = 100) -> dict:
+    """List YARA source names for an org."""
+
+    return _call("yara_source.list", lc.list_yara_sources, oid=oid, limit=limit)
+
+
+@mcp.tool()
+def lc_get_yara_source(oid: str, name: str) -> dict:
+    """Fetch one YARA source by name."""
+
+    return _call("yara_source.get", lc.get_yara_source, oid=oid, name=name)
 
 
 def main() -> None:

@@ -56,6 +56,10 @@ renaming tools.
 | `lc_list_jobs` | List service jobs for an explicit org and time window. |
 | `lc_get_job` | Fetch one service job. |
 | `lc_wait_job` | Poll one service job until terminal state or bounded timeout. |
+| `lc_list_audit_logs` | List one bounded page of audit logs for a time window. |
+| `lc_list_tags` | List tags observed across sensors in an org. |
+| `lc_find_sensors_by_tag` | Find sensors with a specific tag. |
+| `lc_find_sensors_by_hostname` | Find sensors by hostname prefix. |
 | `lc_list_cases` | List cases for an explicit org. |
 | `lc_get_case` | Fetch one case by case number. |
 
@@ -74,13 +78,28 @@ renaming tools.
 | `lc_list_outputs` | List configured output integrations. |
 | `lc_list_extension_subscriptions` | List extension subscriptions for an org. |
 | `lc_list_available_extensions` | List globally available extension definitions. |
+| `lc_get_extension` | Fetch one extension definition. |
+| `lc_get_extension_schema` | Fetch extension schema for an org context. |
+| `lc_list_ingestion_keys` | List ingestion key metadata. |
 
 ### Content Review
 
 | Tool | Purpose |
 | --- | --- |
+| `lc_list_schemas` | List event schemas for an org. |
+| `lc_get_schema` | Fetch one event schema. |
+| `lc_get_ontology` | Fetch LimaCharlie ontology/event definitions. |
+| `lc_list_event_types` | List available event types. |
+| `lc_get_mitre_report` | Fetch MITRE ATT&CK coverage data. |
+| `lc_list_artifact_rules` | List artifact collection rules. |
+| `lc_list_logging_rules` | List logging collection rules. |
 | `lc_list_dr_rules` | List D&R rules from a hive namespace. |
 | `lc_get_dr_rule` | Fetch one D&R rule from a hive namespace. |
+| `lc_list_fp_rules` | List false-positive rules. |
+| `lc_get_fp_rule` | Fetch one false-positive rule. |
+| `lc_list_yara_rules` | List YARA scanning rules. |
+| `lc_list_yara_sources` | List YARA source names. |
+| `lc_get_yara_source` | Fetch one YARA source. |
 
 Write and response tools are intentionally gated for a later preview/confirm
 contract. That includes tasking, isolation, tags, users, keys, D&R writes,
@@ -206,7 +225,8 @@ The tests do not require LimaCharlie credentials or network access.
 See [docs/surface-map.md](docs/surface-map.md) for the implemented/planned
 coverage map across investigation, administration, response, content, and AI
 automation surfaces. See [docs/ax-review.md](docs/ax-review.md) for the AX
-Optimizer scorecard and refactor roadmap.
+Optimizer scorecard and refactor roadmap. See [docs/sdk-coverage.md](docs/sdk-coverage.md)
+for module-by-module coverage against the installed LimaCharlie SDK.
 
 ## References
 

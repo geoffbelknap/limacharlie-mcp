@@ -18,12 +18,14 @@ bounded, and auditable. Raw API passthrough is not the target shape.
 
 | Surface | Tools |
 | --- | --- |
-| Sensors | `lc_list_sensors`, `lc_get_sensor` |
+| Sensors | `lc_list_sensors`, `lc_get_sensor`, `lc_find_sensors_by_tag`, `lc_find_sensors_by_hostname` |
 | Events | `lc_list_sensor_events`, `lc_get_sensor_event_overview`, `lc_get_event`, `lc_list_child_events`, `lc_get_event_retention` |
 | Detections | `lc_list_detections`, `lc_get_detection` |
+| Audit logs | `lc_list_audit_logs` |
 | IOCs and Insight objects | `lc_search_ioc` |
 | Artifacts | `lc_list_artifacts`, `lc_get_artifact_url` |
 | Jobs | `lc_list_jobs`, `lc_get_job`, `lc_wait_job` |
+| Tags | `lc_list_tags`, `lc_find_sensors_by_tag` |
 | Cases | `lc_list_cases`, `lc_get_case` |
 
 ### Administration
@@ -34,28 +36,31 @@ bounded, and auditable. Raw API passthrough is not the target shape.
 | Users and permissions | `lc_list_users`, `lc_list_user_permissions` |
 | API keys | `lc_list_api_keys` |
 | Installation keys | `lc_list_installation_keys`, `lc_get_installation_key` |
+| Ingestion keys | `lc_list_ingestion_keys` |
 | Outputs | `lc_list_outputs` |
-| Extensions | `lc_list_extension_subscriptions`, `lc_list_available_extensions` |
+| Extensions | `lc_list_extension_subscriptions`, `lc_list_available_extensions`, `lc_get_extension`, `lc_get_extension_schema` |
 
 ### Content Review
 
 | Surface | Tools |
 | --- | --- |
+| Schemas and ontology | `lc_list_schemas`, `lc_get_schema`, `lc_get_ontology`, `lc_list_event_types` |
+| MITRE coverage | `lc_get_mitre_report` |
+| Artifact rules | `lc_list_artifact_rules` |
+| Logging rules | `lc_list_logging_rules` |
 | D&R rules | `lc_list_dr_rules`, `lc_get_dr_rule` |
+| False-positive rules | `lc_list_fp_rules`, `lc_get_fp_rule` |
+| YARA | `lc_list_yara_rules`, `lc_list_yara_sources`, `lc_get_yara_source` |
 
 ## Planned Read Coverage
 
 These should stay read-only and bounded:
 
-- Audit logs with explicit time windows and cursor handling.
-- Sensor tags and tag lookups.
-- Hostname/IP lookup helpers.
-- Event schema, ontology, and MITRE coverage reads.
-- Artifact collection rule reads.
-- Ingestion keys and logging rule reads.
-- YARA, false-positive, lookup, secret, playbook, SOP, and payload inventory.
+- Online sensor status and sensor export helpers.
+- IP lookup helpers.
+- Lookup, playbook, SOP, payload, and safe secret metadata inventory.
 - Cloud sensor, exfil, replay, vulnerability, billing, and download inventory.
-- Extension schema/details and safe extension-specific read actions.
+- Safe extension-specific read actions.
 - Search workflows with resumable job/checkpoint status.
 - AI memory/session/skill inventory if the API surface is stable enough.
 

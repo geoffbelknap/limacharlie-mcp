@@ -320,6 +320,103 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "side_effects": "none",
         "notes": "Polls one job until terminal state or timeout with bounded intervals.",
     },
+    "audit.list": {
+        "suite": "investigation",
+        "tool": "lc_list_audit_logs",
+        "action": "read",
+        "resource_type": "audit_log_collection",
+        "required_inputs": ["oid", "start", "end"],
+        "optional_inputs": ["event_type", "sensor_id", "limit", "cursor"],
+        "bounds": {"limit_min": 1, "limit_max": 500, "time_format": "unix_seconds"},
+        "side_effects": "none",
+        "notes": "Returns one bounded audit-log page for an explicit time window.",
+    },
+    "tag.list": {
+        "suite": "investigation",
+        "tool": "lc_list_tags",
+        "action": "read",
+        "resource_type": "tag_collection",
+        "required_inputs": ["oid"],
+        "optional_inputs": ["limit"],
+        "bounds": {"limit_min": 1, "limit_max": 500},
+        "side_effects": "none",
+        "notes": "Lists tags observed across sensors in the org.",
+    },
+    "tag.sensor_search": {
+        "suite": "investigation",
+        "tool": "lc_find_sensors_by_tag",
+        "action": "read",
+        "resource_type": "sensor_collection",
+        "required_inputs": ["oid", "tag"],
+        "optional_inputs": ["limit"],
+        "bounds": {"limit_min": 1, "limit_max": 500},
+        "side_effects": "none",
+        "notes": "Finds sensors matching a specific tag.",
+    },
+    "sensor.hostname_search": {
+        "suite": "investigation",
+        "tool": "lc_find_sensors_by_hostname",
+        "action": "read",
+        "resource_type": "sensor_collection",
+        "required_inputs": ["oid", "hostname"],
+        "optional_inputs": ["limit"],
+        "bounds": {"limit_min": 1, "limit_max": 500},
+        "side_effects": "none",
+        "notes": "Finds sensors by hostname prefix.",
+    },
+    "schema.list": {
+        "suite": "content",
+        "tool": "lc_list_schemas",
+        "action": "read",
+        "resource_type": "schema_collection",
+        "required_inputs": ["oid"],
+        "optional_inputs": ["platform", "limit"],
+        "bounds": {"limit_min": 1, "limit_max": 500},
+        "side_effects": "none",
+        "notes": "Lists event schemas for the org, optionally filtered by platform.",
+    },
+    "schema.get": {
+        "suite": "content",
+        "tool": "lc_get_schema",
+        "action": "read",
+        "resource_type": "schema",
+        "required_inputs": ["oid", "name"],
+        "optional_inputs": [],
+        "side_effects": "none",
+        "notes": "Fetches one event schema definition.",
+    },
+    "ontology.get": {
+        "suite": "content",
+        "tool": "lc_get_ontology",
+        "action": "read",
+        "resource_type": "ontology",
+        "required_inputs": [],
+        "optional_inputs": ["limit"],
+        "bounds": {"limit_min": 1, "limit_max": 500},
+        "side_effects": "none",
+        "notes": "Fetches LimaCharlie ontology/event definitions.",
+    },
+    "event_type.list": {
+        "suite": "content",
+        "tool": "lc_list_event_types",
+        "action": "read",
+        "resource_type": "event_type_collection",
+        "required_inputs": [],
+        "optional_inputs": ["limit"],
+        "bounds": {"limit_min": 1, "limit_max": 500},
+        "side_effects": "none",
+        "notes": "Lists available event types.",
+    },
+    "mitre.get": {
+        "suite": "content",
+        "tool": "lc_get_mitre_report",
+        "action": "read",
+        "resource_type": "mitre_report",
+        "required_inputs": ["oid"],
+        "optional_inputs": [],
+        "side_effects": "none",
+        "notes": "Fetches org MITRE ATT&CK coverage data.",
+    },
     "org.get": {
         "suite": "administration",
         "tool": "lc_get_org_info",
@@ -436,6 +533,59 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "side_effects": "none",
         "notes": "Lists extension definitions available globally.",
     },
+    "extension.get": {
+        "suite": "administration",
+        "tool": "lc_get_extension",
+        "action": "read",
+        "resource_type": "extension_definition",
+        "required_inputs": ["extension_name"],
+        "optional_inputs": [],
+        "side_effects": "none",
+        "notes": "Fetches one extension definition.",
+    },
+    "extension.schema.get": {
+        "suite": "administration",
+        "tool": "lc_get_extension_schema",
+        "action": "read",
+        "resource_type": "extension_schema",
+        "required_inputs": ["oid", "extension_name"],
+        "optional_inputs": [],
+        "side_effects": "none",
+        "notes": "Fetches extension schema for an org context.",
+    },
+    "artifact_rule.list": {
+        "suite": "content",
+        "tool": "lc_list_artifact_rules",
+        "action": "read",
+        "resource_type": "artifact_rule_collection",
+        "required_inputs": ["oid"],
+        "optional_inputs": ["limit"],
+        "bounds": {"limit_min": 1, "limit_max": 500},
+        "side_effects": "none",
+        "notes": "Lists artifact collection rules.",
+    },
+    "ingestion_key.list": {
+        "suite": "administration",
+        "tool": "lc_list_ingestion_keys",
+        "action": "read",
+        "resource_type": "ingestion_key_collection",
+        "required_inputs": ["oid"],
+        "optional_inputs": ["limit"],
+        "bounds": {"limit_min": 1, "limit_max": 500},
+        "side_effects": "none",
+        "notes": "Lists ingestion key metadata.",
+    },
+    "logging_rule.list": {
+        "suite": "content",
+        "tool": "lc_list_logging_rules",
+        "action": "read",
+        "resource_type": "logging_rule_collection",
+        "required_inputs": ["oid"],
+        "optional_inputs": ["limit"],
+        "bounds": {"limit_min": 1, "limit_max": 500},
+        "side_effects": "none",
+        "notes": "Lists logging collection rules through the logging service.",
+    },
     "dr_rule.list": {
         "suite": "content",
         "tool": "lc_list_dr_rules",
@@ -458,6 +608,59 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "side_effects": "none",
         "notes": "Fetches one D&R hive record.",
     },
+    "fp_rule.list": {
+        "suite": "content",
+        "tool": "lc_list_fp_rules",
+        "action": "read",
+        "resource_type": "fp_rule_collection",
+        "required_inputs": ["oid"],
+        "optional_inputs": ["limit"],
+        "bounds": {"limit_min": 1, "limit_max": 500},
+        "side_effects": "none",
+        "notes": "Lists false-positive rules from the fp hive.",
+    },
+    "fp_rule.get": {
+        "suite": "content",
+        "tool": "lc_get_fp_rule",
+        "action": "read",
+        "resource_type": "fp_rule",
+        "required_inputs": ["oid", "name"],
+        "optional_inputs": [],
+        "side_effects": "none",
+        "notes": "Fetches one false-positive hive record.",
+    },
+    "yara_rule.list": {
+        "suite": "content",
+        "tool": "lc_list_yara_rules",
+        "action": "read",
+        "resource_type": "yara_rule_collection",
+        "required_inputs": ["oid"],
+        "optional_inputs": ["limit"],
+        "bounds": {"limit_min": 1, "limit_max": 500},
+        "side_effects": "none",
+        "notes": "Lists YARA scanning rules through the YARA service.",
+    },
+    "yara_source.list": {
+        "suite": "content",
+        "tool": "lc_list_yara_sources",
+        "action": "read",
+        "resource_type": "yara_source_collection",
+        "required_inputs": ["oid"],
+        "optional_inputs": ["limit"],
+        "bounds": {"limit_min": 1, "limit_max": 500},
+        "side_effects": "none",
+        "notes": "Lists YARA source names through the YARA service.",
+    },
+    "yara_source.get": {
+        "suite": "content",
+        "tool": "lc_get_yara_source",
+        "action": "read",
+        "resource_type": "yara_source",
+        "required_inputs": ["oid", "name"],
+        "optional_inputs": [],
+        "side_effects": "none",
+        "notes": "Fetches one YARA source through the YARA service.",
+    },
 }
 
 
@@ -466,6 +669,7 @@ _SAFE_CASE_NUMBER = re.compile(r"^[0-9]{1,20}$")
 _SAFE_PERMISSION = re.compile(r"^[A-Za-z0-9_.:-]{1,120}$")
 _SAFE_TOKEN = re.compile(r"^[A-Za-z0-9_.:/@+=% -]{1,300}$")
 _SAFE_PATH_SEGMENT = re.compile(r"^[A-Za-z0-9_.:@+=%-]{1,300}$")
+_SAFE_EXTENSION_NAME = re.compile(r"^[A-Za-z0-9_.:/@+=%-]{1,300}$")
 _UNSAFE_SELECTOR = re.compile(r"[\x00-\x1f;&|`$]")
 _IOC_TYPES = {"domain", "ip", "file_hash", "file_path", "file_name", "user", "service_name", "package_name"}
 _INFO_TYPES = {"summary", "locations"}
@@ -554,6 +758,12 @@ def require_path_segment(value: str, name: str) -> str:
     return value
 
 
+def require_extension_name(value: str) -> str:
+    if not isinstance(value, str) or not _SAFE_EXTENSION_NAME.match(value):
+        raise ValidationError("extension_name contains unsupported characters")
+    return value
+
+
 def require_token(value: str, name: str) -> str:
     if not isinstance(value, str) or not _SAFE_TOKEN.match(value):
         raise ValidationError(f"{name} contains unsupported characters")
@@ -597,6 +807,13 @@ def require_time_window(start: int, end: int) -> tuple[int, int]:
 
 def bool_param(value: bool) -> str:
     return "true" if value else "false"
+
+
+def service_request_params(data: dict[str, Any], *, is_async: bool = False) -> dict[str, Any]:
+    return {
+        "request_data": base64.b64encode(json.dumps(data).encode()).decode(),
+        "is_async": is_async,
+    }
 
 
 def bound_output(data: Any, limit: int) -> tuple[Any, bool]:
@@ -1333,6 +1550,136 @@ class LimaCharlieAPI:
             },
         ).as_dict()
 
+    def list_audit_logs(
+        self,
+        oid: str,
+        start: int,
+        end: int,
+        event_type: str | None = None,
+        sensor_id: str | None = None,
+        limit: int = 100,
+        cursor: str = "-",
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        bounded_limit = require_limit(limit)
+        start_ts, end_ts = require_time_window(start, end)
+        params: dict[str, Any] = {
+            "start": start_ts,
+            "end": end_ts,
+            "cursor": require_token(cursor, "cursor"),
+            "is_compressed": "true",
+            "limit": bounded_limit,
+        }
+        if event_type:
+            params["event_type"] = require_token(event_type, "event_type")
+        if sensor_id:
+            params["sid"] = require_oid(sensor_id)
+        return self._request(
+            "GET",
+            f"insight/{scoped_oid}/audit",
+            operation="audit.list",
+            oid=scoped_oid,
+            resource={"type": "audit_log_collection", "id": scoped_oid},
+            params=params,
+            limit=bounded_limit,
+        ).as_dict()
+
+    def list_tags(self, oid: str, limit: int = 100) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        bounded_limit = require_limit(limit)
+        return self._request(
+            "GET",
+            f"tags/{scoped_oid}",
+            operation="tag.list",
+            oid=scoped_oid,
+            resource={"type": "tag_collection", "id": scoped_oid},
+            limit=bounded_limit,
+        ).as_dict()
+
+    def find_sensors_by_tag(self, oid: str, tag: str, limit: int = 100) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_tag = require_token(tag, "tag")
+        bounded_limit = require_limit(limit)
+        return self._request(
+            "GET",
+            f"tags/{scoped_oid}/{quote(safe_tag, safe='')}",
+            operation="tag.sensor_search",
+            oid=scoped_oid,
+            resource={"type": "sensor_collection", "id": safe_tag, "parent": {"type": "organization", "id": scoped_oid}},
+            limit=bounded_limit,
+        ).as_dict()
+
+    def find_sensors_by_hostname(self, oid: str, hostname: str, limit: int = 100) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_hostname = require_token(hostname, "hostname")
+        bounded_limit = require_limit(limit)
+        return self._request(
+            "GET",
+            f"hostnames/{scoped_oid}",
+            operation="sensor.hostname_search",
+            oid=scoped_oid,
+            resource={"type": "sensor_collection", "id": safe_hostname, "parent": {"type": "organization", "id": scoped_oid}},
+            params={"hostname": safe_hostname},
+            limit=bounded_limit,
+        ).as_dict()
+
+    def list_schemas(self, oid: str, platform: str | None = None, limit: int = 100) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        bounded_limit = require_limit(limit)
+        params = {"platform": require_token(platform, "platform")} if platform else None
+        return self._request(
+            "GET",
+            f"orgs/{scoped_oid}/schema",
+            operation="schema.list",
+            oid=scoped_oid,
+            resource={"type": "schema_collection", "id": scoped_oid},
+            params=params,
+            limit=bounded_limit,
+        ).as_dict()
+
+    def get_schema(self, oid: str, name: str) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_name = require_token(name, "name")
+        return self._request(
+            "GET",
+            f"orgs/{scoped_oid}/schema/{quote(safe_name, safe='')}",
+            operation="schema.get",
+            oid=scoped_oid,
+            resource={"type": "schema", "id": safe_name, "parent": {"type": "organization", "id": scoped_oid}},
+        ).as_dict()
+
+    def get_ontology(self, limit: int = 100) -> dict[str, Any]:
+        bounded_limit = require_limit(limit)
+        return self._request(
+            "GET",
+            "ontology",
+            operation="ontology.get",
+            oid="-",
+            resource={"type": "ontology", "id": "-"},
+            limit=bounded_limit,
+        ).as_dict()
+
+    def list_event_types(self, limit: int = 100) -> dict[str, Any]:
+        bounded_limit = require_limit(limit)
+        return self._request(
+            "GET",
+            "events",
+            operation="event_type.list",
+            oid="-",
+            resource={"type": "event_type_collection", "id": "-"},
+            limit=bounded_limit,
+        ).as_dict()
+
+    def get_mitre_report(self, oid: str) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        return self._request(
+            "GET",
+            f"mitre/{scoped_oid}",
+            operation="mitre.get",
+            oid=scoped_oid,
+            resource={"type": "mitre_report", "id": scoped_oid},
+        ).as_dict()
+
     def get_org_info(self, oid: str) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         return self._request(
@@ -1456,6 +1803,65 @@ class LimaCharlieAPI:
             limit=bounded_limit,
         ).as_dict()
 
+    def get_extension(self, extension_name: str) -> dict[str, Any]:
+        safe_name = require_extension_name(extension_name)
+        return self._request(
+            "GET",
+            f"extension/definition/{quote(safe_name, safe='')}",
+            operation="extension.get",
+            oid="-",
+            resource={"type": "extension_definition", "id": safe_name},
+        ).as_dict()
+
+    def get_extension_schema(self, oid: str, extension_name: str) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_name = require_extension_name(extension_name)
+        return self._request(
+            "GET",
+            f"extension/schema/{quote(safe_name, safe='')}",
+            operation="extension.schema.get",
+            oid=scoped_oid,
+            resource={"type": "extension_schema", "id": safe_name, "parent": {"type": "organization", "id": scoped_oid}},
+            params={"oid": scoped_oid},
+        ).as_dict()
+
+    def list_artifact_rules(self, oid: str, limit: int = 100) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        bounded_limit = require_limit(limit)
+        return self._request(
+            "GET",
+            f"insight/{scoped_oid}/artifacts/rules",
+            operation="artifact_rule.list",
+            oid=scoped_oid,
+            resource={"type": "artifact_rule_collection", "id": scoped_oid},
+            limit=bounded_limit,
+        ).as_dict()
+
+    def list_ingestion_keys(self, oid: str, limit: int = 100) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        bounded_limit = require_limit(limit)
+        return self._request(
+            "GET",
+            f"insight/{scoped_oid}/ingestion_keys",
+            operation="ingestion_key.list",
+            oid=scoped_oid,
+            resource={"type": "ingestion_key_collection", "id": scoped_oid},
+            limit=bounded_limit,
+        ).as_dict()
+
+    def list_logging_rules(self, oid: str, limit: int = 100) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        bounded_limit = require_limit(limit)
+        return self._request(
+            "POST",
+            f"service/{scoped_oid}/logging",
+            operation="logging_rule.list",
+            oid=scoped_oid,
+            resource={"type": "logging_rule_collection", "id": scoped_oid},
+            params=service_request_params({"action": "list_rules"}),
+            limit=bounded_limit,
+        ).as_dict()
+
     def list_dr_rules(self, oid: str, namespace: str | None = None, limit: int = 100) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         safe_namespace = require_dr_namespace(namespace)
@@ -1479,6 +1885,67 @@ class LimaCharlieAPI:
             operation="dr_rule.get",
             oid=scoped_oid,
             resource={"type": "dr_rule", "id": safe_name, "parent": {"type": "organization", "id": scoped_oid}},
+        ).as_dict()
+
+    def list_fp_rules(self, oid: str, limit: int = 100) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        bounded_limit = require_limit(limit)
+        return self._request(
+            "GET",
+            f"hive/fp/{scoped_oid}",
+            operation="fp_rule.list",
+            oid=scoped_oid,
+            resource={"type": "fp_rule_collection", "id": "fp", "parent": {"type": "organization", "id": scoped_oid}},
+            limit=bounded_limit,
+        ).as_dict()
+
+    def get_fp_rule(self, oid: str, name: str) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_name = require_token(name, "name")
+        return self._request(
+            "GET",
+            f"hive/fp/{scoped_oid}/{quote(safe_name, safe='')}/data",
+            operation="fp_rule.get",
+            oid=scoped_oid,
+            resource={"type": "fp_rule", "id": safe_name, "parent": {"type": "organization", "id": scoped_oid}},
+        ).as_dict()
+
+    def list_yara_rules(self, oid: str, limit: int = 100) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        bounded_limit = require_limit(limit)
+        return self._request(
+            "POST",
+            f"service/{scoped_oid}/yara",
+            operation="yara_rule.list",
+            oid=scoped_oid,
+            resource={"type": "yara_rule_collection", "id": scoped_oid},
+            params=service_request_params({"action": "list_rules"}),
+            limit=bounded_limit,
+        ).as_dict()
+
+    def list_yara_sources(self, oid: str, limit: int = 100) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        bounded_limit = require_limit(limit)
+        return self._request(
+            "POST",
+            f"service/{scoped_oid}/yara",
+            operation="yara_source.list",
+            oid=scoped_oid,
+            resource={"type": "yara_source_collection", "id": scoped_oid},
+            params=service_request_params({"action": "list_sources"}),
+            limit=bounded_limit,
+        ).as_dict()
+
+    def get_yara_source(self, oid: str, name: str) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_name = require_token(name, "name")
+        return self._request(
+            "POST",
+            f"service/{scoped_oid}/yara",
+            operation="yara_source.get",
+            oid=scoped_oid,
+            resource={"type": "yara_source", "id": safe_name, "parent": {"type": "organization", "id": scoped_oid}},
+            params=service_request_params({"action": "get_source", "name": safe_name}),
         ).as_dict()
 
     def _request(

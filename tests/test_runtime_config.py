@@ -254,6 +254,11 @@ def test_configure_cli_prints_human_success_by_default(
     assert "[OK] Wrote local MCP config" in output
     assert "[OK] Verified JWT refresh" in output
     assert f"[OK] Verified access to org {OID}" in output
+    assert 'Ask: "Check my LimaCharlie MCP auth status."' in output
+    assert "The agent should confirm credentials are configured without showing secrets." in output
+    assert 'Ask: "Review my LimaCharlie org posture."' in output
+    assert 'For a smaller smoke test, ask: "List my LimaCharlie sensors."' in output
+    assert "Run lc_auth_status" not in output
     assert "api_key_ref" not in output
     assert "vault_token_file" not in output
     assert "secret/data" not in output

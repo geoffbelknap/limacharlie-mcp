@@ -56,8 +56,9 @@ uvx --from git+https://github.com/geoffbelknap/limacharlie-mcp \
   --oid "paste-your-org-id-here"
 ```
 
-Then start a new Codex or Claude chat with the plugin enabled and call
-`lc_auth_status`.
+Then start a new Codex or Claude chat with the plugin enabled and ask:
+"Check my LimaCharlie MCP auth status." The agent should confirm credentials
+are configured without showing secrets.
 
 For screenshots, permissions, user API key mode, advanced deployment, and
 troubleshooting, see [Onboarding And Auth](docs/onboarding-auth.md).
@@ -566,9 +567,9 @@ variable:
 }
 ```
 
-After starting the server, call `lc_auth_status`. If credentials are configured
-correctly, call `lc_auth_refresh` only when you want to force a new JWT after
-credential rotation or auth troubleshooting.
+After starting the server, ask your agent to check LimaCharlie MCP auth status.
+It should confirm credentials are configured without showing secrets. Only ask
+for an auth refresh after credential rotation or auth troubleshooting.
 
 For first-time setup, read [Onboarding And Auth](docs/onboarding-auth.md)
 before creating keys. LimaCharlie organization API keys and user API keys come

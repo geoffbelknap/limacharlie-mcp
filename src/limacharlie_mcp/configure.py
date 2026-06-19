@@ -315,9 +315,11 @@ def _format_human_result(result: dict[str, Any], args: argparse.Namespace) -> st
         [
             "",
             "Next:",
-            "1. Start a new Codex or Claude chat with the LimaCharlie MCP plugin enabled.",
-            "2. Run lc_auth_status.",
-            "3. Run lc_review_org_posture or lc_list_sensors.",
+            "1. Open a new Codex or Claude chat with the LimaCharlie MCP plugin enabled.",
+            "2. Ask: \"Check my LimaCharlie MCP auth status.\"",
+            "   The agent should confirm credentials are configured without showing secrets.",
+            "3. Ask: \"Review my LimaCharlie org posture.\"",
+            "   For a smaller smoke test, ask: \"List my LimaCharlie sensors.\"",
         ]
     )
     return "\n".join(lines)

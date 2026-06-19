@@ -53,11 +53,11 @@ recommended runtime model.
 3. Create an API key with the minimum permissions needed for the workflows.
 4. Run `limacharlie-mcp-configure` with the org ID. The helper reads the
    LimaCharlie key through a hidden prompt and stores it in local Vault.
-5. Point the MCP client at a profile command. If the config file is in the
-   default location, no auth env block is needed.
-6. Start the MCP server.
-7. Call `lc_auth_status`.
-8. Call `lc_list_orgs` or an org-scoped read such as `lc_list_sensors`.
+5. Start a new Codex or Claude chat with the LimaCharlie MCP plugin enabled.
+6. Ask the agent to check LimaCharlie MCP auth status. It should confirm that
+   credentials are configured without showing secrets.
+7. Ask the agent to review your LimaCharlie org posture. For a smaller smoke
+   test, ask it to list LimaCharlie sensors.
 
 ```bash
 limacharlie-mcp-configure \

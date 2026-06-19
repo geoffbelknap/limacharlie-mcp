@@ -859,6 +859,69 @@ def lc_cancel_search_query(oid: str, query_id: str) -> dict:
 
 
 @mcp.tool()
+def lc_list_saved_queries(oid: str, limit: int = 100) -> dict:
+    """List saved LCQL queries stored in the query hive."""
+
+    return _call("saved_query.list", lc.list_saved_queries, oid=oid, limit=limit)
+
+
+@mcp.tool()
+def lc_get_saved_query(oid: str, name: str) -> dict:
+    """Fetch one saved LCQL query by name."""
+
+    return _call("saved_query.get", lc.get_saved_query, oid=oid, name=name)
+
+
+@mcp.tool()
+def lc_preview_set_saved_query(
+    oid: str,
+    name: str,
+    query: str,
+    start: int | None = None,
+    end: int | None = None,
+    stream: str | None = None,
+    tags: list[str] | str | None = None,
+    comment: str | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview creating or updating one saved LCQL query."""
+
+    return _call(
+        "saved_query.set.preview",
+        lc.preview_set_saved_query,
+        oid=oid,
+        name=name,
+        query=query,
+        start=start,
+        end=end,
+        stream=stream,
+        tags=tags,
+        comment=comment,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_preview_delete_saved_query(oid: str, name: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview deleting one saved LCQL query."""
+
+    return _call("saved_query.delete.preview", lc.preview_delete_saved_query, oid=oid, name=name, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_execute_saved_query(
+    oid: str,
+    name: str,
+    start: int | None = None,
+    end: int | None = None,
+    stream: str | None = None,
+) -> dict:
+    """Load a saved query and start a paginated LCQL search job."""
+
+    return _call("saved_query.execute", lc.execute_saved_query, oid=oid, name=name, start=start, end=end, stream=stream)
+
+
+@mcp.tool()
 def lc_validate_replay_rule(
     oid: str,
     rule_content: dict[str, Any],

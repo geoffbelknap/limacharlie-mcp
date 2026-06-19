@@ -94,6 +94,7 @@ def test_tool_catalog_exposes_operation_contracts(tmp_path: Path) -> None:
     assert result["data"]["operations"]["yara_rule.list"]["suite"] == "content"
     assert result["data"]["operations"]["reliable_task.list"]["suite"] == "response"
     assert result["data"]["operations"]["reliable_task.send.preview"]["required_inputs"] == ["oid", "task"]
+    assert result["data"]["operations"]["saved_query.execute"]["suite"] == "investigation"
     assert result["data"]["operations"]["billing.status"]["suite"] == "administration"
     assert result["data"]["operations"]["replay.validate_rule"]["suite"] == "content"
     assert result["data"]["operations"]["detection.list"]["bounds"]["time_format"] == "unix_seconds"
@@ -683,6 +684,73 @@ def test_execute_search_query_starts_paginated_job_with_state(tmp_path: Path) ->
     assert result["state"]["query_id"] == "query-1"
     assert result["side_effects"][0]["type"] == "search_query_started"
     assert fake.calls[2]["json"]["paginated"] is True
+
+
+def test_saved_query_tools_use_query_hive_and_paginated_search(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    saved_url = f"https://api.limacharlie.io/v1/hive/query/{OID}"
+    record_url = f"{saved_url}/prod-powershell/data"
+    fake.add("GET", saved_url, {"records": {"prod-powershell": {"usr_mtd": {"enabled": True}}}})
+    fake.add(
+        "GET",
+        record_url,
+        {"data": {"query": "event/COMMAND_LINE contains powershell", "start": 1_771_000_000, "end": 1_771_003_600, "stream": "event"}},
+    )
+    fake.add("POST", record_url, {"ok": True})
+    fake.add("DELETE", f"{saved_url}/prod-powershell", {"ok": True})
+    fake.add("GET", f"https://api.limacharlie.io/v1/orgs/{OID}/url", {"search": "https://search.limacharlie.io/v1"})
+    fake.add("POST", "https://search.limacharlie.io/v1/search", {"queryId": "saved-query-1"})
+    client = make_client(tmp_path, fake)
+
+    listed = client.list_saved_queries(OID)
+    fetched = client.get_saved_query(OID, "prod-powershell")
+    set_preview = client.preview_set_saved_query(
+        OID,
+        "prod-powershell",
+        "event/COMMAND_LINE contains powershell",
+        start=1_771_000_000,
+        end=1_771_003_600,
+        stream="event",
+        tags=["hunt"],
+        comment="Production PowerShell hunt",
+    )
+    delete_preview = client.preview_delete_saved_query(OID, "prod-powershell")
+
+    assert listed["ok"] is True
+    assert_ax_envelope(listed, "saved_query.list")
+    assert fetched["operation"] == "saved_query.get"
+    assert set_preview["data"]["params"]["data"] == {
+        "query": "event/COMMAND_LINE contains powershell",
+        "start": 1_771_000_000,
+        "end": 1_771_003_600,
+        "stream": "event",
+    }
+
+    set_confirmed = client.confirm_mutation(set_preview["data"]["confirmation_token"])
+    delete_confirmed = client.confirm_mutation(delete_preview["data"]["confirmation_token"])
+    executed = client.execute_saved_query(OID, "prod-powershell")
+
+    assert set_confirmed["data"]["confirmed_operation"] == "saved_query.set"
+    assert delete_confirmed["data"]["confirmed_operation"] == "saved_query.delete"
+    assert executed["ok"] is True
+    assert executed["operation"] == "saved_query.execute"
+    assert executed["state"]["query_id"] == "saved-query-1"
+    assert executed["state"]["saved_query"] == "prod-powershell"
+
+    calls = [call for call in fake.calls if call["url"] != "https://jwt.limacharlie.io"]
+    assert calls[0]["url"] == saved_url
+    assert calls[1]["url"] == record_url
+    assert json.loads(calls[2]["params"]["data"]) == {
+        "query": "event/COMMAND_LINE contains powershell",
+        "start": 1_771_000_000,
+        "end": 1_771_003_600,
+        "stream": "event",
+    }
+    assert json.loads(calls[2]["params"]["usr_mtd"]) == {"tags": ["hunt"], "comment": "Production PowerShell hunt"}
+    assert calls[3]["method"] == "DELETE"
+    assert calls[-1]["url"] == "https://search.limacharlie.io/v1/search"
+    assert calls[-1]["json"]["query"] == "event/COMMAND_LINE contains powershell"
+    assert calls[-1]["json"]["paginated"] is True
 
 
 def test_poll_search_query_returns_checkpoint_state_and_bounds_rows(tmp_path: Path) -> None:

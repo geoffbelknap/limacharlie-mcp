@@ -63,6 +63,11 @@ renaming tools.
 | `lc_execute_search_query` | Start a paginated LCQL search and return a query ID. |
 | `lc_poll_search_query` | Poll one bounded LCQL result page and return checkpoint state. |
 | `lc_cancel_search_query` | Cancel a running LCQL search job. |
+| `lc_list_saved_queries` | List saved LCQL queries stored in the query hive. |
+| `lc_get_saved_query` | Fetch one saved LCQL query by name. |
+| `lc_preview_set_saved_query` | Preview creating or updating one saved LCQL query. |
+| `lc_preview_delete_saved_query` | Preview deleting one saved LCQL query. |
+| `lc_execute_saved_query` | Load a saved query and start a paginated LCQL search job. |
 | `lc_list_artifacts` | List artifacts for an org, sensor, time window, or cursor. |
 | `lc_get_artifact_url` | Request original artifact payload or signed export URL. |
 | `lc_list_payloads` | List payload metadata without downloading payload bytes. |

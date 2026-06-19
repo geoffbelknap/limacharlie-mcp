@@ -174,6 +174,11 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
         "lc_execute_search_query",
         "lc_poll_search_query",
         "lc_cancel_search_query",
+        "lc_list_saved_queries",
+        "lc_get_saved_query",
+        "lc_preview_set_saved_query",
+        "lc_preview_delete_saved_query",
+        "lc_execute_saved_query",
         "lc_validate_replay_rule",
         "lc_replay_scan_events",
         "lc_replay_dry_run",
@@ -331,6 +336,12 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
     search_poll_schema = tools["lc_poll_search_query"]["inputSchema"]
     assert set(search_poll_schema["required"]) == {"oid", "query_id"}
     assert search_poll_schema["properties"]["limit"]["default"] == 100
+    saved_query_set_schema = tools["lc_preview_set_saved_query"]["inputSchema"]
+    assert set(saved_query_set_schema["required"]) == {"oid", "name", "query"}
+    saved_query_delete_schema = tools["lc_preview_delete_saved_query"]["inputSchema"]
+    assert set(saved_query_delete_schema["required"]) == {"oid", "name"}
+    saved_query_execute_schema = tools["lc_execute_saved_query"]["inputSchema"]
+    assert set(saved_query_execute_schema["required"]) == {"oid", "name"}
     replay_schema = tools["lc_replay_dry_run"]["inputSchema"]
     assert set(replay_schema["required"]) == {"oid", "start", "end"}
     assert replay_schema["properties"]["limit_events"]["default"] == 1000

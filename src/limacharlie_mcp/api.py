@@ -513,6 +513,57 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "side_effects": "cancels_server_search_query",
         "notes": "Cancels a server-side LCQL search job to release search resources.",
     },
+    "saved_query.list": {
+        "suite": "investigation",
+        "tool": "lc_list_saved_queries",
+        "action": "read",
+        "resource_type": "saved_query_collection",
+        "required_inputs": ["oid"],
+        "optional_inputs": ["limit"],
+        "bounds": {"limit_min": 1, "limit_max": 500},
+        "side_effects": "none",
+        "notes": "Lists saved LCQL queries stored in the query hive.",
+    },
+    "saved_query.get": {
+        "suite": "investigation",
+        "tool": "lc_get_saved_query",
+        "action": "read",
+        "resource_type": "saved_query",
+        "required_inputs": ["oid", "name"],
+        "optional_inputs": [],
+        "side_effects": "none",
+        "notes": "Fetches one saved LCQL query from the query hive.",
+    },
+    "saved_query.set.preview": {
+        "suite": "investigation",
+        "tool": "lc_preview_set_saved_query",
+        "action": "preview",
+        "resource_type": "saved_query",
+        "required_inputs": ["oid", "name", "query"],
+        "optional_inputs": ["start", "end", "stream", "tags", "comment", "token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews creating or updating one saved LCQL query.",
+    },
+    "saved_query.delete.preview": {
+        "suite": "investigation",
+        "tool": "lc_preview_delete_saved_query",
+        "action": "preview",
+        "resource_type": "saved_query",
+        "required_inputs": ["oid", "name"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews deleting one saved LCQL query.",
+    },
+    "saved_query.execute": {
+        "suite": "investigation",
+        "tool": "lc_execute_saved_query",
+        "action": "execute",
+        "resource_type": "lcql_search_job",
+        "required_inputs": ["oid", "name"],
+        "optional_inputs": ["start", "end", "stream"],
+        "side_effects": "starts_server_search_query",
+        "notes": "Loads a saved query and starts the existing paginated LCQL search flow.",
+    },
     "replay.validate_rule": {
         "suite": "content",
         "tool": "lc_validate_replay_rule",
@@ -5302,6 +5353,174 @@ class LimaCharlieAPI:
         if result.get("ok"):
             result["state"] = {"current": "cancelled", "terminal": True, "query_id": safe_query_id}
         return result
+
+    def list_saved_queries(self, oid: str, limit: int = 100) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        bounded_limit = require_limit(limit)
+        return self._request(
+            "GET",
+            f"hive/query/{scoped_oid}",
+            operation="saved_query.list",
+            oid=scoped_oid,
+            resource={"type": "saved_query_collection", "id": scoped_oid},
+            limit=bounded_limit,
+        ).as_dict()
+
+    def get_saved_query(self, oid: str, name: str) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_name = require_hive_record_key(name, "name")
+        return self._request(
+            "GET",
+            f"hive/query/{scoped_oid}/{quote(safe_name, safe='')}/data",
+            operation="saved_query.get",
+            oid=scoped_oid,
+            resource={"type": "saved_query", "id": safe_name, "parent": {"type": "organization", "id": scoped_oid}},
+        ).as_dict()
+
+    def preview_set_saved_query(
+        self,
+        oid: str,
+        name: str,
+        query: str,
+        start: int | None = None,
+        end: int | None = None,
+        stream: str | None = None,
+        tags: list[str] | str | None = None,
+        comment: str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_name = require_hive_record_key(name, "name")
+        data: dict[str, Any] = {"query": require_search_query(query)}
+        if start is not None or end is not None:
+            if start is None or end is None:
+                raise ValidationError("start and end must both be provided, or both omitted")
+            start_ts, end_ts = require_time_window(start, end)
+            data["start"] = start_ts
+            data["end"] = end_ts
+        safe_stream = require_search_stream(stream)
+        if safe_stream:
+            data["stream"] = safe_stream
+        params = self._hive_record_params(data=data, tags=tags, comment=comment)
+        return self._create_mutation_preview(
+            operation="saved_query.set",
+            oid=scoped_oid,
+            method="POST",
+            path=f"hive/query/{scoped_oid}/{quote(safe_name, safe='')}/data",
+            resource={"type": "saved_query", "id": safe_name, "parent": {"type": "organization", "id": scoped_oid}},
+            params=params,
+            data=None,
+            json_body=None,
+            expected_effect=f"Create or update saved query {safe_name!r}.",
+            reversibility="Restore the prior saved query record or delete this record if it was newly created.",
+            side_effects=[{"type": "saved_query_set", "resource": {"type": "saved_query", "id": safe_name}}],
+            token_ttl_seconds=require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900),
+        )
+
+    def preview_delete_saved_query(self, oid: str, name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_name = require_hive_record_key(name, "name")
+        return self._create_mutation_preview(
+            operation="saved_query.delete",
+            oid=scoped_oid,
+            method="DELETE",
+            path=f"hive/query/{scoped_oid}/{quote(safe_name, safe='')}",
+            resource={"type": "saved_query", "id": safe_name, "parent": {"type": "organization", "id": scoped_oid}},
+            params=None,
+            data=None,
+            json_body=None,
+            expected_effect=f"Delete saved query {safe_name!r}.",
+            reversibility="Recreate the saved query from a known-good definition if deletion was unintended.",
+            side_effects=[{"type": "saved_query_deleted", "resource": {"type": "saved_query", "id": safe_name}}],
+            token_ttl_seconds=require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900),
+        )
+
+    def execute_saved_query(
+        self,
+        oid: str,
+        name: str,
+        start: int | None = None,
+        end: int | None = None,
+        stream: str | None = None,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_name = require_hive_record_key(name, "name")
+        saved = self.get_saved_query(scoped_oid, safe_name)
+        if not saved.get("ok"):
+            saved["operation"] = "saved_query.execute"
+            return saved
+        raw_saved = saved.get("data") if isinstance(saved.get("data"), dict) else {}
+        saved_data = raw_saved.get("data") if isinstance(raw_saved.get("data"), dict) else raw_saved
+        if not isinstance(saved_data, dict):
+            saved_data = {}
+        query = saved_data.get("query")
+        if not isinstance(query, str) or not query.strip():
+            return self._saved_query_input_error(scoped_oid, safe_name, "saved_query_missing_query", "Saved query record does not contain a non-empty query field.")
+        effective_start = start if start is not None else saved_data.get("start")
+        effective_end = end if end is not None else saved_data.get("end")
+        if effective_start is None or effective_end is None:
+            return self._saved_query_input_error(
+                scoped_oid,
+                safe_name,
+                "saved_query_missing_time_window",
+                "Saved query execution requires start and end unix-second timestamps from the saved record or tool inputs.",
+            )
+        start_ts, end_ts = require_time_window(effective_start, effective_end)
+        safe_stream = require_search_stream(stream) or require_search_stream(saved_data.get("stream"))
+        body = self._search_body(scoped_oid, query, start_ts, end_ts, safe_stream)
+        body["paginated"] = True
+        result = self._request(
+            "POST",
+            "search",
+            operation="saved_query.execute",
+            oid=scoped_oid,
+            resource={"type": "lcql_search_job", "id": safe_name, "parent": {"type": "saved_query", "id": safe_name}},
+            json_body=body,
+            base_url=self._search_root(scoped_oid),
+            side_effects=[{"type": "search_query_started", "resource": {"type": "saved_query", "id": safe_name}}],
+        ).as_dict()
+        if result.get("ok") and isinstance(result.get("data"), dict):
+            query_id = result["data"].get("queryId") or result["data"].get("query_id")
+            result["state"] = {
+                "current": "running" if query_id else "unknown",
+                "terminal": False,
+                "query_id": query_id,
+                "checkpoint": {"next_token": None},
+                "saved_query": safe_name,
+            }
+            result["meta"]["summary"]["query_id"] = query_id
+            result["meta"]["summary"]["saved_query"] = safe_name
+            result["meta"]["suggested_next_actions"] = [
+                "Call lc_poll_search_query with query_id to retrieve one bounded result page.",
+                "Call lc_cancel_search_query when the search is no longer needed.",
+            ]
+        return result
+
+    def _saved_query_input_error(self, oid: str, name: str, code: str, message: str) -> dict[str, Any]:
+        return ToolResponse(
+            ok=False,
+            operation="saved_query.execute",
+            request_id=f"req_{uuid.uuid4().hex}",
+            resource={"type": "saved_query", "id": name, "parent": {"type": "organization", "id": oid}},
+            state={"current": "invalid", "terminal": True},
+            data=None,
+            side_effects=[],
+            warnings=[],
+            meta={"summary": {"shape": "empty"}, "truncated": False},
+            observed_at=observed_at(),
+            error={
+                "code": code,
+                "class": "input",
+                "message": message,
+                "retryable": False,
+                "same_input_retryable": False,
+                "suggested_next_actions": [
+                    "Call lc_get_saved_query to inspect the saved query record.",
+                    "Call lc_preview_set_saved_query with a query plus start and end, then confirm it.",
+                    "Call lc_execute_search_query with explicit query, start, and end instead.",
+                ],
+            },
+        ).as_dict()
 
     def validate_replay_rule(
         self,

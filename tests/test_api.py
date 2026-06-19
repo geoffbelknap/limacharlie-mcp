@@ -1194,6 +1194,61 @@ def test_service_rule_previews_confirm_encoded_request_data(tmp_path: Path) -> N
     }
 
 
+def test_generic_service_config_and_exfil_tools_use_exact_requests(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("GET", f"https://api.limacharlie.io/v1/service/{OID}", {"replicants": ["exfil"]})
+    fake.add("POST", "https://api.limacharlie.io/v1/extension/request/ext-infrastructure", {"data": {"org": {}}})
+    fake.add("POST", f"https://api.limacharlie.io/v1/service/{OID}/exfil", {"rules": []})
+    fake.add("POST", f"https://api.limacharlie.io/v1/service/{OID}/custom", {"ok": True})
+    fake.add("POST", f"https://api.limacharlie.io/v1/service/{OID}/exfil", {"ok": True})
+    client = make_client(tmp_path, fake)
+
+    assert client.list_available_services(OID)["ok"] is True
+    assert client.fetch_config(OID, sync_outputs=True, sync_hives={"dr-general": True})["ok"] is True
+    assert client.list_exfil_rules(OID)["ok"] is True
+    service = client.preview_service_request(OID, "custom", {"action": "do_thing"}, is_async=True)
+    push = client.preview_push_config(OID, {"version": 3}, is_dry_run=True, sync_yara=True)
+    watch = client.preview_create_exfil_watch(OID, "watch-1", "NEW_PROCESS", "cmd.exe", "is", "event/COMMAND_LINE", tags=["prod"])
+    event = client.preview_create_exfil_event(OID, "event-1", ["DNS_REQUEST"], platforms=["windows"])
+    delete_event = client.preview_delete_exfil_event(OID, "event-1")
+    delete_watch = client.preview_delete_exfil_watch(OID, "watch-1")
+
+    for preview in [service, push, watch, event, delete_event, delete_watch]:
+        client.confirm_mutation(preview["data"]["confirmation_token"])
+
+    calls = [call for call in fake.calls if call["url"] != "https://jwt.limacharlie.io"]
+    assert calls[0]["url"] == f"https://api.limacharlie.io/v1/service/{OID}"
+    fetch_payload = decode_gzdata(calls[1]["params"]["gzdata"])
+    assert calls[1]["params"]["action"] == "fetch"
+    assert fetch_payload["options"]["sync_outputs"] is True
+    assert fetch_payload["options"]["sync_hives"] == {"dr-general": True}
+    assert decode_request_data(calls[2]["params"]["request_data"]) == {"action": "list_rules"}
+    assert decode_request_data(calls[3]["params"]["request_data"]) == {"action": "do_thing"}
+    assert calls[3]["params"]["is_async"] is True
+    push_payload = decode_gzdata(calls[4]["params"]["gzdata"])
+    assert calls[4]["params"]["action"] == "push"
+    assert json.loads(push_payload["config"]) == {"version": 3}
+    assert push_payload["options"]["is_dry_run"] is True
+    assert push_payload["options"]["sync_yara"] is True
+    assert decode_request_data(calls[5]["params"]["request_data"]) == {
+        "action": "add_watch",
+        "name": "watch-1",
+        "event": "NEW_PROCESS",
+        "value": "cmd.exe",
+        "operator": "is",
+        "path": ["event", "COMMAND_LINE"],
+        "tags": ["prod"],
+    }
+    assert decode_request_data(calls[6]["params"]["request_data"]) == {
+        "action": "add_event_rule",
+        "name": "event-1",
+        "events": ["DNS_REQUEST"],
+        "platforms": ["windows"],
+    }
+    assert decode_request_data(calls[7]["params"]["request_data"]) == {"action": "remove_event_rule", "name": "event-1"}
+    assert decode_request_data(calls[8]["params"]["request_data"]) == {"action": "remove_watch", "name": "watch-1"}
+
+
 def test_hive_rule_previews_confirm_encoded_params(tmp_path: Path) -> None:
     fake = FakeHTTP()
     fake.add("POST", f"https://api.limacharlie.io/v1/hive/dr-managed/{OID}/rule-1/data", {"ok": True})
@@ -1518,6 +1573,47 @@ def test_org_platform_read_tools_use_expected_paths(tmp_path: Path) -> None:
     assert runtime["data"]["records"] == [{"entity": "sensor"}]
     assert fake.calls[2]["params"] == {"entity_type": "sensor", "entity_name": "sensor-1"}
     assert quota["data"]["usage"] == 3
+
+
+def test_org_lifecycle_config_and_sensor_version_requests(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("GET", "https://api.limacharlie.io/v1/orgs/new", {"available": True})
+    fake.add("GET", f"https://api.limacharlie.io/v1/configs/{OID}/sensor_version", {"value": "stable"})
+    fake.add("GET", f"https://api.limacharlie.io/v1/orgs/{OID}/delete", {"confirmation": "confirm-1"})
+    fake.add("POST", f"https://api.limacharlie.io/v1/export/{OID}/sensors", {"sensors": []})
+    fake.add("POST", "https://api.limacharlie.io/v1/orgs/new", {"oid": OID})
+    fake.add("POST", f"https://api.limacharlie.io/v1/configs/{OID}/sensor_version", {"ok": True})
+    fake.add("DELETE", f"https://api.limacharlie.io/v1/errors/{OID}/replicant", {"ok": True})
+    fake.add("DELETE", f"https://api.limacharlie.io/v1/orgs/{OID}/delete", {"ok": True})
+    fake.add("POST", f"https://api.limacharlie.io/v1/modules/{OID}", {"ok": True})
+    client = make_client(tmp_path, fake)
+
+    assert client.check_org_name("New Org")["ok"] is True
+    assert client.get_org_config_value(OID, "sensor_version")["data"]["value"] == "stable"
+    assert client.get_org_delete_confirmation(OID)["data"]["confirmation"] == "confirm-1"
+    assert client.export_sensors(OID)["ok"] is True
+    create_org = client.preview_create_org("New Org", location="us", template="starter")
+    set_config = client.preview_set_org_config_value(OID, "sensor_version", "stable")
+    dismiss = client.preview_dismiss_org_error(OID, "replicant")
+    delete_org = client.preview_delete_org(OID, "confirm-1")
+    version = client.preview_set_sensor_version(OID, version="4.29.0", is_fallback=True)
+
+    for preview in [create_org, set_config, dismiss, delete_org, version]:
+        client.confirm_mutation(preview["data"]["confirmation_token"])
+
+    calls = [call for call in fake.calls if call["url"] != "https://jwt.limacharlie.io"]
+    assert calls[0]["method"] == "GET"
+    assert calls[0]["url"] == "https://api.limacharlie.io/v1/orgs/new"
+    assert calls[0]["params"] == {"name": "New Org"}
+    assert calls[1]["url"] == f"https://api.limacharlie.io/v1/configs/{OID}/sensor_version"
+    assert calls[2]["url"] == f"https://api.limacharlie.io/v1/orgs/{OID}/delete"
+    assert calls[3]["url"] == f"https://api.limacharlie.io/v1/export/{OID}/sensors"
+    assert calls[4]["method"] == "POST"
+    assert calls[4]["params"] == {"name": "New Org", "loc": "us", "template": "starter"}
+    assert calls[5]["params"] == {"value": "stable"}
+    assert calls[6]["url"] == f"https://api.limacharlie.io/v1/errors/{OID}/replicant"
+    assert calls[7]["params"] == {"confirmation": "confirm-1"}
+    assert calls[8]["params"] == {"specific_version": "4.29.0", "is_fallback": "true"}
 
 
 def test_billing_read_tools_use_expected_paths(tmp_path: Path) -> None:

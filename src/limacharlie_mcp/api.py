@@ -2026,6 +2026,192 @@ OPERATION_CATALOG.update(
     }
 )
 
+OPERATION_CATALOG.update(
+    {
+        "org.name.check": {
+            "suite": "administration",
+            "tool": "lc_check_org_name",
+            "action": "read",
+            "resource_type": "organization_name",
+            "required_inputs": ["name"],
+            "optional_inputs": [],
+            "side_effects": "none",
+            "notes": "Checks whether an organization name is available.",
+        },
+        "org.create.preview": {
+            "suite": "administration",
+            "tool": "lc_preview_create_org",
+            "action": "preview",
+            "resource_type": "organization",
+            "required_inputs": ["name"],
+            "optional_inputs": ["location", "template", "token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews creating a new LimaCharlie org.",
+        },
+        "org.config.get": {
+            "suite": "administration",
+            "tool": "lc_get_org_config_value",
+            "action": "read",
+            "resource_type": "organization_config_value",
+            "required_inputs": ["oid", "config_name"],
+            "optional_inputs": [],
+            "side_effects": "none",
+            "notes": "Gets one org config value by name.",
+        },
+        "org.config.set.preview": {
+            "suite": "administration",
+            "tool": "lc_preview_set_org_config_value",
+            "action": "preview",
+            "resource_type": "organization_config_value",
+            "required_inputs": ["oid", "config_name", "value"],
+            "optional_inputs": ["token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews setting one org config value.",
+        },
+        "org.error.dismiss.preview": {
+            "suite": "administration",
+            "tool": "lc_preview_dismiss_org_error",
+            "action": "preview",
+            "resource_type": "organization_error",
+            "required_inputs": ["oid", "component"],
+            "optional_inputs": ["token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews dismissing one org component error.",
+        },
+        "org.delete.confirmation": {
+            "suite": "administration",
+            "tool": "lc_get_org_delete_confirmation",
+            "action": "read",
+            "resource_type": "organization_delete_confirmation",
+            "required_inputs": ["oid"],
+            "optional_inputs": [],
+            "side_effects": "none",
+            "notes": "Requests the LimaCharlie delete confirmation token for an org.",
+        },
+        "org.delete.preview": {
+            "suite": "administration",
+            "tool": "lc_preview_delete_org",
+            "action": "preview",
+            "resource_type": "organization",
+            "required_inputs": ["oid", "confirmation"],
+            "optional_inputs": ["token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews deleting an org using the confirmation returned by lc_get_org_delete_confirmation.",
+        },
+        "sensor.export": {
+            "suite": "administration",
+            "tool": "lc_export_sensors",
+            "action": "read",
+            "resource_type": "sensor_export",
+            "required_inputs": ["oid"],
+            "optional_inputs": [],
+            "side_effects": "none",
+            "notes": "Exports the full sensor manifest through the org export endpoint.",
+        },
+        "sensor.version.set.preview": {
+            "suite": "administration",
+            "tool": "lc_preview_set_sensor_version",
+            "action": "preview",
+            "resource_type": "sensor_version_policy",
+            "required_inputs": ["oid"],
+            "optional_inputs": ["version", "is_fallback", "is_sleep", "token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews changing org sensor version/branch policy.",
+        },
+        "service.list": {
+            "suite": "administration",
+            "tool": "lc_list_available_services",
+            "action": "read",
+            "resource_type": "service_collection",
+            "required_inputs": ["oid"],
+            "optional_inputs": ["limit"],
+            "bounds": {"limit_min": 1, "limit_max": 500},
+            "side_effects": "none",
+            "notes": "Lists available services/replicants for an org.",
+        },
+        "service.request.preview": {
+            "suite": "administration",
+            "tool": "lc_preview_service_request",
+            "action": "preview",
+            "resource_type": "service_request",
+            "required_inputs": ["oid", "service_name", "request_data"],
+            "optional_inputs": ["is_async", "token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews a generic non-impersonated service request. JWT impersonation is intentionally not exposed.",
+        },
+        "config.fetch": {
+            "suite": "administration",
+            "tool": "lc_fetch_config",
+            "action": "read",
+            "resource_type": "infrastructure_config",
+            "required_inputs": ["oid"],
+            "optional_inputs": ["sync_outputs", "sync_integrity", "sync_artifact", "sync_exfil", "sync_resources", "sync_extensions", "sync_org_values", "sync_hives", "sync_installation_keys", "sync_yara"],
+            "side_effects": "none",
+            "notes": "Fetches org IaC configuration via ext-infrastructure without exposing JWTs in tool output.",
+        },
+        "config.push.preview": {
+            "suite": "administration",
+            "tool": "lc_preview_push_config",
+            "action": "preview",
+            "resource_type": "infrastructure_config",
+            "required_inputs": ["oid", "config"],
+            "optional_inputs": ["is_force", "is_dry_run", "ignore_inaccessible", "sync_outputs", "sync_integrity", "sync_artifact", "sync_exfil", "sync_resources", "sync_extensions", "sync_org_values", "sync_hives", "sync_installation_keys", "sync_yara", "token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews an ext-infrastructure config push request. Use is_dry_run for backend simulation.",
+        },
+        "exfil_rule.list": {
+            "suite": "content",
+            "tool": "lc_list_exfil_rules",
+            "action": "read",
+            "resource_type": "exfil_rule_collection",
+            "required_inputs": ["oid"],
+            "optional_inputs": [],
+            "side_effects": "none",
+            "notes": "Lists exfil prevention rules through the exfil service.",
+        },
+        "exfil_watch.create.preview": {
+            "suite": "content",
+            "tool": "lc_preview_create_exfil_watch",
+            "action": "preview",
+            "resource_type": "exfil_watch",
+            "required_inputs": ["oid", "name", "event", "value", "operator", "path"],
+            "optional_inputs": ["tags", "platforms", "token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews creating an exfil watch rule.",
+        },
+        "exfil_event.create.preview": {
+            "suite": "content",
+            "tool": "lc_preview_create_exfil_event",
+            "action": "preview",
+            "resource_type": "exfil_event_rule",
+            "required_inputs": ["oid", "name", "events"],
+            "optional_inputs": ["tags", "platforms", "token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews creating an exfil event rule.",
+        },
+        "exfil_event.delete.preview": {
+            "suite": "content",
+            "tool": "lc_preview_delete_exfil_event",
+            "action": "preview",
+            "resource_type": "exfil_event_rule",
+            "required_inputs": ["oid", "name"],
+            "optional_inputs": ["token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews deleting an exfil event rule.",
+        },
+        "exfil_watch.delete.preview": {
+            "suite": "content",
+            "tool": "lc_preview_delete_exfil_watch",
+            "action": "preview",
+            "resource_type": "exfil_watch",
+            "required_inputs": ["oid", "name"],
+            "optional_inputs": ["token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews deleting an exfil watch rule.",
+        },
+    }
+)
+
 
 _SAFE_DETECT_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,160}$")
 _SAFE_CASE_NUMBER = re.compile(r"^[0-9]{1,20}$")
@@ -2280,6 +2466,30 @@ def require_email(value: str) -> str:
     if not isinstance(value, str) or not _EMAIL_RE.match(value):
         raise ValidationError("email must be a valid email address")
     return value
+
+
+def require_org_name(value: str) -> str:
+    checked = require_case_text(value, "name", maximum=120, required=True)
+    assert checked is not None
+    return checked
+
+
+def require_config_value(value: str) -> str:
+    checked = require_case_text(value, "value", maximum=20_000, required=True)
+    assert checked is not None
+    return checked
+
+
+def require_exfil_path(path: str | list[str]) -> list[str]:
+    raw_segments = path.split("/") if isinstance(path, str) else path
+    if not isinstance(raw_segments, list) or not raw_segments or len(raw_segments) > 32:
+        raise ValidationError("path must be a string or list with 1 to 32 segments")
+    checked: list[str] = []
+    for segment in raw_segments:
+        if not isinstance(segment, str) or not segment or len(segment) > 120 or "\x00" in segment:
+            raise ValidationError("path segments must be non-empty strings under 120 characters")
+        checked.append(segment)
+    return checked
 
 
 def require_org_role(value: str) -> str:
@@ -4817,6 +5027,333 @@ class LimaCharlieAPI:
             limit=bounded_limit,
         ).as_dict()
 
+    def export_sensors(self, oid: str) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        return self._request(
+            "POST",
+            f"export/{scoped_oid}/sensors",
+            operation="sensor.export",
+            oid=scoped_oid,
+            resource={"type": "sensor_export", "id": scoped_oid},
+        ).as_dict()
+
+    def preview_set_sensor_version(
+        self,
+        oid: str,
+        version: str | None = None,
+        is_fallback: bool = False,
+        is_sleep: bool = False,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        params: dict[str, Any] = {}
+        if version:
+            params["specific_version"] = require_token(version, "version")
+        if is_fallback:
+            params["is_fallback"] = "true"
+        if is_sleep:
+            params["is_sleep"] = "true"
+        if not params:
+            raise ValidationError("version, is_fallback, or is_sleep is required")
+        return self._preview_mutation(
+            operation="sensor.version.set",
+            oid=scoped_oid,
+            method="POST",
+            path=f"modules/{scoped_oid}",
+            resource_type="sensor_version_policy",
+            resource_id=scoped_oid,
+            params=params,
+            expected_effect="Change the organization's sensor version policy.",
+            reversibility="Run another sensor version preview with the prior policy value.",
+            side_effect_type="sensor_version_policy_set",
+            token_ttl_seconds=token_ttl_seconds,
+            parent_oid=scoped_oid,
+        )
+
+    def list_available_services(self, oid: str, limit: int = 100) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        bounded_limit = require_limit(limit)
+        return self._request(
+            "GET",
+            f"service/{scoped_oid}",
+            operation="service.list",
+            oid=scoped_oid,
+            resource={"type": "service_collection", "id": scoped_oid},
+            limit=bounded_limit,
+        ).as_dict()
+
+    def preview_service_request(
+        self,
+        oid: str,
+        service_name: str,
+        request_data: dict[str, Any],
+        is_async: bool = False,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_service = require_path_segment(service_name, "service_name")
+        checked_data = require_dict(request_data, "request_data")
+        if checked_data is None:
+            raise ValidationError("request_data is required")
+        return self._preview_service_request(
+            operation="service.request",
+            oid=scoped_oid,
+            service=safe_service,
+            request_data=checked_data,
+            resource_type="service_request",
+            resource_id=safe_service,
+            expected_effect=f"Send a request to service {safe_service!r}.",
+            reversibility="Service request effects depend on the selected service/action.",
+            side_effect_type="service_request_sent",
+            token_ttl_seconds=token_ttl_seconds,
+            is_async=is_async,
+        )
+
+    def _config_sync_options(
+        self,
+        *,
+        sync_outputs: bool = False,
+        sync_integrity: bool = False,
+        sync_artifact: bool = False,
+        sync_exfil: bool = False,
+        sync_resources: bool = False,
+        sync_extensions: bool = False,
+        sync_org_values: bool = False,
+        sync_hives: dict[str, bool] | None = None,
+        sync_installation_keys: bool = False,
+        sync_yara: bool = False,
+    ) -> dict[str, Any]:
+        if sync_hives is not None:
+            if not isinstance(sync_hives, dict):
+                raise ValidationError("sync_hives must be an object of hive names to booleans")
+            checked_hives = {require_token(str(name), "hive_name"): bool(value) for name, value in sync_hives.items()}
+        else:
+            checked_hives = {}
+        return {
+            "sync_outputs": bool(sync_outputs),
+            "sync_resources": bool(sync_resources),
+            "sync_extensions": bool(sync_extensions),
+            "sync_integrity": bool(sync_integrity),
+            "sync_exfil": bool(sync_exfil),
+            "sync_artifacts": bool(sync_artifact),
+            "sync_org_values": bool(sync_org_values),
+            "sync_hives": checked_hives,
+            "sync_installation_keys": bool(sync_installation_keys),
+            "sync_yara": bool(sync_yara),
+        }
+
+    def fetch_config(
+        self,
+        oid: str,
+        sync_outputs: bool = False,
+        sync_integrity: bool = False,
+        sync_artifact: bool = False,
+        sync_exfil: bool = False,
+        sync_resources: bool = False,
+        sync_extensions: bool = False,
+        sync_org_values: bool = False,
+        sync_hives: dict[str, bool] | None = None,
+        sync_installation_keys: bool = False,
+        sync_yara: bool = False,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        options = self._config_sync_options(
+            sync_outputs=sync_outputs,
+            sync_integrity=sync_integrity,
+            sync_artifact=sync_artifact,
+            sync_exfil=sync_exfil,
+            sync_resources=sync_resources,
+            sync_extensions=sync_extensions,
+            sync_org_values=sync_org_values,
+            sync_hives=sync_hives,
+            sync_installation_keys=sync_installation_keys,
+            sync_yara=sync_yara,
+        )
+        return self._request(
+            "POST",
+            "extension/request/ext-infrastructure",
+            operation="config.fetch",
+            oid=scoped_oid,
+            resource={"type": "infrastructure_config", "id": scoped_oid},
+            params=extension_request_params(scoped_oid, "fetch", {"options": options}),
+        ).as_dict()
+
+    def preview_push_config(
+        self,
+        oid: str,
+        config: dict[str, Any],
+        is_force: bool = False,
+        is_dry_run: bool = False,
+        ignore_inaccessible: bool = False,
+        sync_outputs: bool = False,
+        sync_integrity: bool = False,
+        sync_artifact: bool = False,
+        sync_exfil: bool = False,
+        sync_resources: bool = False,
+        sync_extensions: bool = False,
+        sync_org_values: bool = False,
+        sync_hives: dict[str, bool] | None = None,
+        sync_installation_keys: bool = False,
+        sync_yara: bool = False,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        checked_config = require_dict(config, "config")
+        if checked_config is None:
+            raise ValidationError("config is required")
+        options = self._config_sync_options(
+            sync_outputs=sync_outputs,
+            sync_integrity=sync_integrity,
+            sync_artifact=sync_artifact,
+            sync_exfil=sync_exfil,
+            sync_resources=sync_resources,
+            sync_extensions=sync_extensions,
+            sync_org_values=sync_org_values,
+            sync_hives=sync_hives,
+            sync_installation_keys=sync_installation_keys,
+            sync_yara=sync_yara,
+        )
+        options.update(
+            {
+                "is_dry_run": bool(is_dry_run),
+                "is_force": bool(is_force),
+                "ignore_inaccessible": bool(ignore_inaccessible),
+            }
+        )
+        params = extension_request_params(
+            scoped_oid,
+            "push",
+            {"config": json.dumps(checked_config, sort_keys=True), "options": options},
+        )
+        return self._preview_mutation(
+            operation="config.push",
+            oid=scoped_oid,
+            method="POST",
+            path="extension/request/ext-infrastructure",
+            resource_type="infrastructure_config",
+            resource_id=scoped_oid,
+            params=params,
+            expected_effect="Push infrastructure configuration through ext-infrastructure.",
+            reversibility="Restore from a prior config export, or use is_dry_run before applying.",
+            side_effect_type="infrastructure_config_pushed",
+            token_ttl_seconds=token_ttl_seconds,
+            parent_oid=scoped_oid,
+        )
+
+    def list_exfil_rules(self, oid: str) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        return self._request(
+            "POST",
+            f"service/{scoped_oid}/exfil",
+            operation="exfil_rule.list",
+            oid=scoped_oid,
+            resource={"type": "exfil_rule_collection", "id": scoped_oid},
+            params=service_request_params({"action": "list_rules"}),
+        ).as_dict()
+
+    def preview_create_exfil_watch(
+        self,
+        oid: str,
+        name: str,
+        event: str,
+        value: str,
+        operator: str,
+        path: str | list[str],
+        tags: list[str] | str | None = None,
+        platforms: list[str] | str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        safe_name = require_token(name, "name")
+        request_data: dict[str, Any] = {
+            "action": "add_watch",
+            "name": safe_name,
+            "event": require_token(event, "event"),
+            "value": require_token(value, "value"),
+            "operator": require_token(operator, "operator"),
+            "path": require_exfil_path(path),
+        }
+        checked_tags = require_string_list(tags, "tags")
+        if checked_tags:
+            request_data["tags"] = checked_tags
+        checked_platforms = require_string_list(platforms, "platforms")
+        if checked_platforms:
+            request_data["platforms"] = checked_platforms
+        return self._preview_service_request(
+            operation="exfil_watch.create",
+            oid=oid,
+            service="exfil",
+            request_data=request_data,
+            resource_type="exfil_watch",
+            resource_id=safe_name,
+            expected_effect=f"Create exfil watch rule {safe_name!r}.",
+            reversibility="Delete the exfil watch rule if creation was unintended.",
+            side_effect_type="exfil_watch_created",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_create_exfil_event(
+        self,
+        oid: str,
+        name: str,
+        events: list[str] | str,
+        tags: list[str] | str | None = None,
+        platforms: list[str] | str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        safe_name = require_token(name, "name")
+        checked_events = require_string_list(events, "events")
+        if not checked_events:
+            raise ValidationError("events are required")
+        request_data: dict[str, Any] = {"action": "add_event_rule", "name": safe_name, "events": checked_events}
+        checked_tags = require_string_list(tags, "tags")
+        if checked_tags:
+            request_data["tags"] = checked_tags
+        checked_platforms = require_string_list(platforms, "platforms")
+        if checked_platforms:
+            request_data["platforms"] = checked_platforms
+        return self._preview_service_request(
+            operation="exfil_event.create",
+            oid=oid,
+            service="exfil",
+            request_data=request_data,
+            resource_type="exfil_event_rule",
+            resource_id=safe_name,
+            expected_effect=f"Create exfil event rule {safe_name!r}.",
+            reversibility="Delete the exfil event rule if creation was unintended.",
+            side_effect_type="exfil_event_created",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_delete_exfil_event(self, oid: str, name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        safe_name = require_token(name, "name")
+        return self._preview_service_request(
+            operation="exfil_event.delete",
+            oid=oid,
+            service="exfil",
+            request_data={"action": "remove_event_rule", "name": safe_name},
+            resource_type="exfil_event_rule",
+            resource_id=safe_name,
+            expected_effect=f"Delete exfil event rule {safe_name!r}.",
+            reversibility="Recreate the exfil event rule from a known-good backup.",
+            side_effect_type="exfil_event_deleted",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_delete_exfil_watch(self, oid: str, name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        safe_name = require_token(name, "name")
+        return self._preview_service_request(
+            operation="exfil_watch.delete",
+            oid=oid,
+            service="exfil",
+            request_data={"action": "remove_watch", "name": safe_name},
+            resource_type="exfil_watch",
+            resource_id=safe_name,
+            expected_effect=f"Delete exfil watch rule {safe_name!r}.",
+            reversibility="Recreate the exfil watch rule from a known-good backup.",
+            side_effect_type="exfil_watch_deleted",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
     def list_schemas(self, oid: str, platform: str | None = None, limit: int = 100) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         bounded_limit = require_limit(limit)
@@ -4948,6 +5485,125 @@ class LimaCharlieAPI:
             oid=scoped_oid,
             resource={"type": "quota_usage", "id": scoped_oid},
         ).as_dict()
+
+    def check_org_name(self, name: str) -> dict[str, Any]:
+        safe_name = require_org_name(name)
+        return self._request(
+            "GET",
+            "orgs/new",
+            operation="org.name.check",
+            oid="-",
+            resource={"type": "organization_name", "id": safe_name},
+            params={"name": safe_name},
+        ).as_dict()
+
+    def preview_create_org(
+        self,
+        name: str,
+        location: str | None = None,
+        template: str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        safe_name = require_org_name(name)
+        params: dict[str, Any] = {"name": safe_name}
+        if location:
+            params["loc"] = require_token(location, "location")
+        if template:
+            params["template"] = require_token(template, "template")
+        return self._preview_mutation(
+            operation="org.create",
+            oid="-",
+            method="POST",
+            path="orgs/new",
+            resource_type="organization",
+            resource_id=safe_name,
+            params=params,
+            expected_effect=f"Create organization {safe_name!r}.",
+            reversibility="Delete the new organization if creation was unintended.",
+            side_effect_type="org_created",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def get_org_config_value(self, oid: str, config_name: str) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_name = require_path_segment(config_name, "config_name")
+        return self._request(
+            "GET",
+            f"configs/{scoped_oid}/{quote(safe_name, safe='')}",
+            operation="org.config.get",
+            oid=scoped_oid,
+            resource={"type": "organization_config_value", "id": safe_name, "parent": {"type": "organization", "id": scoped_oid}},
+        ).as_dict()
+
+    def preview_set_org_config_value(
+        self,
+        oid: str,
+        config_name: str,
+        value: str,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_name = require_path_segment(config_name, "config_name")
+        safe_value = require_config_value(value)
+        return self._preview_mutation(
+            operation="org.config.set",
+            oid=scoped_oid,
+            method="POST",
+            path=f"configs/{scoped_oid}/{quote(safe_name, safe='')}",
+            resource_type="organization_config_value",
+            resource_id=safe_name,
+            params={"value": safe_value},
+            expected_effect=f"Set org config value {safe_name!r}.",
+            reversibility="Set the config value back to its prior value if needed.",
+            side_effect_type="org_config_value_set",
+            token_ttl_seconds=token_ttl_seconds,
+            parent_oid=scoped_oid,
+        )
+
+    def preview_dismiss_org_error(self, oid: str, component: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_component = require_path_segment(component, "component")
+        return self._preview_mutation(
+            operation="org.error.dismiss",
+            oid=scoped_oid,
+            method="DELETE",
+            path=f"errors/{scoped_oid}/{quote(safe_component, safe='')}",
+            resource_type="organization_error",
+            resource_id=safe_component,
+            expected_effect=f"Dismiss org error component {safe_component!r}.",
+            reversibility="Dismissal only affects the current error record; wait for the component to emit a new error if it recurs.",
+            side_effect_type="org_error_dismissed",
+            token_ttl_seconds=token_ttl_seconds,
+            parent_oid=scoped_oid,
+        )
+
+    def get_org_delete_confirmation(self, oid: str) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        return self._request(
+            "GET",
+            f"orgs/{scoped_oid}/delete",
+            operation="org.delete.confirmation",
+            oid=scoped_oid,
+            resource={"type": "organization_delete_confirmation", "id": scoped_oid},
+        ).as_dict()
+
+    def preview_delete_org(self, oid: str, confirmation: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_confirmation = require_token(confirmation, "confirmation")
+        return self._preview_mutation(
+            operation="org.delete",
+            oid=scoped_oid,
+            method="DELETE",
+            path=f"orgs/{scoped_oid}/delete",
+            resource_type="organization",
+            resource_id=scoped_oid,
+            params={"confirmation": safe_confirmation},
+            expected_effect=f"Delete organization {scoped_oid}.",
+            reversibility="Organization deletion is not generally reversible.",
+            side_effect_type="org_deleted",
+            token_ttl_seconds=token_ttl_seconds,
+            parent_oid=scoped_oid,
+        )
 
     def preview_set_org_quota(self, oid: str, quota: int, token_ttl_seconds: int = 300) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
@@ -7070,6 +7726,7 @@ class LimaCharlieAPI:
         reversibility: str,
         side_effect_type: str,
         token_ttl_seconds: int,
+        is_async: bool = False,
     ) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         token_ttl = require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900)
@@ -7079,7 +7736,7 @@ class LimaCharlieAPI:
             method="POST",
             path=f"service/{scoped_oid}/{service}",
             resource={"type": resource_type, "id": resource_id, "parent": {"type": "organization", "id": scoped_oid}},
-            params=service_request_params(request_data),
+            params=service_request_params(request_data, is_async=is_async),
             data=None,
             json_body=None,
             expected_effect=expected_effect,

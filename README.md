@@ -84,6 +84,12 @@ renaming tools.
 | `lc_list_tags` | List tags observed across sensors in an org. |
 | `lc_find_sensors_by_tag` | Find sensors with a specific tag. |
 | `lc_find_sensors_by_hostname` | Find sensors by hostname prefix. |
+| `lc_export_sensors` | Export the full sensor manifest for an org. |
+| `lc_preview_set_sensor_version` | Preview changing org sensor version policy. |
+| `lc_list_available_services` | List services/replicants available to an org. |
+| `lc_preview_service_request` | Preview a generic non-impersonated service request. |
+| `lc_fetch_config` | Fetch org IaC configuration through ext-infrastructure. |
+| `lc_preview_push_config` | Preview pushing org IaC configuration through ext-infrastructure. |
 | `lc_list_cases` | List cases for an explicit org with filters and pagination. |
 | `lc_get_case` | Fetch one case by case number. |
 | `lc_preview_create_case` | Preview creating a case through ext-cases. |
@@ -128,6 +134,13 @@ renaming tools.
 | `lc_get_org_urls` | Fetch service URLs for sensors, adapters, webhooks, replay, and related connectivity. |
 | `lc_get_runtime_metadata` | Fetch runtime metadata, optionally filtered by entity type/name. |
 | `lc_get_quota_usage` | Fetch enforced quota usage for capacity checks. |
+| `lc_check_org_name` | Check whether an organization name is available. |
+| `lc_preview_create_org` | Preview creating a new organization. |
+| `lc_get_org_config_value` | Fetch one organization config value. |
+| `lc_preview_set_org_config_value` | Preview setting one organization config value. |
+| `lc_preview_dismiss_org_error` | Preview dismissing one organization component error. |
+| `lc_get_org_delete_confirmation` | Request the LimaCharlie org delete confirmation token. |
+| `lc_preview_delete_org` | Preview deleting an organization with a confirmation token. |
 | `lc_preview_set_org_quota` | Preview setting an org sensor quota. |
 | `lc_preview_rename_org` | Preview renaming an org. |
 | `lc_get_billing_status` | Fetch current billing status. |
@@ -217,6 +230,11 @@ renaming tools.
 | `lc_get_yara_source` | Fetch one YARA source. |
 | `lc_preview_set_yara_source` | Preview creating or updating a YARA source. |
 | `lc_preview_delete_yara_source` | Preview deleting a YARA source. |
+| `lc_list_exfil_rules` | List exfil prevention rules. |
+| `lc_preview_create_exfil_watch` | Preview creating an exfil watch rule. |
+| `lc_preview_create_exfil_event` | Preview creating an exfil event rule. |
+| `lc_preview_delete_exfil_event` | Preview deleting an exfil event rule. |
+| `lc_preview_delete_exfil_watch` | Preview deleting an exfil watch rule. |
 
 ### Response
 
@@ -237,10 +255,11 @@ renaming tools.
 
 Mutations are available only through the preview/confirm contract. Current
 typed previews cover sensor response actions, job deletion, sensor tags,
-case lifecycle/investigation/config/tag changes, administration writes,
-extension requests, and artifact/logging/D&R/false-positive/integrity/YARA
-content changes. Remaining specialized streaming/sync surfaces stay gated until
-they have typed preview/confirm tools or bounded read contracts with
+sensor version policy, case lifecycle/investigation/config/tag changes,
+administration writes, extension/service/config-sync requests, and
+artifact/logging/D&R/false-positive/integrity/YARA/exfil content changes.
+Remaining specialized streaming and multi-request helper surfaces stay gated
+until they have typed preview/confirm tools or bounded read contracts with
 request-shape tests.
 
 ## Agent Experience Contract

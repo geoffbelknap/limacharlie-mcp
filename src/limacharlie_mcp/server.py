@@ -1048,6 +1048,211 @@ def lc_find_sensors_by_hostname(oid: str, hostname: str, limit: int = 100) -> di
 
 
 @mcp.tool()
+def lc_export_sensors(oid: str) -> dict:
+    """Export the full sensor manifest for an org."""
+
+    return _call("sensor.export", lc.export_sensors, oid=oid)
+
+
+@mcp.tool()
+def lc_preview_set_sensor_version(
+    oid: str,
+    version: str | None = None,
+    is_fallback: bool = False,
+    is_sleep: bool = False,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview changing the org sensor version policy."""
+
+    return _call(
+        "sensor.version.set.preview",
+        lc.preview_set_sensor_version,
+        oid=oid,
+        version=version,
+        is_fallback=is_fallback,
+        is_sleep=is_sleep,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_list_available_services(oid: str, limit: int = 100) -> dict:
+    """List services/replicants available to an org."""
+
+    return _call("service.list", lc.list_available_services, oid=oid, limit=limit)
+
+
+@mcp.tool()
+def lc_preview_service_request(
+    oid: str,
+    service_name: str,
+    request_data: dict[str, Any],
+    is_async: bool = False,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview a generic non-impersonated service request."""
+
+    return _call(
+        "service.request.preview",
+        lc.preview_service_request,
+        oid=oid,
+        service_name=service_name,
+        request_data=request_data,
+        is_async=is_async,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_fetch_config(
+    oid: str,
+    sync_outputs: bool = False,
+    sync_integrity: bool = False,
+    sync_artifact: bool = False,
+    sync_exfil: bool = False,
+    sync_resources: bool = False,
+    sync_extensions: bool = False,
+    sync_org_values: bool = False,
+    sync_hives: dict[str, bool] | None = None,
+    sync_installation_keys: bool = False,
+    sync_yara: bool = False,
+) -> dict:
+    """Fetch org IaC configuration through ext-infrastructure."""
+
+    return _call(
+        "config.fetch",
+        lc.fetch_config,
+        oid=oid,
+        sync_outputs=sync_outputs,
+        sync_integrity=sync_integrity,
+        sync_artifact=sync_artifact,
+        sync_exfil=sync_exfil,
+        sync_resources=sync_resources,
+        sync_extensions=sync_extensions,
+        sync_org_values=sync_org_values,
+        sync_hives=sync_hives,
+        sync_installation_keys=sync_installation_keys,
+        sync_yara=sync_yara,
+    )
+
+
+@mcp.tool()
+def lc_preview_push_config(
+    oid: str,
+    config: dict[str, Any],
+    is_force: bool = False,
+    is_dry_run: bool = False,
+    ignore_inaccessible: bool = False,
+    sync_outputs: bool = False,
+    sync_integrity: bool = False,
+    sync_artifact: bool = False,
+    sync_exfil: bool = False,
+    sync_resources: bool = False,
+    sync_extensions: bool = False,
+    sync_org_values: bool = False,
+    sync_hives: dict[str, bool] | None = None,
+    sync_installation_keys: bool = False,
+    sync_yara: bool = False,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview pushing org IaC configuration through ext-infrastructure."""
+
+    return _call(
+        "config.push.preview",
+        lc.preview_push_config,
+        oid=oid,
+        config=config,
+        is_force=is_force,
+        is_dry_run=is_dry_run,
+        ignore_inaccessible=ignore_inaccessible,
+        sync_outputs=sync_outputs,
+        sync_integrity=sync_integrity,
+        sync_artifact=sync_artifact,
+        sync_exfil=sync_exfil,
+        sync_resources=sync_resources,
+        sync_extensions=sync_extensions,
+        sync_org_values=sync_org_values,
+        sync_hives=sync_hives,
+        sync_installation_keys=sync_installation_keys,
+        sync_yara=sync_yara,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_list_exfil_rules(oid: str) -> dict:
+    """List exfil prevention rules."""
+
+    return _call("exfil_rule.list", lc.list_exfil_rules, oid=oid)
+
+
+@mcp.tool()
+def lc_preview_create_exfil_watch(
+    oid: str,
+    name: str,
+    event: str,
+    value: str,
+    operator: str,
+    path: str | list[str],
+    tags: list[str] | str | None = None,
+    platforms: list[str] | str | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview creating an exfil watch rule."""
+
+    return _call(
+        "exfil_watch.create.preview",
+        lc.preview_create_exfil_watch,
+        oid=oid,
+        name=name,
+        event=event,
+        value=value,
+        operator=operator,
+        path=path,
+        tags=tags,
+        platforms=platforms,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_preview_create_exfil_event(
+    oid: str,
+    name: str,
+    events: list[str] | str,
+    tags: list[str] | str | None = None,
+    platforms: list[str] | str | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview creating an exfil event rule."""
+
+    return _call(
+        "exfil_event.create.preview",
+        lc.preview_create_exfil_event,
+        oid=oid,
+        name=name,
+        events=events,
+        tags=tags,
+        platforms=platforms,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_preview_delete_exfil_event(oid: str, name: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview deleting an exfil event rule."""
+
+    return _call("exfil_event.delete.preview", lc.preview_delete_exfil_event, oid=oid, name=name, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_delete_exfil_watch(oid: str, name: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview deleting an exfil watch rule."""
+
+    return _call("exfil_watch.delete.preview", lc.preview_delete_exfil_watch, oid=oid, name=name, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
 def lc_list_schemas(oid: str, platform: str | None = None, limit: int = 100) -> dict:
     """List event schemas for an org, optionally filtered by platform."""
 
@@ -1134,6 +1339,74 @@ def lc_get_quota_usage(oid: str) -> dict:
     """Fetch enforced quota usage for an explicit org."""
 
     return _call("org.quota_usage", lc.get_quota_usage, oid=oid)
+
+
+@mcp.tool()
+def lc_check_org_name(name: str) -> dict:
+    """Check whether an organization name is available."""
+
+    return _call("org.name.check", lc.check_org_name, name=name)
+
+
+@mcp.tool()
+def lc_preview_create_org(
+    name: str,
+    location: str | None = None,
+    template: str | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview creating a new organization."""
+
+    return _call(
+        "org.create.preview",
+        lc.preview_create_org,
+        name=name,
+        location=location,
+        template=template,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_get_org_config_value(oid: str, config_name: str) -> dict:
+    """Get one organization config value."""
+
+    return _call("org.config.get", lc.get_org_config_value, oid=oid, config_name=config_name)
+
+
+@mcp.tool()
+def lc_preview_set_org_config_value(oid: str, config_name: str, value: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview setting one organization config value."""
+
+    return _call(
+        "org.config.set.preview",
+        lc.preview_set_org_config_value,
+        oid=oid,
+        config_name=config_name,
+        value=value,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_preview_dismiss_org_error(oid: str, component: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview dismissing one organization component error."""
+
+    return _call("org.error.dismiss.preview", lc.preview_dismiss_org_error, oid=oid, component=component, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_get_org_delete_confirmation(oid: str) -> dict:
+    """Request the LimaCharlie organization delete confirmation token."""
+
+    return _call("org.delete.confirmation", lc.get_org_delete_confirmation, oid=oid)
+
+
+@mcp.tool()
+def lc_preview_delete_org(oid: str, confirmation: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview deleting an organization using a LimaCharlie confirmation token."""
+
+    return _call("org.delete.preview", lc.preview_delete_org, oid=oid, confirmation=confirmation, token_ttl_seconds=token_ttl_seconds)
 
 
 @mcp.tool()

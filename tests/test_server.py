@@ -56,6 +56,13 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
         "lc_get_org_urls",
         "lc_get_runtime_metadata",
         "lc_get_quota_usage",
+        "lc_check_org_name",
+        "lc_preview_create_org",
+        "lc_get_org_config_value",
+        "lc_preview_set_org_config_value",
+        "lc_preview_dismiss_org_error",
+        "lc_get_org_delete_confirmation",
+        "lc_preview_delete_org",
         "lc_preview_set_org_quota",
         "lc_preview_rename_org",
         "lc_get_billing_status",
@@ -140,6 +147,17 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
         "lc_preview_set_case_tags",
         "lc_preview_add_case_tags",
         "lc_preview_remove_case_tags",
+        "lc_export_sensors",
+        "lc_preview_set_sensor_version",
+        "lc_list_available_services",
+        "lc_preview_service_request",
+        "lc_fetch_config",
+        "lc_preview_push_config",
+        "lc_list_exfil_rules",
+        "lc_preview_create_exfil_watch",
+        "lc_preview_create_exfil_event",
+        "lc_preview_delete_exfil_event",
+        "lc_preview_delete_exfil_watch",
         "lc_validate_search_query",
         "lc_estimate_search_query",
         "lc_execute_search_query",
@@ -193,6 +211,12 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
     runtime_schema = tools["lc_get_runtime_metadata"]["inputSchema"]
     assert set(runtime_schema["required"]) == {"oid"}
     assert runtime_schema["properties"]["limit"]["default"] == 100
+    org_name_schema = tools["lc_check_org_name"]["inputSchema"]
+    assert set(org_name_schema["required"]) == {"name"}
+    org_config_schema = tools["lc_preview_set_org_config_value"]["inputSchema"]
+    assert set(org_config_schema["required"]) == {"oid", "config_name", "value"}
+    org_delete_schema = tools["lc_preview_delete_org"]["inputSchema"]
+    assert set(org_delete_schema["required"]) == {"oid", "confirmation"}
     group_schema = tools["lc_get_group"]["inputSchema"]
     assert set(group_schema["required"]) == {"group_id"}
     create_group_schema = tools["lc_preview_create_group"]["inputSchema"]
@@ -234,6 +258,14 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
     assert set(cases_config_schema["required"]) == {"oid", "config"}
     case_tag_schema = tools["lc_preview_set_case_tags"]["inputSchema"]
     assert set(case_tag_schema["required"]) == {"oid", "case_number", "tags"}
+    service_schema = tools["lc_preview_service_request"]["inputSchema"]
+    assert set(service_schema["required"]) == {"oid", "service_name", "request_data"}
+    push_config_schema = tools["lc_preview_push_config"]["inputSchema"]
+    assert set(push_config_schema["required"]) == {"oid", "config"}
+    exfil_watch_schema = tools["lc_preview_create_exfil_watch"]["inputSchema"]
+    assert set(exfil_watch_schema["required"]) == {"oid", "name", "event", "value", "operator", "path"}
+    exfil_event_schema = tools["lc_preview_create_exfil_event"]["inputSchema"]
+    assert set(exfil_event_schema["required"]) == {"oid", "name", "events"}
     search_execute_schema = tools["lc_execute_search_query"]["inputSchema"]
     assert set(search_execute_schema["required"]) == {"oid", "query", "start", "end"}
     search_poll_schema = tools["lc_poll_search_query"]["inputSchema"]

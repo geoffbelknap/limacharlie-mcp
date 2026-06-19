@@ -21,6 +21,15 @@ to any external product runtime or schema.
 - Every tool call should leave an auditable local trace.
 - Tool outputs must be bounded by limits or explicit time windows.
 
+## Documentation Boundary
+
+- Keep user-facing setup, auth, operation, and troubleshooting docs in this
+  repo.
+- Keep internal implementation plans, AX reviews, coverage matrices, tool
+  contracts, and work tracking in the LimaCharlie MCP Notion space:
+  https://app.notion.com/p/384bc6319c93816d92f3db88b86f8f19
+- Do not add internal roadmap or process notes under `docs/`.
+
 ## Agent Experience Rules
 
 - Preserve the standard response envelope: `ok`, `operation`, `request_id`,

@@ -220,13 +220,11 @@ python -m pytest tests/ -q
 
 The tests do not require LimaCharlie credentials or network access.
 
-## Surface Plan
+## Documentation Boundary
 
-See [docs/surface-map.md](docs/surface-map.md) for the implemented/planned
-coverage map across investigation, administration, response, content, and AI
-automation surfaces. See [docs/ax-review.md](docs/ax-review.md) for the AX
-Optimizer scorecard and refactor roadmap. See [docs/sdk-coverage.md](docs/sdk-coverage.md)
-for module-by-module coverage against the installed LimaCharlie SDK.
+User-facing setup and auth docs live in this repo. Internal coverage matrices,
+AX reviews, tool contracts, implementation plans, and work tracking live in the
+[LimaCharlie MCP Notion space](https://app.notion.com/p/384bc6319c93816d92f3db88b86f8f19).
 
 ## References
 
@@ -234,4 +232,4 @@ for module-by-module coverage against the installed LimaCharlie SDK.
 - AI assistant setup: https://docs.limacharlie.io/6-developer-guide/mcp-server/
 - Python SDK docs: https://docs.limacharlie.io/6-developer-guide/sdks/python-sdk-v4/
 - API key docs: https://docs.limacharlie.io/7-administration/access/api-keys/
-- AX notes: [docs/agent-experience.md](docs/agent-experience.md)
+- Onboarding and auth: [docs/onboarding-auth.md](docs/onboarding-auth.md)

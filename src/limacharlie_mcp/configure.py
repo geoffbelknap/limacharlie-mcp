@@ -109,6 +109,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--yes", action="store_true", help="Fail on missing values instead of prompting.")
     parser.add_argument("--no-live", action="store_true", help="Do not call LimaCharlie after writing config.")
     parser.add_argument("--skip-doctor", action="store_true", help="Skip the post-config auth doctor run.")
+    parser.add_argument("--json", action="store_true", help="Print the full structured configuration result as JSON.")
+    parser.add_argument("--verbose", action="store_true", help="Include nonsecret config details in human-readable output.")
     return parser.parse_args(argv)
 
 
@@ -163,8 +165,8 @@ def build_config_values(
     return values
 
 
-def run_configure(argv: list[str] | None = None) -> dict[str, Any]:
-    args = parse_args(argv)
+def run_configure(argv: list[str] | argparse.Namespace | None = None) -> dict[str, Any]:
+    args = argv if isinstance(argv, argparse.Namespace) else parse_args(argv)
     config_path, _ = resolve_config_path(args.config)
     existing_config = load_runtime_config(config_path) if config_path.exists() else {}
     default_token = args.token_file or default_token_file()
@@ -257,26 +259,101 @@ def run_configure(argv: list[str] | None = None) -> dict[str, Any]:
     return result
 
 
+def _check_ok(doctor: dict[str, Any] | None, step: str) -> bool:
+    if not isinstance(doctor, dict):
+        return False
+    checks = doctor.get("checks")
+    if not isinstance(checks, list):
+        return False
+    return any(isinstance(check, dict) and check.get("step") == step and check.get("ok") for check in checks)
+
+
+def _format_human_result(result: dict[str, Any], args: argparse.Namespace) -> str:
+    auth_mode = str(result.get("auth_mode") or "")
+    key_label = "user API key" if auth_mode == "user_api_key" else "organization API key"
+    doctor = result.get("doctor") if isinstance(result.get("doctor"), dict) else None
+    oid = None
+    if isinstance(doctor, dict):
+        config = doctor.get("config")
+        if isinstance(config, dict) and config.get("oid_present"):
+            oid = args.oid
+
+    lines = ["Configured LimaCharlie MCP auth.", ""]
+    if result.get("managed_vault"):
+        lines.append(f"[OK] Stored the LimaCharlie {key_label} in managed local Vault")
+    else:
+        lines.append(f"[OK] Stored the LimaCharlie {key_label} in the configured Vault")
+    lines.append("[OK] Wrote local MCP config")
+
+    if doctor is None:
+        lines.append("- Skipped auth verification")
+    else:
+        if _check_ok(doctor, "auth_refresh_org_scoped"):
+            lines.append("[OK] Verified JWT refresh")
+        elif args.no_live:
+            lines.append("- Skipped live JWT refresh check")
+        else:
+            lines.append("- JWT refresh check did not complete")
+
+        if _check_ok(doctor, "get_org_info"):
+            suffix = f" {oid}" if oid else ""
+            lines.append(f"[OK] Verified access to org{suffix}")
+        elif args.no_live:
+            lines.append("- Skipped live org access check")
+
+    if args.verbose:
+        lines.extend(
+            [
+                "",
+                f"Config: {result.get('config_path')}",
+                f"Auth mode: {result.get('auth_mode')}",
+                f"Credential store: {'managed local Vault' if result.get('managed_vault') else 'external Vault'}",
+            ]
+        )
+
+    lines.extend(
+        [
+            "",
+            "Next:",
+            "1. Start a new Codex or Claude chat with the LimaCharlie MCP plugin enabled.",
+            "2. Run lc_auth_status.",
+            "3. Run lc_review_org_posture or lc_list_sensors.",
+        ]
+    )
+    return "\n".join(lines)
+
+
 def main(argv: list[str] | None = None) -> None:
+    args = parse_args(argv)
     try:
-        result = run_configure(argv)
+        result = run_configure(args)
     except ValueError as exc:
-        print(json.dumps({"ok": False, "error": str(exc)}, indent=2), file=sys.stderr)
+        if args.json:
+            print(json.dumps({"ok": False, "error": str(exc)}, indent=2), file=sys.stderr)
+        else:
+            print(f"Configuration failed: {exc}", file=sys.stderr)
         raise SystemExit(1) from exc
     except Exception as exc:
-        print(
-            json.dumps(
-                {
-                    "ok": False,
-                    "error": "LimaCharlie MCP configuration failed.",
-                    "error_type": type(exc).__name__,
-                },
-                indent=2,
-            ),
-            file=sys.stderr,
-        )
+        if args.json:
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "error": "LimaCharlie MCP configuration failed.",
+                        "error_type": type(exc).__name__,
+                    },
+                    indent=2,
+                ),
+                file=sys.stderr,
+            )
+        else:
+            detail = f" ({type(exc).__name__})" if args.verbose else ""
+            print(f"Configuration failed: LimaCharlie MCP configuration failed.{detail}", file=sys.stderr)
         raise SystemExit(1) from exc
-    print(json.dumps(result, indent=2, sort_keys=True))
+    if args.json:
+        print(json.dumps(result, indent=2, sort_keys=True))
+    else:
+        print(_format_human_result(result, args))
     if not result["ok"]:
         raise SystemExit(2)
 

@@ -64,6 +64,11 @@ limacharlie-mcp-configure \
   --oid "263c19e9-bd4a-475a-8cd3-5403af446cb9"
 ```
 
+Expected success output is a short checklist: the key was stored in managed
+local Vault, local MCP config was written, JWT refresh was verified, and org
+access was verified. Use `--json` only when a script needs the full structured
+configuration result.
+
 For unattended setup, provide all values and pipe the key from an approved
 secret manager:
 

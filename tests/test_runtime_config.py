@@ -195,6 +195,126 @@ def test_configure_defaults_to_managed_local_vault(
     assert saved["api_key_ref"] == "vault://secret/data/limacharlie/mcp#api_key"
 
 
+def test_configure_cli_prints_human_success_by_default(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    clear_lc_env(monkeypatch)
+    config = tmp_path / "config.json"
+    root_token_file = tmp_path / "vault" / "root-token"
+    runtime_token_file = tmp_path / "vault" / "runtime-token"
+    root_token_file.parent.mkdir()
+    root_token_file.write_text("root-token", encoding="utf-8")
+    runtime_token_file.write_text("runtime-token", encoding="utf-8")
+
+    monkeypatch.setattr(
+        configure_module,
+        "ensure_managed_vault",
+        lambda mapping=None: SimpleNamespace(
+            addr="http://127.0.0.1:8220",
+            root_token_file=root_token_file,
+            runtime_token_file=runtime_token_file,
+            started=True,
+            initialized=True,
+            sealed=False,
+        ),
+    )
+    monkeypatch.setattr(
+        configure_module,
+        "run_doctor",
+        lambda *, config_file, live: {
+            "ok": True,
+            "config": {"oid_present": True},
+            "checks": [
+                {"step": "auth_status", "ok": True},
+                {"step": "auth_refresh_org_scoped", "ok": True},
+                {"step": "get_org_info", "ok": True},
+            ],
+            "leak_checks": {},
+        },
+    )
+
+    configure_module.main(
+        [
+            "--config",
+            str(config),
+            "--oid",
+            OID,
+            "--api-key-ref",
+            "vault://secret/data/limacharlie/mcp#api_key",
+            "--skip-vault-write",
+            "--yes",
+        ]
+    )
+
+    output = capsys.readouterr().out
+    assert output.startswith("Configured LimaCharlie MCP auth.")
+    assert "[OK] Stored the LimaCharlie organization API key in managed local Vault" in output
+    assert "[OK] Wrote local MCP config" in output
+    assert "[OK] Verified JWT refresh" in output
+    assert f"[OK] Verified access to org {OID}" in output
+    assert "api_key_ref" not in output
+    assert "vault_token_file" not in output
+    assert "secret/data" not in output
+
+
+def test_configure_cli_json_preserves_structured_output(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    clear_lc_env(monkeypatch)
+    config = tmp_path / "config.json"
+    root_token_file = tmp_path / "vault" / "root-token"
+    runtime_token_file = tmp_path / "vault" / "runtime-token"
+    root_token_file.parent.mkdir()
+    root_token_file.write_text("root-token", encoding="utf-8")
+    runtime_token_file.write_text("runtime-token", encoding="utf-8")
+
+    monkeypatch.setattr(
+        configure_module,
+        "ensure_managed_vault",
+        lambda mapping=None: SimpleNamespace(
+            addr="http://127.0.0.1:8220",
+            root_token_file=root_token_file,
+            runtime_token_file=runtime_token_file,
+            started=True,
+            initialized=True,
+            sealed=False,
+        ),
+    )
+    monkeypatch.setattr(
+        configure_module,
+        "run_doctor",
+        lambda *, config_file, live: {
+            "ok": True,
+            "config": {"oid_present": True},
+            "checks": [{"step": "auth_status", "ok": True}],
+            "leak_checks": {},
+        },
+    )
+
+    configure_module.main(
+        [
+            "--config",
+            str(config),
+            "--oid",
+            OID,
+            "--api-key-ref",
+            "vault://secret/data/limacharlie/mcp#api_key",
+            "--skip-vault-write",
+            "--yes",
+            "--json",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["api_key_ref"] == "vault://secret/data/limacharlie/mcp#api_key"
+    assert payload["managed_vault"] is True
+
+
 def test_configure_managed_vault_writes_lc_key_with_root_token(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

@@ -904,14 +904,19 @@ def test_audit_logs_are_decoded_and_bounded(tmp_path: Path) -> None:
 def test_tag_and_hostname_read_tools_use_expected_paths(tmp_path: Path) -> None:
     fake = FakeHTTP()
     fake.add("GET", f"https://api.limacharlie.io/v1/tags/{OID}", {"tags": ["prod", "windows"]})
+    fake.add("GET", f"https://api.limacharlie.io/v1/{SID}/tags", {"tags": {SID: {"prod": {}, "windows": {}}}})
     fake.add("GET", f"https://api.limacharlie.io/v1/tags/{OID}/prod", {"sensors": [{"sid": SID}]})
     fake.add("GET", f"https://api.limacharlie.io/v1/hostnames/{OID}", {"sensors": [{"sid": SID}]})
     client = make_client(tmp_path, fake)
 
     assert client.list_tags(OID)["data"]["tags"] == ["prod", "windows"]
+    sensor_tags = client.list_sensor_tags(OID, SID)
+    assert sensor_tags["operation"] == "sensor.tag.list"
+    assert sensor_tags["data"]["tags"] == ["prod", "windows"]
+    assert sensor_tags["meta"]["summary"]["tag_count"] == 2
     assert client.find_sensors_by_tag(OID, "prod")["operation"] == "tag.sensor_search"
     assert client.find_sensors_by_hostname(OID, "host")["operation"] == "sensor.hostname_search"
-    assert fake.calls[3]["params"] == {"hostname": "host"}
+    assert fake.calls[4]["params"] == {"hostname": "host"}
 
 
 def test_preview_add_sensor_tag_does_not_call_limacharlie(tmp_path: Path) -> None:

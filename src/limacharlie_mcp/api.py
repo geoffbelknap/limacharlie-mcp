@@ -768,6 +768,16 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "side_effects": "none",
         "notes": "Lists tags observed across sensors in the org.",
     },
+    "sensor.tag.list": {
+        "suite": "investigation",
+        "tool": "lc_list_sensor_tags",
+        "action": "read",
+        "resource_type": "sensor_tag_collection",
+        "required_inputs": ["oid", "sensor_id"],
+        "optional_inputs": [],
+        "side_effects": "none",
+        "notes": "Lists tags applied to one sensor and normalizes legacy tag response shapes.",
+    },
     "tag.sensor_search": {
         "suite": "investigation",
         "tool": "lc_find_sensors_by_tag",
@@ -6286,6 +6296,38 @@ class LimaCharlieAPI:
             resource={"type": "tag_collection", "id": scoped_oid},
             limit=bounded_limit,
         ).as_dict()
+
+    def _normalize_sensor_tags(self, sensor_id: str, payload: Any) -> list[str]:
+        if not isinstance(payload, dict):
+            return []
+        tags_data = payload.get("tags")
+        if isinstance(tags_data, dict):
+            sid_tags = tags_data.get(sensor_id, tags_data)
+            if isinstance(sid_tags, dict):
+                return [str(tag) for tag in sid_tags]
+            if isinstance(sid_tags, list):
+                return [str(tag) for tag in sid_tags]
+            return []
+        if isinstance(tags_data, list):
+            return [str(tag) for tag in tags_data]
+        return []
+
+    def list_sensor_tags(self, oid: str, sensor_id: str) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_sensor_id = require_oid(sensor_id)
+        result = self._request(
+            "GET",
+            f"{safe_sensor_id}/tags",
+            operation="sensor.tag.list",
+            oid=scoped_oid,
+            resource={"type": "sensor_tag_collection", "id": safe_sensor_id, "parent": {"type": "organization", "id": scoped_oid}},
+        ).as_dict()
+        if result.get("ok"):
+            raw = result.get("data")
+            tags = self._normalize_sensor_tags(safe_sensor_id, raw)
+            result["data"] = {"sid": safe_sensor_id, "tags": tags, "raw": raw}
+            result["meta"]["summary"]["tag_count"] = len(tags)
+        return result
 
     def find_sensors_by_tag(self, oid: str, tag: str, limit: int = 100) -> dict[str, Any]:
         scoped_oid = require_oid(oid)

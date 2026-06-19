@@ -90,6 +90,7 @@ renaming tools.
 | `lc_get_vulnerability_epss_history` | Fetch EPSS score history for one CVE. |
 | `lc_list_audit_logs` | List one bounded page of audit logs for a time window. |
 | `lc_list_tags` | List tags observed across sensors in an org. |
+| `lc_list_sensor_tags` | List tags applied to one sensor. |
 | `lc_find_sensors_by_tag` | Find sensors with a specific tag. |
 | `lc_find_sensors_by_hostname` | Find sensors by hostname prefix. |
 | `lc_export_sensors` | Export the full sensor manifest for an org. |

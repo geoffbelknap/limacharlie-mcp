@@ -1197,6 +1197,13 @@ def lc_list_tags(oid: str, limit: int = 100) -> dict:
 
 
 @mcp.tool()
+def lc_list_sensor_tags(oid: str, sensor_id: str) -> dict:
+    """List tags applied to one sensor."""
+
+    return _call("sensor.tag.list", lc.list_sensor_tags, oid=oid, sensor_id=sensor_id)
+
+
+@mcp.tool()
 def lc_find_sensors_by_tag(oid: str, tag: str, limit: int = 100) -> dict:
     """Find sensors with a specific tag."""
 

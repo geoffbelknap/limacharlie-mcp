@@ -55,6 +55,7 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
         "lc_preview_reliable_task",
         "lc_preview_delete_reliable_task",
         "lc_list_audit_logs",
+        "lc_list_sensor_tags",
         "lc_list_yara_rules",
         "lc_list_fp_rules",
         "lc_list_schemas",
@@ -315,6 +316,8 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
     assert set(preview_tag_schema["required"]) == {"oid", "sensor_id", "tag"}
     assert preview_tag_schema["properties"]["ttl_seconds"]["default"] == 0
     assert preview_tag_schema["properties"]["token_ttl_seconds"]["default"] == 300
+    sensor_tags_schema = tools["lc_list_sensor_tags"]["inputSchema"]
+    assert set(sensor_tags_schema["required"]) == {"oid", "sensor_id"}
     runtime_schema = tools["lc_get_runtime_metadata"]["inputSchema"]
     assert set(runtime_schema["required"]) == {"oid"}
     assert runtime_schema["properties"]["limit"]["default"] == 100

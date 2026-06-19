@@ -1,15 +1,19 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+import os
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
+from .profiles import DEFAULT_PROFILE, normalize_profile, tool_names_for_profile
 from .api import ValidationError, client_from_env, input_error_response
+from .api import OPERATION_CATALOG
 
 
 mcp = FastMCP("limacharlie")
 lc = client_from_env()
+_ACTIVE_PROFILE = DEFAULT_PROFILE
 
 
 def _call(operation: str, fn: Callable[..., dict[str, Any]], **kwargs: Any) -> dict[str, Any]:
@@ -20,10 +24,10 @@ def _call(operation: str, fn: Callable[..., dict[str, Any]], **kwargs: Any) -> d
 
 
 @mcp.tool()
-def lc_tool_catalog() -> dict:
+def lc_tool_catalog(profile: str | None = None) -> dict:
     """Describe LimaCharlie MCP tools, inputs, bounds, side effects, and use cases."""
 
-    return lc.tool_catalog()
+    return lc.tool_catalog(profile=profile or _ACTIVE_PROFILE)
 
 
 @mcp.tool()
@@ -3425,5 +3429,61 @@ def lc_cancel_mutation(confirmation_token: str) -> dict:
     return _call("mutation.cancel", lc.cancel_mutation, confirmation_token=confirmation_token)
 
 
-def main() -> None:
+def configure_profile(profile: str | None = None) -> str:
+    """Filter the registered MCP tools to one named profile."""
+
+    global _ACTIVE_PROFILE
+
+    selected = normalize_profile(profile or os.getenv("LC_MCP_PROFILE") or DEFAULT_PROFILE)
+    allowed_tools = tool_names_for_profile(OPERATION_CATALOG, selected)
+    registered_tools = list(mcp._tool_manager._tools.keys())
+    for tool_name in registered_tools:
+        if tool_name not in allowed_tools:
+            mcp.remove_tool(tool_name)
+    _ACTIVE_PROFILE = selected
+    return selected
+
+
+def run_profile(profile: str | None = None) -> None:
+    configure_profile(profile)
     mcp.run()
+
+
+def main() -> None:
+    run_profile()
+
+
+def main_core() -> None:
+    run_profile("core")
+
+
+def main_fleet() -> None:
+    run_profile("fleet")
+
+
+def main_admin() -> None:
+    run_profile("admin")
+
+
+def main_content() -> None:
+    run_profile("content")
+
+
+def main_detect() -> None:
+    run_profile("detect")
+
+
+def main_contain() -> None:
+    run_profile("contain")
+
+
+def main_evict() -> None:
+    run_profile("evict")
+
+
+def main_recover() -> None:
+    run_profile("recover")
+
+
+def main_review() -> None:
+    run_profile("review")

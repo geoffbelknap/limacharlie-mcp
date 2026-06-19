@@ -15,6 +15,8 @@ from urllib.parse import quote
 
 import httpx
 
+from .profiles import filter_operation_catalog, normalize_profile, profile_catalog
+
 
 class HttpClient(Protocol):
     def request(
@@ -4281,27 +4283,32 @@ class LimaCharlieAPI:
             resource={"type": "organization_collection", "id": "-"},
         ).as_dict()
 
-    def tool_catalog(self) -> dict[str, Any]:
+    def tool_catalog(self, profile: str | None = None) -> dict[str, Any]:
+        selected_profile = normalize_profile(profile)
+        operations = filter_operation_catalog(OPERATION_CATALOG, selected_profile)
         return ToolResponse(
             ok=True,
             operation="tool.catalog",
             request_id=f"req_{uuid.uuid4().hex}",
-            resource={"type": "tool_surface", "id": "limacharlie-mcp"},
+            resource={"type": "tool_surface", "id": f"limacharlie-mcp:{selected_profile}"},
             state={},
             data={
                 "server": "limacharlie-mcp",
+                "profile": selected_profile,
                 "transport": "stdio",
                 "auth": "vault_or_env_api_key_jwt_exchange",
                 "credential_provider_default": "vault",
                 "default_mode": "read_only",
-                "operations": OPERATION_CATALOG,
+                "operations": operations,
+                "profiles": profile_catalog(OPERATION_CATALOG),
                 "unsupported_capabilities": UNSUPPORTED_CAPABILITIES,
             },
             side_effects=[],
             warnings=[],
             meta={
                 "summary": {
-                    "operation_count": len(OPERATION_CATALOG),
+                    "profile": selected_profile,
+                    "operation_count": len(operations),
                     "unsupported_capability_count": len(UNSUPPORTED_CAPABILITIES),
                 },
                 "truncated": False,

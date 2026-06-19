@@ -22,6 +22,15 @@ dev = [
 
 [project.scripts]
 limacharlie-mcp = "limacharlie_mcp.server:main"
+limacharlie-mcp-core = "limacharlie_mcp.server:main_core"
+limacharlie-mcp-fleet = "limacharlie_mcp.server:main_fleet"
+limacharlie-mcp-admin = "limacharlie_mcp.server:main_admin"
+limacharlie-mcp-content = "limacharlie_mcp.server:main_content"
+limacharlie-mcp-detect = "limacharlie_mcp.server:main_detect"
+limacharlie-mcp-contain = "limacharlie_mcp.server:main_contain"
+limacharlie-mcp-evict = "limacharlie_mcp.server:main_evict"
+limacharlie-mcp-recover = "limacharlie_mcp.server:main_recover"
+limacharlie-mcp-review = "limacharlie_mcp.server:main_review"
 limacharlie-mcp-auth-doctor = "limacharlie_mcp.auth_doctor:main"
 limacharlie-mcp-vault-bootstrap = "limacharlie_mcp.vault_bootstrap:main"
 

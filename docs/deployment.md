@@ -6,7 +6,7 @@ client, and use Vault as the default credential provider.
 
 ## Model
 
-- The MCP process runs `limacharlie-mcp` from a Python virtual environment.
+- The MCP process runs one profile command from a Python virtual environment.
 - Vault stores the stable LimaCharlie API key.
 - Vault Agent, platform secret mounting, or `vault login` provides a local
   Vault token file.
@@ -15,6 +15,26 @@ client, and use Vault as the default credential provider.
 
 Do not put production LimaCharlie API keys in `.env` files or MCP client
 configuration.
+
+## Choose A Profile
+
+Prefer a focused profile command for the workflow you are enabling:
+
+| Command | Use when |
+| --- | --- |
+| `limacharlie-mcp-core` | The client only needs auth diagnostics and reference discovery. |
+| `limacharlie-mcp-fleet` | The client manages sensor onboarding, tags, installation keys, and fleet health. |
+| `limacharlie-mcp-admin` | The client manages org administration, users, keys, billing, outputs, and extensions. |
+| `limacharlie-mcp-content` | The client maintains rules, YARA, Hive content, lookups, playbooks, and SOPs. |
+| `limacharlie-mcp-detect` | The client investigates detections, events, cases, IOC context, audit, and search results. |
+| `limacharlie-mcp-contain` | The client needs preview/confirm containment or response tasking. |
+| `limacharlie-mcp-evict` | The client needs response tasking plus content/YARA surfaces for eviction work. |
+| `limacharlie-mcp-recover` | The client verifies restored state after an incident and needs guarded recovery actions such as rejoin, unseal, tasking, tagging, spotcheck, or case updates. |
+| `limacharlie-mcp-review` | The client performs read-only posture, admin/operational issue, tuning, and coverage review. |
+| `limacharlie-mcp` | Development or parity audits that intentionally need the full tool surface. |
+
+The `limacharlie-mcp` command also honors `LC_MCP_PROFILE`, but the
+profile-specific commands are clearer in shared MCP client configuration.
 
 ## Install
 
@@ -122,8 +142,8 @@ Production config should contain only nonsecret values:
 ```json
 {
   "mcpServers": {
-    "limacharlie-local": {
-      "command": "/opt/limacharlie-mcp/.venv/bin/limacharlie-mcp",
+    "limacharlie-review": {
+      "command": "/opt/limacharlie-mcp/.venv/bin/limacharlie-mcp-review",
       "env": {
         "LC_SECRET_PROVIDER": "vault",
         "LC_VAULT_ADDR": "https://vault.example.com",

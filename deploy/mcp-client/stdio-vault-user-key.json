@@ -1,7 +1,7 @@
 {
   "mcpServers": {
-    "limacharlie-local": {
-      "command": "/opt/limacharlie-mcp/.venv/bin/limacharlie-mcp",
+    "limacharlie-review": {
+      "command": "/opt/limacharlie-mcp/.venv/bin/limacharlie-mcp-review",
       "env": {
         "LC_SECRET_PROVIDER": "vault",
         "LC_AUTH_MODE": "user_api_key",

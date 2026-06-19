@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import tomllib
 from pathlib import Path
 
 
@@ -28,6 +29,7 @@ def test_mcp_client_templates_use_vault_refs_without_raw_api_keys() -> None:
         config = json.loads(template.read_text(encoding="utf-8"))
         servers = config["mcpServers"]
         for server in servers.values():
+            assert server["command"].endswith("/limacharlie-mcp-review")
             env = server["env"]
             assert env["LC_SECRET_PROVIDER"] == "vault"
             assert "LC_API_KEY" not in env
@@ -51,3 +53,14 @@ def test_vault_policies_split_bootstrap_and_runtime_access() -> None:
     assert '"create", "update", "read"' in bootstrap
     assert "secret/data/limacharlie/mcp" in bootstrap
     assert "secret/data/limacharlie/mcp-user" in bootstrap
+
+
+def test_profile_console_entrypoints_are_registered() -> None:
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    scripts = pyproject["project"]["scripts"]
+
+    assert scripts["limacharlie-mcp"] == "limacharlie_mcp.server:main"
+    for profile in ("core", "fleet", "admin", "content", "detect", "contain", "evict", "recover", "review"):
+        script = f"limacharlie-mcp-{profile}"
+        target = f"limacharlie_mcp.server:main_{profile.replace('-', '_')}"
+        assert scripts[script] == target

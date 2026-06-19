@@ -23,9 +23,27 @@ implementation small and reviewable.
 
 ## Tool Surface
 
-The server exposes one combined MCP with cataloged suites. The split is visible
-in `lc_tool_catalog` and can later become separate server entrypoints without
-renaming tools.
+The implementation covers LimaCharlie broadly, but normal agent sessions should
+use a focused profile instead of loading every tool into context. Each profile
+uses the same API client, auth model, audit log, response envelope, and
+preview/confirm mutation contract.
+
+| Command | Profile | Intended use |
+| --- | --- | --- |
+| `limacharlie-mcp-core` | `core` | Auth, org discovery, runtime status, schemas, ontology, event types, and download references. |
+| `limacharlie-mcp-fleet` | `fleet` | Sensor onboarding, installation keys, tags, online state, and fleet maintenance. |
+| `limacharlie-mcp-admin` | `admin` | Organizations, users, groups, API keys, billing, outputs, extensions, and org configuration. |
+| `limacharlie-mcp-content` | `content` | D&R, false positives, YARA, Hive content, lookups, playbooks, SOPs, and content governance. |
+| `limacharlie-mcp-detect` | `detect` | Bounded detection triage, events, cases, IOC lookups, audit, search, artifacts, and jobs. |
+| `limacharlie-mcp-contain` | `contain` | Endpoint containment, response tasking, reliable tasks, job cancellation, and supporting evidence. |
+| `limacharlie-mcp-evict` | `evict` | Response tasking plus content/YARA surfaces used to remove adversary footholds. |
+| `limacharlie-mcp-recover` | `recover` | Post-incident recovery verification plus guarded rejoin, unseal, tasking, tagging, spotcheck, and case-update previews. |
+| `limacharlie-mcp-review` | `review` | Read-only posture review, operational/admin issue discovery, detection tuning, content coverage, case backlog, and access hygiene. |
+| `limacharlie-mcp` | `full-dev` | Full developer surface for parity work and audits. Not recommended for normal agent sessions. |
+
+You can also run `limacharlie-mcp` with `LC_MCP_PROFILE` set to one of those
+profile names. Call `lc_tool_catalog` after startup to see the active profile,
+available profiles, and the filtered operation catalog.
 
 This MCP intentionally does not expose live telemetry streaming, spout, or
 firehose tools. Historical event, detection, audit, search, replay, and
@@ -515,6 +533,7 @@ connecting the MCP to an agent client.
 | `LC_AI_SESSIONS_ROOT` | `https://ai.limacharlie.io` | AI-session governance API root. |
 | `LC_MCP_TIMEOUT_SECONDS` | `30` | Per-command timeout. |
 | `LC_MCP_AUDIT_LOG` | platform cache dir | JSONL audit log path. |
+| `LC_MCP_PROFILE` | `full-dev` for `limacharlie-mcp`; fixed by profile-specific commands | Optional profile filter: `core`, `fleet`, `admin`, `content`, `detect`, `contain`, `evict`, `recover`, `review`, or `full-dev`. |
 
 The audit log records timestamp, purpose, org ID, HTTP method, URL, query
 parameters, status code, duration, and output size. It does not record

@@ -229,7 +229,18 @@ Do not add a raw provider that returns stable LimaCharlie API keys to agents.
 
 ## Permission Profiles
 
-For read-only investigation, start with:
+For the smallest onboarding smoke test, an organization API key only needs:
+
+- `org.get`
+- `sensor.list`
+- `sensor.get`
+
+That is enough for `limacharlie-mcp-auth-doctor`, `lc_auth_whoami`,
+`lc_get_org_info`, and `lc_list_sensors` to prove the MCP can authenticate and
+reach the target org.
+
+For broader read-only investigation, add only the permissions for the data
+families you expect the MCP to inspect:
 
 - `sensor.list`
 - `sensor.get`
@@ -242,8 +253,17 @@ For read-only investigation, start with:
 - `lookup.get`
 - `audit.get`
 
-For administration inventory, add only the needed read/list permissions for
-API keys, installation keys, outputs, extensions, and org config.
+Some LimaCharlie read/list endpoints are guarded by broader permission names.
+For example, user inventory may require `user.ctrl`, API key inventory may
+require `apikey.ctrl`, AI session and usage inventory may require
+`ai_agent.get`, and Hive-backed secret or lookup inventory may require
+`secret.get.mtd` or `lookup.get.mtd`. Treat those as elevated permissions:
+grant them only to a dedicated MCP key when the matching tool family is needed.
+
+For administration inventory, add only the needed read/list permissions for API
+keys, installation keys, outputs, extensions, and org config. Validate each
+added permission with `lc_auth_whoami` and the specific read tool before adding
+more.
 
 Do not grant write permissions such as `sensor.task`, `sensor.tag`, `dr.set`,
 `dr.del`, `output.set`, or key-management permissions until the matching MCP

@@ -21,6 +21,26 @@ for short-lived LimaCharlie JWTs, refreshes those JWTs automatically, and calls
 the APIs directly. That avoids shelling out to the CLI and keeps the MCP
 implementation small and reviewable.
 
+## Install From Geoff's Plugins
+
+The easiest agent-facing install path is the `geoffs-plugins` marketplace:
+
+```bash
+/plugin marketplace add geoffbelknap/geoffs-plugins
+/plugin install limacharlie-mcp@geoffs-plugins
+```
+
+The marketplace plugin starts MCP profiles with `uvx` from this repository, for
+example:
+
+```bash
+uvx --from git+https://github.com/geoffbelknap/limacharlie-mcp limacharlie-mcp-review
+```
+
+Configure credentials through Vault for deployment before starting profile
+servers. See [Onboarding And Auth](docs/onboarding-auth.md) for the full
+Vault-first setup and local development fallback.
+
 ## Tool Surface
 
 The implementation covers LimaCharlie broadly, but normal agent sessions should

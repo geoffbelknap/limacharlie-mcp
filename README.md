@@ -511,7 +511,9 @@ parameters, status code, duration, and output size. It does not record
 credentials or authorization headers.
 
 See [docs/onboarding-auth.md](docs/onboarding-auth.md) for the onboarding,
-auth, and reauth flow.
+auth, and reauth flow. See [docs/deployment.md](docs/deployment.md) for the
+Vault-first deployment model, Vault policies, Vault Agent token-file example,
+and MCP client config templates.
 
 ## Development
 
@@ -528,6 +530,12 @@ or adding a new tool family:
 python tools/parity/audit_parity.py --fetch-current-docs --format markdown
 ```
 
+Run the full local readiness gate before release or handoff:
+
+```bash
+scripts/readiness-check.sh
+```
+
 ## Documentation Boundary
 
 User-facing setup and auth docs live in this repo. Internal coverage matrices,
@@ -541,3 +549,4 @@ AX reviews, tool contracts, implementation plans, and work tracking live in the
 - Python SDK docs: https://docs.limacharlie.io/6-developer-guide/sdks/python-sdk-v4/
 - API key docs: https://docs.limacharlie.io/7-administration/access/api-keys/
 - Onboarding and auth: [docs/onboarding-auth.md](docs/onboarding-auth.md)
+- Deployment: [docs/deployment.md](docs/deployment.md)

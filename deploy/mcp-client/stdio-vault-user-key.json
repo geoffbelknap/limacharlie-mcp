@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "limacharlie-local": {
+      "command": "/opt/limacharlie-mcp/.venv/bin/limacharlie-mcp",
+      "env": {
+        "LC_SECRET_PROVIDER": "vault",
+        "LC_UID": "your-limacharlie-user-id",
+        "LC_VAULT_ADDR": "https://vault.example.com",
+        "LC_VAULT_TOKEN_FILE": "/run/secrets/limacharlie-mcp-vault-token",
+        "LC_API_KEY_REF": "vault://secret/data/limacharlie/mcp-user#api_key",
+        "LC_MCP_AUDIT_LOG": "/var/log/limacharlie-mcp/audit.jsonl"
+      }
+    }
+  }
+}

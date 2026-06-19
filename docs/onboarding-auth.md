@@ -64,6 +64,9 @@ export LC_API_KEY=your-organization-api-key
 
 Do not use `.env` files for production LimaCharlie API keys.
 
+See [Deployment](deployment.md) for Vault policies, Vault Agent token-file
+setup, and MCP client config templates.
+
 ## What Happens Internally
 
 LimaCharlie REST authentication uses short-lived JWTs. This MCP hides that from

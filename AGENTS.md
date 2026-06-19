@@ -18,6 +18,9 @@ to any external product runtime or schema.
 - Do not guide users to put production LimaCharlie API keys in `.env` files.
   Use the Vault bootstrap helper, Vault Agent, or an approved secret manager
   path instead.
+- Do not add Dockerfiles, Compose files, or container deployment instructions.
+  If isolated local execution is needed during development, use MicroAgent
+  outside the user-facing deployment path.
 - Do not expose live telemetry streaming, spout, or firehose tools. This MCP is
   not a SIEM ingestion path and should not encourage streaming unbounded
   telemetry into an LLM.

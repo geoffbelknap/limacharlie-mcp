@@ -7,9 +7,10 @@ description: Set up or troubleshoot LimaCharlie MCP authentication with Vault-fi
 
 ## Workflow
 
-Use Vault as the default credential store. Do not ask users to paste production
-LimaCharlie API keys into `.env` files or chat. If a local test must use direct
-environment variables, label it as temporary and prefer Vault for deployment.
+Use managed local Vault as the default credential store. Do not ask users to
+bring a Vault instance, paste production LimaCharlie API keys into `.env`
+files, or put keys in chat. If a local test must use direct environment
+variables, label it as temporary and prefer managed Vault for deployment.
 
 1. Identify the intended org and key type:
    - Prefer an organization API key for MCP runtime access.
@@ -17,7 +18,9 @@ environment variables, label it as temporary and prefer Vault for deployment.
      access across organizations.
    - Do not ask for an `LC_UID` unless using user API key JWT exchange.
 2. Store or reference the key:
-   - Use `limacharlie-mcp-configure` when a Vault token file exists.
+   - Use `limacharlie-mcp-configure --oid <org-id>` for the default path.
+   - Only ask for Vault address or token-file details when the user explicitly
+     wants to use an existing external Vault.
    - Write nonsecret runtime settings to `~/.config/limacharlie-mcp/config.json`
      by default.
    - Use only `LC_MCP_CONFIG` when the runtime config file is not in the

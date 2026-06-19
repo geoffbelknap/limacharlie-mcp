@@ -15,6 +15,7 @@ from urllib.parse import quote
 
 import httpx
 
+from .local_vault import ensure_managed_vault
 from .profiles import filter_operation_catalog, normalize_profile, profile_catalog
 from .runtime_config import env_first, load_runtime_config
 
@@ -3982,6 +3983,11 @@ class LimaCharlieAPI:
         http_client: HttpClient | None = None,
     ) -> None:
         config = load_runtime_config(config_path)
+        managed_vault = config.get("managed_vault")
+        if isinstance(managed_vault, dict) and managed_vault.get("enabled"):
+            status = ensure_managed_vault(managed_vault)
+            config.setdefault("vault_addr", status.addr)
+            config.setdefault("vault_token_file", str(status.runtime_token_file))
         environ = os.environ
         self._explicit_api_key = api_key is not None
         self._explicit_api_key_ref = api_key_ref is not None

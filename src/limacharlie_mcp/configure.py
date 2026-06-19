@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from .auth_doctor import run_doctor
+from .local_vault import config_from_mapping, config_to_mapping, ensure_managed_vault
 from .runtime_config import load_runtime_config, resolve_config_path, write_runtime_config
 from .vault_bootstrap import (
     DEFAULT_FIELD,
@@ -67,11 +68,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Config file to write. Defaults to ~/.config/limacharlie-mcp/config.json.",
     )
     parser.add_argument("--oid", help="LimaCharlie organization ID.")
-    parser.add_argument("--vault-addr", help="Vault server URL, for example https://vault.example.com.")
+    parser.add_argument(
+        "--external-vault",
+        action="store_true",
+        help="Use an existing Vault instance instead of the managed local Vault default.",
+    )
+    parser.add_argument("--vault-addr", help="Existing Vault server URL, for example https://vault.example.com.")
     parser.add_argument(
         "--token-file",
         type=Path,
-        help="Bootstrap Vault token file. Defaults to VAULT_TOKEN_FILE or ~/.vault-token.",
+        help="Existing Vault bootstrap token file. Defaults to VAULT_TOKEN_FILE or ~/.vault-token in external Vault mode.",
     )
     parser.add_argument(
         "--runtime-token-file",
@@ -130,6 +136,7 @@ def build_config_values(
     token_file: Path,
     oid: str,
     uid: str | None,
+    managed_vault: dict[str, Any] | None,
 ) -> dict[str, Any]:
     auth_mode = args.auth_mode or ("user_api_key" if args.user_api_key else "org_api_key")
     runtime_token_file = args.runtime_token_file.expanduser() if args.runtime_token_file else token_file
@@ -142,6 +149,7 @@ def build_config_values(
             "vault_addr": vault_addr.rstrip("/"),
             "vault_token_file": str(runtime_token_file),
             "vault_namespace": args.namespace or existing_config.get("vault_namespace"),
+            "managed_vault": managed_vault,
         }
     )
     if args.user_api_key:
@@ -169,23 +177,37 @@ def run_configure(argv: list[str] | None = None) -> dict[str, Any]:
         prompt_label="LimaCharlie organization ID",
         assume_yes=args.yes,
     )
-    vault_addr = _value(
-        arg_value=args.vault_addr,
-        env_name="VAULT_ADDR",
-        config=existing_config,
-        config_key="vault_addr",
-        prompt_label="Vault address",
-        assume_yes=args.yes,
-    )
-    token_file_text = _value(
-        arg_value=default_token,
-        env_name="VAULT_TOKEN_FILE",
-        config=existing_config,
-        config_key="vault_token_file",
-        prompt_label="Vault token file",
-        assume_yes=args.yes,
-    )
-    token_file = Path(token_file_text).expanduser()
+    existing_managed = existing_config.get("managed_vault")
+    existing_uses_managed = isinstance(existing_managed, dict) and bool(existing_managed.get("enabled"))
+    existing_uses_external = bool(existing_config.get("vault_addr")) and not existing_uses_managed
+    use_external_vault = bool(args.external_vault or args.vault_addr or args.token_file or existing_uses_external)
+    managed_vault_config = None
+    if use_external_vault:
+        vault_addr = _value(
+            arg_value=args.vault_addr,
+            env_name="VAULT_ADDR",
+            config=existing_config,
+            config_key="vault_addr",
+            prompt_label="Vault address",
+            assume_yes=args.yes,
+        )
+        token_file_text = _value(
+            arg_value=default_token,
+            env_name="VAULT_TOKEN_FILE",
+            config=existing_config,
+            config_key="vault_token_file",
+            prompt_label="Vault token file",
+            assume_yes=args.yes,
+        )
+        token_file = Path(token_file_text).expanduser()
+    else:
+        local_config = config_from_mapping(existing_managed if isinstance(existing_managed, dict) else None)
+        status = ensure_managed_vault(config_to_mapping(local_config))
+        vault_addr = status.addr
+        token_file = status.root_token_file
+        if not args.runtime_token_file:
+            args.runtime_token_file = status.runtime_token_file
+        managed_vault_config = config_to_mapping(local_config)
     uid = None
     if args.user_api_key:
         uid = _value(
@@ -215,6 +237,7 @@ def run_configure(argv: list[str] | None = None) -> dict[str, Any]:
         token_file=token_file,
         oid=oid,
         uid=uid,
+        managed_vault=managed_vault_config,
     )
     write_runtime_config(config_path, config_values)
 
@@ -228,6 +251,7 @@ def run_configure(argv: list[str] | None = None) -> dict[str, Any]:
         "credential_provider": "vault",
         "auth_mode": config_values["auth_mode"],
         "api_key_ref": api_key_ref,
+        "managed_vault": bool(managed_vault_config),
         "doctor": doctor,
     }
     return result

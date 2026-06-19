@@ -508,28 +508,28 @@ python -m venv .venv
 pip install -e ".[dev]"
 ```
 
-Configure stable API-key credentials through Vault. Users do not need to
-generate or paste JWTs, and they should not put the LimaCharlie API key in a
-`.env` file. The MCP server handles LimaCharlie JWT exchange and refresh in
-memory.
+Configure stable API-key credentials through managed local Vault. Users do not
+need to generate or paste JWTs, know Vault details, or put the LimaCharlie API
+key in a `.env` file. The MCP server handles LimaCharlie JWT exchange and
+refresh in memory.
 
-If you already have a Vault token file from `vault login`, Vault Agent, or your
-platform secret mount, configure the runtime once. It prompts for the
-LimaCharlie API key without echoing it, writes the key to Vault, and writes a
-nonsecret config file at `~/.config/limacharlie-mcp/config.json`.
+Run configure once. It starts and initializes a local Vault instance on
+`127.0.0.1`, prompts for the LimaCharlie API key without echoing it, stores the
+key in Vault, and writes a nonsecret config file at
+`~/.config/limacharlie-mcp/config.json`.
 
 ```bash
 limacharlie-mcp-configure \
-  --oid "263c19e9-bd4a-475a-8cd3-5403af446cb9" \
-  --vault-addr "https://vault.example.com" \
-  --token-file "$HOME/.vault-token"
+  --oid "263c19e9-bd4a-475a-8cd3-5403af446cb9"
 ```
 
-For existing Vault automation, the lower-level bootstrap helper is still
-available:
+For existing Vault automation, pass `--external-vault` and the Vault details,
+or use the lower-level bootstrap helper:
 
 ```bash
-limacharlie-mcp-vault-bootstrap \
+limacharlie-mcp-configure \
+  --external-vault \
+  --oid "263c19e9-bd4a-475a-8cd3-5403af446cb9" \
   --vault-addr "https://vault.example.com" \
   --token-file "/run/secrets/limacharlie-mcp-bootstrap-token" \
   --runtime-token-file "/run/secrets/limacharlie-mcp-vault-token"

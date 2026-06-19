@@ -135,6 +135,7 @@ def run_doctor(
         ai_root=values.get("LC_AI_SESSIONS_ROOT"),
         default_oid=scoped_oid,
         audit_path=Path(values["LC_MCP_AUDIT_LOG"]) if values.get("LC_MCP_AUDIT_LOG") else None,
+        config_path=config_file,
         http_client=http_client,
     )
 

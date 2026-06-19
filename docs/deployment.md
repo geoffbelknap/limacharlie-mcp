@@ -1,15 +1,16 @@
 # Deployment
 
 This project deploys as a local stdio MCP server. It intentionally does not
-ship Docker artifacts. Install it as a Python package, run it from an MCP
-client, and use Vault as the default credential provider.
+ship Docker artifacts. Install it as a Python package and run it from an MCP
+client. The default setup manages a local Vault instance for the user; existing
+external Vault deployments remain supported as an advanced path.
 
 ## Model
 
 - The MCP process runs one profile command from a Python virtual environment.
-- Vault stores the stable LimaCharlie API key.
-- Vault Agent, platform secret mounting, or `vault login` provides a local
-  Vault token file.
+- Managed local Vault stores the stable LimaCharlie API key by default.
+- The MCP starts local Vault on `127.0.0.1` when needed and reads a narrow
+  runtime token from the generated state directory.
 - `limacharlie-mcp-configure` writes nonsecret runtime settings to
   `~/.config/limacharlie-mcp/config.json`.
 - The MCP client starts a profile command. It only needs `LC_MCP_CONFIG` when
@@ -57,7 +58,33 @@ python -m venv .venv
 pip install -e ".[dev]"
 ```
 
-## Vault Policies
+## Managed Local Vault
+
+Most users should run the default configure flow:
+
+```bash
+limacharlie-mcp-configure \
+  --oid "263c19e9-bd4a-475a-8cd3-5403af446cb9"
+```
+
+This starts a localhost Vault server if needed, initializes and unseals it,
+enables KV v2, creates a narrow runtime token, writes the LimaCharlie API key
+to `secret/data/limacharlie/mcp`, and writes
+`~/.config/limacharlie-mcp/config.json`.
+
+Managed local Vault state is stored under:
+
+```text
+~/.local/share/limacharlie-mcp/vault/
+```
+
+The generated token and init files are written with owner-only permissions.
+Users should not need to edit them.
+
+## External Vault
+
+Use this path for a shared service account, production service deployment, or
+an environment that already has Vault governance.
 
 The repo includes example Vault KV v2 policies:
 
@@ -73,14 +100,14 @@ vault policy write limacharlie-mcp-runtime deploy/vault/policies/limacharlie-mcp
 ```
 
 If your KV mount or secret path differs from `secret/data/limacharlie/mcp`,
-update the policies and `LC_API_KEY_REF` together.
+update the policies and `api_key_ref` together.
 
 For user API key mode, store the key at a separate path and use
-`LC_USER_API_KEY_REF` instead of `LC_API_KEY_REF`.
+`user_api_key_ref` instead of `api_key_ref`.
 
 ## Vault Agent Token File
 
-The MCP runtime should usually read a Vault token from a file:
+External Vault runtimes should usually read a Vault token from a file:
 
 ```bash
 LC_VAULT_TOKEN_FILE=/run/secrets/limacharlie-mcp-vault-token
@@ -94,10 +121,18 @@ The token file should be readable only by the account running the MCP server.
 
 ## Configure, Bootstrap, Or Rotate The LimaCharlie Key
 
-Run the configure helper with a token that has the bootstrap policy:
+Default managed-local setup:
 
 ```bash
 limacharlie-mcp-configure \
+  --oid "263c19e9-bd4a-475a-8cd3-5403af446cb9"
+```
+
+External Vault setup with a token that has the bootstrap policy:
+
+```bash
+limacharlie-mcp-configure \
+  --external-vault \
   --oid "263c19e9-bd4a-475a-8cd3-5403af446cb9" \
   --vault-addr "https://vault.example.com" \
   --token-file "/run/secrets/limacharlie-mcp-bootstrap-token" \
@@ -149,6 +184,7 @@ If the key already exists in Vault and you only need to write the local config:
 limacharlie-mcp-configure \
   --skip-vault-write \
   --api-key-ref "vault://secret/data/limacharlie/mcp#api_key" \
+  --external-vault \
   --oid "263c19e9-bd4a-475a-8cd3-5403af446cb9" \
   --vault-addr "https://vault.example.com" \
   --token-file "/run/secrets/limacharlie-mcp-vault-token"

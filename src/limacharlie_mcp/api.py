@@ -4645,8 +4645,13 @@ class LimaCharlieAPI:
         sensors, sensors_source = self._review_call("sensor.list", self.list_sensors, scoped_oid, limit=bounded_limit)
         online, online_source = self._review_call("sensor.online.list", self.list_online_sensors, scoped_oid, limit=bounded_limit)
         tags, tags_source = self._review_call("tag.list", self.list_tags, scoped_oid, limit=bounded_limit)
+        sensor_items = self._review_items(sensors, "sensors")
         sensor_count = self._review_count(sensors, "sensors")
-        online_count = self._review_count(online, "sensors")
+        online_endpoint_count = self._review_count(online, "sensors")
+        sensor_list_online_count = None
+        if sensor_items and all(isinstance(sensor, dict) and "is_online" in sensor for sensor in sensor_items):
+            sensor_list_online_count = sum(1 for sensor in sensor_items if sensor.get("is_online") is True)
+        online_count = sensor_list_online_count if sensor_list_online_count is not None else online_endpoint_count
         findings: list[dict[str, Any]] = []
         if sensors.get("ok") and sensor_count == 0:
             findings.append(
@@ -4689,6 +4694,8 @@ class LimaCharlieAPI:
             metrics={
                 "sensor_sample_count": sensor_count,
                 "online_sensor_sample_count": online_count,
+                "online_sensor_endpoint_count": online_endpoint_count,
+                "sensor_list_online_count": sensor_list_online_count,
                 "tag_count": self._review_count(tags, "tags"),
             },
             findings=findings,
@@ -4998,23 +5005,23 @@ class LimaCharlieAPI:
         org_errors, org_errors_source = self._review_call("org.errors", self.list_org_errors, scoped_oid)
         component_summaries = []
         findings: list[dict[str, Any]] = []
-        source_count = 1
-        failed_source_count = 0
+        component_sources: list[dict[str, Any]] = []
         for result in component_results:
             data = result.get("data", {})
+            sources = data.get("sources", []) if isinstance(data, dict) else []
+            failed_sources = [source for source in sources if not source.get("ok")]
             component_summaries.append(
                 {
                     "operation": result.get("operation"),
                     "state": result.get("state", {}).get("current"),
                     "finding_count": len(data.get("findings", [])) if isinstance(data, dict) else 0,
+                    "failed_source_count": len(failed_sources),
                     "metrics": data.get("metrics", {}) if isinstance(data, dict) else {},
                 }
             )
             if isinstance(data, dict):
                 findings.extend(data.get("findings", []))
-                sources = data.get("sources", [])
-                source_count += len(sources)
-                failed_source_count += len([source for source in sources if not source.get("ok")])
+                component_sources.extend(sources)
         org_error_count = self._review_count(org_errors, "errors")
         if org_errors.get("ok") and org_error_count > 0:
             findings.append(
@@ -5027,14 +5034,23 @@ class LimaCharlieAPI:
                     category="organization",
                 )
             )
-        failed_source_count += 0 if org_errors_source.get("ok") else 1
+        all_sources = [org_errors_source, *component_sources]
+        failed_sources = [source for source in all_sources if not source.get("ok")]
         return self._review_response(
             "review.org_posture",
             scoped_oid,
             metrics={
                 "component_count": len(component_results),
-                "source_count": source_count,
-                "failed_source_count": failed_source_count,
+                "source_count": len(all_sources),
+                "failed_source_count": len(failed_sources),
+                "failed_sources": [
+                    {
+                        "name": source.get("name"),
+                        "operation": source.get("operation"),
+                        "error": source.get("error"),
+                    }
+                    for source in failed_sources
+                ],
                 "org_error_count": org_error_count,
                 "detection_window": {"start": start_ts, "end": end_ts} if start_ts is not None and end_ts is not None else None,
                 "components": component_summaries,
@@ -5044,7 +5060,7 @@ class LimaCharlieAPI:
                 "Prioritize high and medium findings, then inspect each component review for concrete follow-up tools.",
                 "Do not change content, access, or response state from this aggregate; use preview/confirm mutation tools for any remediation.",
             ],
-            sources=[org_errors_source],
+            sources=all_sources,
             limit=bounded_limit,
         )
 

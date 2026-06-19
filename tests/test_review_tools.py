@@ -125,6 +125,34 @@ def test_review_access_hygiene_keeps_partial_permission_failure(tmp_path) -> Non
     assert any(finding["id"] == "access.no_org_api_keys" for finding in result["data"]["findings"])
 
 
+def test_review_fleet_health_prefers_sensor_list_online_flags(tmp_path) -> None:
+    class OnlineFlagClient(ReviewClient):
+        def list_sensors(self, oid: str, selector: str | None = None, limit: int = 100) -> dict[str, Any]:
+            return self.response(
+                "sensor.list",
+                {
+                    "sensors": [
+                        {"sid": "sensor-1", "is_online": True},
+                        {"sid": "sensor-2", "is_online": True},
+                        {"sid": "sensor-3", "is_online": True},
+                        {"sid": "sensor-4", "is_online": False},
+                    ]
+                },
+            )
+
+        def list_online_sensors(self, oid: str, limit: int = 100) -> dict[str, Any]:
+            return self.response("sensor.online.list", {"count": 1})
+
+    client = OnlineFlagClient(tmp_path)
+
+    result = client.review_fleet_health(OID)
+
+    assert result["data"]["metrics"]["online_sensor_endpoint_count"] == 1
+    assert result["data"]["metrics"]["sensor_list_online_count"] == 3
+    assert result["data"]["metrics"]["online_sensor_sample_count"] == 3
+    assert all(finding["id"] != "fleet.low_online_ratio" for finding in result["data"]["findings"])
+
+
 def test_review_org_posture_aggregates_component_findings(tmp_path) -> None:
     client = ReviewClient(tmp_path)
 
@@ -135,3 +163,18 @@ def test_review_org_posture_aggregates_component_findings(tmp_path) -> None:
     assert result["state"]["current"] == "needs_attention"
     assert result["data"]["metrics"]["component_count"] == 6
     assert any(finding["id"] == "org.component_errors" for finding in result["data"]["findings"])
+
+
+def test_review_org_posture_exposes_failed_component_sources(tmp_path) -> None:
+    client = ReviewClient(tmp_path, fail_permissions=True)
+
+    result = client.review_org_posture(OID, limit=20)
+
+    assert result["data"]["metrics"]["failed_source_count"] >= 1
+    failed_sources = result["data"]["metrics"]["failed_sources"]
+    assert any(source["operation"] == "user.permission.list" for source in failed_sources)
+    assert any(source["operation"] == "user.permission.list" for source in result["data"]["sources"] if not source["ok"])
+    access_component = next(
+        component for component in result["data"]["metrics"]["components"] if component["operation"] == "review.access_hygiene"
+    )
+    assert access_component["failed_source_count"] == 1

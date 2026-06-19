@@ -1685,6 +1685,122 @@ def lc_preview_set_hive_record_enabled(
 
 
 @mcp.tool()
+def lc_list_secrets(oid: str, limit: int = 100) -> dict:
+    """List secret Hive records without exposing secret values."""
+
+    return _call("secret.list", lc.list_secrets, oid=oid, limit=limit)
+
+
+@mcp.tool()
+def lc_get_secret(oid: str, name: str) -> dict:
+    """Fetch one secret Hive record with sensitive fields redacted."""
+
+    return _call("secret.get", lc.get_secret, oid=oid, name=name)
+
+
+@mcp.tool()
+def lc_preview_set_secret(
+    oid: str,
+    name: str,
+    secret_value: str,
+    tags: list[str] | str | None = None,
+    comment: str | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview creating or updating a secret Hive record."""
+
+    return _call(
+        "secret.set.preview",
+        lc.preview_set_secret,
+        oid=oid,
+        name=name,
+        secret_value=secret_value,
+        tags=tags,
+        comment=comment,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_preview_delete_secret(oid: str, name: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview deleting a secret Hive record."""
+
+    return _call("secret.delete.preview", lc.preview_delete_secret, oid=oid, name=name, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_set_secret_enabled(
+    oid: str,
+    name: str,
+    enabled: bool,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview toggling a secret Hive record's enabled metadata."""
+
+    return _call("secret.enabled.set.preview", lc.preview_set_secret_enabled, oid=oid, name=name, enabled=enabled, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_list_lookups(oid: str, limit: int = 100) -> dict:
+    """List lookup Hive records."""
+
+    return _call("lookup.list", lc.list_lookups, oid=oid, limit=limit)
+
+
+@mcp.tool()
+def lc_get_lookup(oid: str, name: str) -> dict:
+    """Fetch one lookup Hive record."""
+
+    return _call("lookup.get", lc.get_lookup, oid=oid, name=name)
+
+
+@mcp.tool()
+def lc_preview_set_lookup(
+    oid: str,
+    name: str,
+    lookup_data: dict[str, Any] | None = None,
+    newline_content: str | None = None,
+    yaml_content: str | None = None,
+    tags: list[str] | str | None = None,
+    comment: str | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview creating or updating a lookup Hive record from one supported data format."""
+
+    return _call(
+        "lookup.set.preview",
+        lc.preview_set_lookup,
+        oid=oid,
+        name=name,
+        lookup_data=lookup_data,
+        newline_content=newline_content,
+        yaml_content=yaml_content,
+        tags=tags,
+        comment=comment,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_preview_delete_lookup(oid: str, name: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview deleting a lookup Hive record."""
+
+    return _call("lookup.delete.preview", lc.preview_delete_lookup, oid=oid, name=name, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_set_lookup_enabled(
+    oid: str,
+    name: str,
+    enabled: bool,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview toggling a lookup Hive record's enabled metadata."""
+
+    return _call("lookup.enabled.set.preview", lc.preview_set_lookup_enabled, oid=oid, name=name, enabled=enabled, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
 def lc_list_ai_memory_records(oid: str, partition_key: str | None = None, limit: int = 100) -> dict:
     """List ai_memory Hive records."""
 

@@ -1538,6 +1538,96 @@ def test_generic_hive_tools_redact_secret_preview_and_audit_params(tmp_path: Pat
     assert "super-secret" not in audit_text
 
 
+def test_typed_secret_and_lookup_tools_use_safe_hive_shortcuts(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add(
+        "GET",
+        f"https://api.limacharlie.io/v1/hive/secret/{OID}",
+        {"secret-1": {"usr_mtd": {"enabled": True}, "sys_mtd": {"etag": "secret-etag"}}},
+    )
+    fake.add(
+        "GET",
+        f"https://api.limacharlie.io/v1/hive/secret/{OID}/secret-1/data",
+        {"data": {"secret": "super-secret"}, "usr_mtd": {}, "sys_mtd": {"etag": "secret-etag"}},
+    )
+    fake.add(
+        "GET",
+        f"https://api.limacharlie.io/v1/hive/secret/{OID}/secret-1/mtd",
+        {"usr_mtd": {"comment": "existing"}, "sys_mtd": {"etag": "secret-etag"}},
+    )
+    fake.add("POST", f"https://api.limacharlie.io/v1/hive/secret/{OID}/secret-1/data", {"ok": True})
+    fake.add("POST", f"https://api.limacharlie.io/v1/hive/secret/{OID}/secret-1/mtd", {"ok": True})
+    fake.add("DELETE", f"https://api.limacharlie.io/v1/hive/secret/{OID}/secret-1", {"ok": True})
+    fake.add(
+        "GET",
+        f"https://api.limacharlie.io/v1/hive/lookup/{OID}",
+        {"lookup-1": {"usr_mtd": {"enabled": True}, "sys_mtd": {"etag": "lookup-etag"}}},
+    )
+    fake.add(
+        "GET",
+        f"https://api.limacharlie.io/v1/hive/lookup/{OID}/lookup-1/data",
+        {"data": {"lookup_data": {"8.8.8.8": {"provider": "google"}}}},
+    )
+    fake.add(
+        "GET",
+        f"https://api.limacharlie.io/v1/hive/lookup/{OID}/lookup-1/mtd",
+        {"usr_mtd": {"tags": ["dns"]}, "sys_mtd": {"etag": "lookup-etag"}},
+    )
+    fake.add("POST", f"https://api.limacharlie.io/v1/hive/lookup/{OID}/lookup-1/data", {"ok": True})
+    fake.add("POST", f"https://api.limacharlie.io/v1/hive/lookup/{OID}/lookup-1/mtd", {"ok": True})
+    fake.add("DELETE", f"https://api.limacharlie.io/v1/hive/lookup/{OID}/lookup-1", {"ok": True})
+    client = make_client(tmp_path, fake)
+
+    assert client.list_secrets(OID)["operation"] == "secret.list"
+    secret = client.get_secret(OID, "secret-1")
+    assert secret["operation"] == "secret.get"
+    assert secret["resource"]["type"] == "secret"
+    assert secret["data"]["data"]["secret"] == "[redacted]"
+    assert client.list_lookups(OID)["operation"] == "lookup.list"
+    lookup = client.get_lookup(OID, "lookup-1")
+    assert lookup["operation"] == "lookup.get"
+    assert lookup["resource"]["type"] == "lookup"
+
+    secret_set = client.preview_set_secret(OID, "secret-1", "super-secret", tags=["prod"], comment="api key")
+    secret_enabled = client.preview_set_secret_enabled(OID, "secret-1", False)
+    secret_delete = client.preview_delete_secret(OID, "secret-1")
+    lookup_set = client.preview_set_lookup(
+        OID,
+        "lookup-1",
+        lookup_data={"8.8.8.8": {"provider": "google"}},
+        tags=["dns"],
+        comment="resolver lookup",
+    )
+    lookup_enabled = client.preview_set_lookup_enabled(OID, "lookup-1", False)
+    lookup_delete = client.preview_delete_lookup(OID, "lookup-1")
+
+    assert secret_set["operation"] == "secret.set.preview"
+    assert secret_set["data"]["params"]["data"]["secret"] == "[redacted]"
+    assert secret_set["data"]["params"]["usr_mtd"]["tags"] == ["prod"]
+    assert secret_enabled["data"]["params"]["usr_mtd"] == {"comment": "existing", "enabled": False}
+    assert secret_enabled["data"]["params"]["etag"] == "secret-etag"
+    assert lookup_set["operation"] == "lookup.set.preview"
+    assert lookup_set["data"]["params"]["data"] == {"lookup_data": {"8.8.8.8": {"provider": "google"}}}
+    assert lookup_enabled["data"]["params"]["usr_mtd"] == {"tags": ["dns"], "enabled": False}
+    assert lookup_enabled["data"]["params"]["etag"] == "lookup-etag"
+
+    for preview in [secret_set, secret_enabled, secret_delete, lookup_set, lookup_enabled, lookup_delete]:
+        client.confirm_mutation(preview["data"]["confirmation_token"])
+
+    calls = [call for call in fake.calls if call["url"] != "https://jwt.limacharlie.io"]
+    secret_set_call = next(call for call in calls if call["method"] == "POST" and call["url"].endswith("/secret-1/data"))
+    assert json.loads(secret_set_call["params"]["data"]) == {"secret": "super-secret"}
+    secret_enabled_call = next(call for call in calls if call["method"] == "POST" and call["url"].endswith("/secret-1/mtd"))
+    assert json.loads(secret_enabled_call["params"]["usr_mtd"]) == {"comment": "existing", "enabled": False}
+    lookup_set_call = next(call for call in calls if call["method"] == "POST" and call["url"].endswith("/lookup-1/data"))
+    assert json.loads(lookup_set_call["params"]["data"]) == {"lookup_data": {"8.8.8.8": {"provider": "google"}}}
+    audit_text = (tmp_path / "audit.jsonl").read_text()
+    assert "super-secret" not in audit_text
+
+    with pytest.raises(ValidationError, match="exactly one"):
+        client.preview_set_lookup(OID, "lookup-1", lookup_data={"a": "b"}, yaml_content="a: b")
+
+
 def test_ai_memory_tools_use_hive_partial_merge_requests(tmp_path: Path) -> None:
     fake = FakeHTTP()
     fake.add(

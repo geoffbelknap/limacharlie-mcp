@@ -210,6 +210,16 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
         "lc_preview_delete_hive_record",
         "lc_preview_rename_hive_record",
         "lc_preview_set_hive_record_enabled",
+        "lc_list_secrets",
+        "lc_get_secret",
+        "lc_preview_set_secret",
+        "lc_preview_delete_secret",
+        "lc_preview_set_secret_enabled",
+        "lc_list_lookups",
+        "lc_get_lookup",
+        "lc_preview_set_lookup",
+        "lc_preview_delete_lookup",
+        "lc_preview_set_lookup_enabled",
         "lc_list_ai_memory_records",
         "lc_get_ai_memory_record",
         "lc_list_ai_memories",
@@ -359,6 +369,18 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
     assert set(hive_rename_schema["required"]) == {"oid", "hive_name", "key", "new_name"}
     hive_enabled_schema = tools["lc_preview_set_hive_record_enabled"]["inputSchema"]
     assert set(hive_enabled_schema["required"]) == {"oid", "hive_name", "key", "enabled"}
+    secret_get_schema = tools["lc_get_secret"]["inputSchema"]
+    assert set(secret_get_schema["required"]) == {"oid", "name"}
+    secret_set_schema = tools["lc_preview_set_secret"]["inputSchema"]
+    assert set(secret_set_schema["required"]) == {"oid", "name", "secret_value"}
+    secret_enabled_schema = tools["lc_preview_set_secret_enabled"]["inputSchema"]
+    assert set(secret_enabled_schema["required"]) == {"oid", "name", "enabled"}
+    lookup_get_schema = tools["lc_get_lookup"]["inputSchema"]
+    assert set(lookup_get_schema["required"]) == {"oid", "name"}
+    lookup_set_schema = tools["lc_preview_set_lookup"]["inputSchema"]
+    assert set(lookup_set_schema["required"]) == {"oid", "name"}
+    lookup_enabled_schema = tools["lc_preview_set_lookup_enabled"]["inputSchema"]
+    assert set(lookup_enabled_schema["required"]) == {"oid", "name", "enabled"}
     ai_memory_set_schema = tools["lc_preview_set_ai_memory"]["inputSchema"]
     assert set(ai_memory_set_schema["required"]) == {"oid", "agent", "memory_name", "content"}
     ai_memory_get_schema = tools["lc_get_ai_memory"]["inputSchema"]

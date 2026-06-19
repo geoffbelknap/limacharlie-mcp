@@ -2506,6 +2506,108 @@ OPERATION_CATALOG.update(
             "side_effects": "metadata_read_before_preview_then_none_until_confirmed",
             "notes": "Reads current metadata, then previews changing only usr_mtd.enabled with etag preservation.",
         },
+        "secret.list": {
+            "suite": "administration",
+            "tool": "lc_list_secrets",
+            "action": "read",
+            "resource_type": "secret_collection",
+            "required_inputs": ["oid"],
+            "optional_inputs": ["limit"],
+            "bounds": {"limit_min": 1, "limit_max": 500},
+            "side_effects": "none",
+            "notes": "Lists secret hive records. Secret-shaped values are redacted.",
+        },
+        "secret.get": {
+            "suite": "administration",
+            "tool": "lc_get_secret",
+            "action": "read",
+            "resource_type": "secret",
+            "required_inputs": ["oid", "name"],
+            "optional_inputs": [],
+            "side_effects": "none",
+            "notes": "Fetches one secret hive record with secret-shaped values redacted.",
+        },
+        "secret.set.preview": {
+            "suite": "administration",
+            "tool": "lc_preview_set_secret",
+            "action": "preview",
+            "resource_type": "secret",
+            "required_inputs": ["oid", "name", "secret_value"],
+            "optional_inputs": ["tags", "comment", "token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews creating or updating one secret hive record. Preview/audit outputs redact the secret value.",
+        },
+        "secret.delete.preview": {
+            "suite": "administration",
+            "tool": "lc_preview_delete_secret",
+            "action": "preview",
+            "resource_type": "secret",
+            "required_inputs": ["oid", "name"],
+            "optional_inputs": ["token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews deleting one secret hive record.",
+        },
+        "secret.enabled.set.preview": {
+            "suite": "administration",
+            "tool": "lc_preview_set_secret_enabled",
+            "action": "preview",
+            "resource_type": "secret",
+            "required_inputs": ["oid", "name", "enabled"],
+            "optional_inputs": ["token_ttl_seconds"],
+            "side_effects": "metadata_read_before_preview_then_none_until_confirmed",
+            "notes": "Reads secret metadata, then previews changing only usr_mtd.enabled with etag preservation.",
+        },
+        "lookup.list": {
+            "suite": "content",
+            "tool": "lc_list_lookups",
+            "action": "read",
+            "resource_type": "lookup_collection",
+            "required_inputs": ["oid"],
+            "optional_inputs": ["limit"],
+            "bounds": {"limit_min": 1, "limit_max": 500},
+            "side_effects": "none",
+            "notes": "Lists lookup hive records used by D&R enrichment.",
+        },
+        "lookup.get": {
+            "suite": "content",
+            "tool": "lc_get_lookup",
+            "action": "read",
+            "resource_type": "lookup",
+            "required_inputs": ["oid", "name"],
+            "optional_inputs": [],
+            "side_effects": "none",
+            "notes": "Fetches one lookup hive record.",
+        },
+        "lookup.set.preview": {
+            "suite": "content",
+            "tool": "lc_preview_set_lookup",
+            "action": "preview",
+            "resource_type": "lookup",
+            "required_inputs": ["oid", "name"],
+            "optional_inputs": ["lookup_data", "newline_content", "yaml_content", "tags", "comment", "token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews creating or updating one lookup hive record using exactly one supported data format.",
+        },
+        "lookup.delete.preview": {
+            "suite": "content",
+            "tool": "lc_preview_delete_lookup",
+            "action": "preview",
+            "resource_type": "lookup",
+            "required_inputs": ["oid", "name"],
+            "optional_inputs": ["token_ttl_seconds"],
+            "side_effects": "none_until_confirmed",
+            "notes": "Previews deleting one lookup hive record.",
+        },
+        "lookup.enabled.set.preview": {
+            "suite": "content",
+            "tool": "lc_preview_set_lookup_enabled",
+            "action": "preview",
+            "resource_type": "lookup",
+            "required_inputs": ["oid", "name", "enabled"],
+            "optional_inputs": ["token_ttl_seconds"],
+            "side_effects": "metadata_read_before_preview_then_none_until_confirmed",
+            "notes": "Reads lookup metadata, then previews changing only usr_mtd.enabled with etag preservation.",
+        },
         "ai_memory.record.list": {
             "suite": "content",
             "tool": "lc_list_ai_memory_records",
@@ -6639,6 +6741,9 @@ class LimaCharlieAPI:
     def _hive_record_resource(self, hive_name: str, partition: str, key: str) -> dict[str, Any]:
         return {"type": "hive_record", "id": f"{hive_name}:{partition}:{key}"}
 
+    def _typed_hive_record_resource(self, resource_type: str, oid: str, key: str) -> dict[str, Any]:
+        return {"type": resource_type, "id": key, "parent": {"type": "organization", "id": oid}}
+
     def list_hive_types(self) -> dict[str, Any]:
         return self._local_response(
             "hive.type.list",
@@ -6884,6 +6989,280 @@ class LimaCharlieAPI:
             reversibility="Preview and confirm the opposite enabled value if this change was unintended.",
             side_effects=[{"type": "hive_record_metadata_set", "resource": self._hive_record_resource(safe_hive, partition, safe_key)}],
             token_ttl_seconds=require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900),
+        )
+
+    def _list_typed_hive_records(
+        self,
+        oid: str,
+        hive_name: str,
+        operation: str,
+        resource_type: str,
+        limit: int,
+    ) -> dict[str, Any]:
+        result = self.list_hive_records(oid, hive_name, limit=limit)
+        result["operation"] = operation
+        if result.get("resource"):
+            result["resource"] = {"type": f"{resource_type}_collection", "id": require_oid(oid)}
+        return result
+
+    def _get_typed_hive_record(
+        self,
+        oid: str,
+        hive_name: str,
+        key: str,
+        operation: str,
+        resource_type: str,
+    ) -> dict[str, Any]:
+        safe_key = require_hive_record_key(key, "name")
+        result = self.get_hive_record(oid, hive_name, safe_key)
+        result["operation"] = operation
+        if result.get("resource"):
+            result["resource"] = self._typed_hive_record_resource(resource_type, require_oid(oid), safe_key)
+        return result
+
+    def _preview_set_typed_hive_record(
+        self,
+        oid: str,
+        hive_name: str,
+        key: str,
+        data: dict[str, Any],
+        operation: str,
+        resource_type: str,
+        side_effect_type: str,
+        *,
+        tags: list[str] | str | None = None,
+        comment: str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid, safe_hive, partition = self._hive_context(oid, hive_name, None)
+        safe_key = require_hive_record_key(key, "name")
+        params = self._hive_record_params(data=data, tags=tags, comment=comment)
+        resource = self._typed_hive_record_resource(resource_type, scoped_oid, safe_key)
+        return self._create_mutation_preview(
+            operation=operation,
+            oid=scoped_oid,
+            method="POST",
+            path=f"hive/{quote(safe_hive, safe='')}/{quote(partition, safe='')}/{quote(safe_key, safe='')}/data",
+            resource=resource,
+            params=params,
+            data=None,
+            json_body=None,
+            expected_effect=f"Create or update {resource_type} {safe_key}.",
+            reversibility=f"Restore the prior {resource_type} value or preview and confirm deletion if it was newly created.",
+            side_effects=[{"type": side_effect_type, "resource": resource}],
+            token_ttl_seconds=require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900),
+        )
+
+    def _preview_delete_typed_hive_record(
+        self,
+        oid: str,
+        hive_name: str,
+        key: str,
+        operation: str,
+        resource_type: str,
+        side_effect_type: str,
+        *,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid, safe_hive, partition = self._hive_context(oid, hive_name, None)
+        safe_key = require_hive_record_key(key, "name")
+        resource = self._typed_hive_record_resource(resource_type, scoped_oid, safe_key)
+        return self._create_mutation_preview(
+            operation=operation,
+            oid=scoped_oid,
+            method="DELETE",
+            path=f"hive/{quote(safe_hive, safe='')}/{quote(partition, safe='')}/{quote(safe_key, safe='')}",
+            resource=resource,
+            params=None,
+            data=None,
+            json_body=None,
+            expected_effect=f"Delete {resource_type} {safe_key}.",
+            reversibility=f"Recreate {resource_type} {safe_key} from a known-good backup if deletion was unintended.",
+            side_effects=[{"type": side_effect_type, "resource": resource}],
+            token_ttl_seconds=require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900),
+        )
+
+    def _preview_set_typed_hive_record_enabled(
+        self,
+        oid: str,
+        hive_name: str,
+        key: str,
+        enabled: bool,
+        operation: str,
+        resource_type: str,
+        side_effect_type: str,
+        *,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid, safe_hive, partition = self._hive_context(oid, hive_name, None)
+        safe_key = require_hive_record_key(key, "name")
+        checked_enabled = require_bool_or_none(enabled, "enabled")
+        metadata_result = self.get_hive_record_metadata(scoped_oid, safe_hive, safe_key, partition_key=partition)
+        if not metadata_result.get("ok"):
+            metadata_result["operation"] = f"{operation}.preview"
+            return metadata_result
+        metadata = metadata_result.get("data") if isinstance(metadata_result.get("data"), dict) else {}
+        usr_mtd = dict(metadata.get("usr_mtd") or {}) if isinstance(metadata, dict) else {}
+        sys_mtd = metadata.get("sys_mtd") if isinstance(metadata, dict) else {}
+        usr_mtd["enabled"] = checked_enabled
+        params = {"usr_mtd": json.dumps(usr_mtd)}
+        if isinstance(sys_mtd, dict) and sys_mtd.get("etag"):
+            params["etag"] = require_token(str(sys_mtd["etag"]), "etag")
+        resource = self._typed_hive_record_resource(resource_type, scoped_oid, safe_key)
+        return self._create_mutation_preview(
+            operation=operation,
+            oid=scoped_oid,
+            method="POST",
+            path=f"hive/{quote(safe_hive, safe='')}/{quote(partition, safe='')}/{quote(safe_key, safe='')}/mtd",
+            resource=resource,
+            params=params,
+            data=None,
+            json_body=None,
+            expected_effect=f"Set enabled={checked_enabled} on {resource_type} {safe_key}, preserving current metadata.",
+            reversibility="Preview and confirm the opposite enabled value if this change was unintended.",
+            side_effects=[{"type": side_effect_type, "resource": resource}],
+            token_ttl_seconds=require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900),
+        )
+
+    def list_secrets(self, oid: str, limit: int = 100) -> dict[str, Any]:
+        return self._list_typed_hive_records(oid, "secret", "secret.list", "secret", limit)
+
+    def get_secret(self, oid: str, name: str) -> dict[str, Any]:
+        return self._get_typed_hive_record(oid, "secret", name, "secret.get", "secret")
+
+    def preview_set_secret(
+        self,
+        oid: str,
+        name: str,
+        secret_value: str,
+        tags: list[str] | str | None = None,
+        comment: str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        checked_secret = require_case_text(secret_value, "secret_value", maximum=200_000, required=True)
+        assert checked_secret is not None
+        return self._preview_set_typed_hive_record(
+            oid,
+            "secret",
+            name,
+            {"secret": checked_secret},
+            "secret.set",
+            "secret",
+            "secret_set",
+            tags=tags,
+            comment=comment,
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_delete_secret(self, oid: str, name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        return self._preview_delete_typed_hive_record(
+            oid,
+            "secret",
+            name,
+            "secret.delete",
+            "secret",
+            "secret_deleted",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_set_secret_enabled(
+        self,
+        oid: str,
+        name: str,
+        enabled: bool,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        return self._preview_set_typed_hive_record_enabled(
+            oid,
+            "secret",
+            name,
+            enabled,
+            "secret.enabled.set",
+            "secret",
+            "secret_metadata_set",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def list_lookups(self, oid: str, limit: int = 100) -> dict[str, Any]:
+        return self._list_typed_hive_records(oid, "lookup", "lookup.list", "lookup", limit)
+
+    def get_lookup(self, oid: str, name: str) -> dict[str, Any]:
+        return self._get_typed_hive_record(oid, "lookup", name, "lookup.get", "lookup")
+
+    def preview_set_lookup(
+        self,
+        oid: str,
+        name: str,
+        lookup_data: dict[str, Any] | None = None,
+        newline_content: str | None = None,
+        yaml_content: str | None = None,
+        tags: list[str] | str | None = None,
+        comment: str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        provided = [
+            value is not None
+            for value in (
+                lookup_data,
+                newline_content,
+                yaml_content,
+            )
+        ]
+        if sum(provided) != 1:
+            raise ValidationError("exactly one of lookup_data, newline_content, or yaml_content is required")
+        data: dict[str, Any]
+        if lookup_data is not None:
+            checked_lookup_data = require_dict(lookup_data, "lookup_data")
+            assert checked_lookup_data is not None
+            data = {"lookup_data": checked_lookup_data}
+        elif newline_content is not None:
+            checked_newline_content = require_case_text(newline_content, "newline_content", maximum=200_000, required=True)
+            assert checked_newline_content is not None
+            data = {"newline_content": checked_newline_content}
+        else:
+            checked_yaml_content = require_case_text(yaml_content, "yaml_content", maximum=200_000, required=True)
+            assert checked_yaml_content is not None
+            data = {"yaml_content": checked_yaml_content}
+        return self._preview_set_typed_hive_record(
+            oid,
+            "lookup",
+            name,
+            data,
+            "lookup.set",
+            "lookup",
+            "lookup_set",
+            tags=tags,
+            comment=comment,
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_delete_lookup(self, oid: str, name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        return self._preview_delete_typed_hive_record(
+            oid,
+            "lookup",
+            name,
+            "lookup.delete",
+            "lookup",
+            "lookup_deleted",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_set_lookup_enabled(
+        self,
+        oid: str,
+        name: str,
+        enabled: bool,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        return self._preview_set_typed_hive_record_enabled(
+            oid,
+            "lookup",
+            name,
+            enabled,
+            "lookup.enabled.set",
+            "lookup",
+            "lookup_metadata_set",
+            token_ttl_seconds=token_ttl_seconds,
         )
 
     def _extract_ai_memories(self, record: Any) -> dict[str, str]:

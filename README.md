@@ -246,6 +246,16 @@ renaming tools.
 | `lc_preview_delete_hive_record` | Preview deleting a generic Hive record. |
 | `lc_preview_rename_hive_record` | Preview renaming a generic Hive record. |
 | `lc_preview_set_hive_record_enabled` | Preview toggling a Hive record's enabled metadata. |
+| `lc_list_secrets` | List secret Hive records without exposing secret values. |
+| `lc_get_secret` | Fetch one secret Hive record with sensitive fields redacted. |
+| `lc_preview_set_secret` | Preview creating or updating a secret Hive record. |
+| `lc_preview_delete_secret` | Preview deleting a secret Hive record. |
+| `lc_preview_set_secret_enabled` | Preview toggling a secret Hive record's enabled metadata. |
+| `lc_list_lookups` | List lookup Hive records. |
+| `lc_get_lookup` | Fetch one lookup Hive record. |
+| `lc_preview_set_lookup` | Preview creating or updating a lookup Hive record. |
+| `lc_preview_delete_lookup` | Preview deleting a lookup Hive record. |
+| `lc_preview_set_lookup_enabled` | Preview toggling a lookup Hive record's enabled metadata. |
 | `lc_list_ai_memory_records` | List ai_memory Hive records. |
 | `lc_get_ai_memory_record` | Fetch the full ai_memory record for an agent. |
 | `lc_list_ai_memories` | List memory entries for an ai_memory agent record. |

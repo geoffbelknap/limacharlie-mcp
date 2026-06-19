@@ -293,7 +293,17 @@ def test_auth_status_does_not_expose_secrets(tmp_path: Path) -> None:
 
 
 def test_auth_status_reports_missing_credentials(tmp_path: Path) -> None:
-    client = LimaCharlieAPI(api_key="", audit_path=tmp_path / "audit.jsonl", http_client=FakeHTTP())
+    client = LimaCharlieAPI(
+        api_key="",
+        user_api_key="",
+        auth_mode="org_api_key",
+        credential_provider="vault",
+        vault_addr="",
+        vault_token="",
+        vault_token_file="",
+        audit_path=tmp_path / "audit.jsonl",
+        http_client=FakeHTTP(),
+    )
 
     result = client.auth_status()
 

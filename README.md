@@ -30,12 +30,8 @@ The easiest agent-facing install path is the `geoffs-plugins` marketplace:
 /plugin install limacharlie-mcp@geoffs-plugins
 ```
 
-The marketplace plugin starts MCP profiles with `uvx` from this repository, for
-example:
-
-```bash
-uvx --from git+https://github.com/geoffbelknap/limacharlie-mcp limacharlie-mcp-review
-```
+The plugin uses `uvx` internally to run MCP profiles from this repository. Do
+the auth setup below before starting a profile or calling LimaCharlie tools.
 
 ## First-Time Auth Setup
 
@@ -64,7 +60,9 @@ That command starts a managed local Vault for the MCP, stores the API key
 there, and writes nonsecret config to
 `~/.config/limacharlie-mcp/config.json`.
 
-Then start with the review profile and check auth:
+Then start with the review profile. If you installed the plugin in Codex or
+Claude, start a new chat with the plugin enabled and use its `limacharlie-review`
+MCP server. If you are running directly from a shell:
 
 ```bash
 uvx --from git+https://github.com/geoffbelknap/limacharlie-mcp \

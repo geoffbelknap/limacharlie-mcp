@@ -30,25 +30,20 @@ The easiest agent-facing install path is the `geoffs-plugins` marketplace:
 /plugin install limacharlie-mcp@geoffs-plugins
 ```
 
-The plugin uses `uvx` internally to run MCP profiles from this repository. Do
-the auth setup below before starting a profile or calling LimaCharlie tools.
+The plugin handles running the MCP server. Configure auth once before calling
+LimaCharlie tools.
 
 ## First-Time Auth Setup
 
-Use an organization API key first. User API keys are only needed for multi-org
-account discovery.
+You need two values from LimaCharlie: an organization ID and an organization
+API key.
 
-1. Open LimaCharlie and select the organization you want the MCP to manage or
-   review.
-2. Copy the organization ID from either place:
-   - Browser URL: `https://app.limacharlie.io/orgs/<org-id>/...`
-   - Organization Settings -> Access Management -> REST API -> `OID`
-3. On the same REST API page, click `Create API Key`.
-4. Name it something recognizable, such as `limacharlie-mcp`.
-5. Grant only the permissions needed for your first workflow. For a basic
-   read-only smoke test, use `org.get`, `sensor.list`, and `sensor.get`.
-6. Copy the API key secret when LimaCharlie shows it. It is shown once.
-7. Run this command and paste the API key into the hidden prompt:
+1. Open LimaCharlie and choose your organization.
+2. Copy the org ID from the URL: `app.limacharlie.io/orgs/<org-id>/...`.
+3. Go to `Organization Settings` -> `Access Management` -> `REST API`.
+4. Click `Create API Key`, create a key for this MCP, and copy the secret when
+   LimaCharlie shows it.
+5. Run this and paste the API key into the hidden prompt:
 
 ```bash
 uvx --from git+https://github.com/geoffbelknap/limacharlie-mcp \
@@ -56,23 +51,10 @@ uvx --from git+https://github.com/geoffbelknap/limacharlie-mcp \
   --oid "paste-your-org-id-here"
 ```
 
-That command starts a managed local Vault for the MCP, stores the API key
-there, and writes nonsecret config to
-`~/.config/limacharlie-mcp/config.json`.
+Then start a new Codex or Claude chat with the plugin enabled and call
+`lc_auth_status`.
 
-Then start with the review profile. If you installed the plugin in Codex or
-Claude, start a new chat with the plugin enabled and use its `limacharlie-review`
-MCP server. If you are running directly from a shell:
-
-```bash
-uvx --from git+https://github.com/geoffbelknap/limacharlie-mcp \
-  limacharlie-mcp-review
-```
-
-In your MCP client, call `lc_auth_status`, then `lc_tool_catalog`, then one
-safe read such as `lc_review_org_posture`.
-
-For screenshots, user API key mode, external Vault, reauth, and permission
+For screenshots, permissions, user API key mode, external Vault, and
 troubleshooting, see [Onboarding And Auth](docs/onboarding-auth.md).
 
 ## Tool Surface

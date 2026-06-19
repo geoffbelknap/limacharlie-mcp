@@ -859,10 +859,10 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "action": "read",
         "resource_type": "ontology",
         "required_inputs": [],
-        "optional_inputs": ["limit"],
+        "optional_inputs": ["oid", "limit"],
         "bounds": {"limit_min": 1, "limit_max": 500},
         "side_effects": "none",
-        "notes": "Fetches LimaCharlie ontology/event definitions.",
+        "notes": "Fetches LimaCharlie ontology/event definitions. Org API key mode uses oid, or LC_ORG_ID when set, as the JWT auth scope.",
     },
     "event_type.list": {
         "suite": "content",
@@ -870,10 +870,10 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "action": "read",
         "resource_type": "event_type_collection",
         "required_inputs": [],
-        "optional_inputs": ["limit"],
+        "optional_inputs": ["oid", "limit"],
         "bounds": {"limit_min": 1, "limit_max": 500},
         "side_effects": "none",
-        "notes": "Lists available event types.",
+        "notes": "Lists available event types. Org API key mode uses oid, or LC_ORG_ID when set, as the JWT auth scope.",
     },
     "mitre.get": {
         "suite": "content",
@@ -3806,11 +3806,30 @@ def sensor_online(data: Any) -> bool:
 
 def classify_error(status_code: int | None, data: Any, raw_text: str) -> dict[str, Any]:
     message = redact_text(error_text(data, raw_text))
-    if status_code in (401, 403):
+    message_lower = message.lower()
+    permission_denied = (
+        "missing permission" in message_lower
+        or "requires " in message_lower and ("permission" in message_lower or "lc_error_code:unauthorized" in message_lower)
+    )
+    auth_denied = "unauthorized" in message_lower or "unknown api key" in message_lower or "user not found" in message_lower
+    if permission_denied:
+        error_class = "policy"
+        code = "missing_permission"
+        retryable = False
+        next_actions = [
+            "Check the required LimaCharlie permission for this operation.",
+            "Use an API key with the required permission or choose a narrower tool.",
+        ]
+    elif status_code in (401, 403):
         error_class = "auth" if status_code == 401 else "policy"
         code = "unauthorized" if status_code == 401 else "forbidden"
         retryable = False
         next_actions = ["Verify LC_API_KEY and org scope.", "Check the required LimaCharlie permission for this operation."]
+    elif status_code == 400 and auth_denied:
+        error_class = "auth"
+        code = "unauthorized"
+        retryable = False
+        next_actions = ["Verify the selected LimaCharlie API key and UID.", "Check the configured auth mode and org scope."]
     elif status_code == 404:
         error_class = "not_found"
         code = "resource_not_found"
@@ -3876,6 +3895,7 @@ class LimaCharlieAPI:
         jwt_root: str | None = None,
         cases_root: str | None = None,
         ai_root: str | None = None,
+        default_oid: str | None = None,
         timeout_seconds: float | None = None,
         audit_path: Path | None = None,
         http_client: HttpClient | None = None,
@@ -3889,6 +3909,7 @@ class LimaCharlieAPI:
             user_api_key if user_api_key is not None else os.environ.get("LC_USER_API_KEY")
         )
         self.uid = uid or os.environ.get("LC_UID")
+        self.default_oid = default_oid or os.environ.get("LC_ORG_ID") or os.environ.get("LC_OID")
         raw_auth_mode = (auth_mode or os.environ.get("LC_AUTH_MODE") or "auto").strip().lower()
         if raw_auth_mode in {"", "auto"}:
             self.auth_mode: str | None = None
@@ -3970,6 +3991,15 @@ class LimaCharlieAPI:
 
     def _credential_mode(self) -> str:
         return "user_api_key" if self._uses_user_api_key() else "org_api_key"
+
+    def _global_reference_auth_oid(self, oid: str | None = None) -> str:
+        if oid:
+            return require_oid(oid)
+        if self._uses_user_api_key():
+            return "-"
+        if self.default_oid:
+            return require_oid(self.default_oid)
+        return "-"
 
     def _vault_token(self) -> str | None:
         if self.vault_token:
@@ -8551,24 +8581,26 @@ class LimaCharlieAPI:
             resource={"type": "schema", "id": safe_name, "parent": {"type": "organization", "id": scoped_oid}},
         ).as_dict()
 
-    def get_ontology(self, limit: int = 100) -> dict[str, Any]:
+    def get_ontology(self, oid: str | None = None, limit: int = 100) -> dict[str, Any]:
         bounded_limit = require_limit(limit)
+        auth_oid = self._global_reference_auth_oid(oid)
         return self._request(
             "GET",
             "ontology",
             operation="ontology.get",
-            oid="-",
+            oid=auth_oid,
             resource={"type": "ontology", "id": "-"},
             limit=bounded_limit,
         ).as_dict()
 
-    def list_event_types(self, limit: int = 100) -> dict[str, Any]:
+    def list_event_types(self, oid: str | None = None, limit: int = 100) -> dict[str, Any]:
         bounded_limit = require_limit(limit)
+        auth_oid = self._global_reference_auth_oid(oid)
         return self._request(
             "GET",
             "events",
             operation="event_type.list",
-            oid="-",
+            oid=auth_oid,
             resource={"type": "event_type_collection", "id": "-"},
             limit=bounded_limit,
         ).as_dict()

@@ -144,6 +144,28 @@ def test_auth_error_redacts_uid_from_response_and_audit(tmp_path: Path) -> None:
     assert "[redacted]" in audit_text
 
 
+def test_lc_permission_error_with_400_is_policy_error(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add(
+        "GET",
+        f"https://api.limacharlie.io/v1/hive/dr-general/{OID}",
+        {
+            "data": {},
+            "error": f"lc_error_code:UNAUTHORIZED - access to {OID} requires dr.list",
+            "retry": False,
+        },
+        status_code=400,
+    )
+    client = make_client(tmp_path, fake)
+
+    result = client.list_dr_rules(OID)
+
+    assert result["ok"] is False
+    assert result["error"]["class"] == "policy"
+    assert result["error"]["code"] == "missing_permission"
+    assert result["error"]["same_input_retryable"] is False
+
+
 def test_env_uid_without_user_key_keeps_org_api_key_mode(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("LC_API_KEY", "org-secret")
     monkeypatch.setenv("LC_UID", "firebase-user-id-1234567890")
@@ -1263,6 +1285,29 @@ def test_schema_ontology_and_mitre_tools_use_expected_paths(tmp_path: Path) -> N
     assert client.get_ontology()["operation"] == "ontology.get"
     assert client.list_event_types()["data"]["events"] == ["NEW_PROCESS"]
     assert client.get_mitre_report(OID)["operation"] == "mitre.get"
+
+
+def test_global_reference_tools_can_use_org_scoped_default_oid(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("POST", "https://jwt.limacharlie.io", {"jwt": "test-token", "expires_in": 3000})
+    fake.add("GET", "https://api.limacharlie.io/v1/ontology", {"events": [{"name": "NEW_PROCESS"}]})
+    fake.add("GET", "https://api.limacharlie.io/v1/events", {"events": ["NEW_PROCESS"]})
+    client = LimaCharlieAPI(
+        api_key="secret",
+        credential_provider="env",
+        default_oid=OID,
+        audit_path=tmp_path / "audit.jsonl",
+        http_client=fake,
+    )
+
+    ontology = client.get_ontology()
+    event_types = client.list_event_types()
+
+    assert ontology["ok"] is True
+    assert event_types["ok"] is True
+    assert fake.calls[0]["data"]["oid"] == OID
+    assert fake.calls[1]["url"] == "https://api.limacharlie.io/v1/ontology"
+    assert fake.calls[2]["url"] == "https://api.limacharlie.io/v1/events"
 
 
 def test_extension_artifact_and_ingestion_read_tools_use_expected_paths(tmp_path: Path) -> None:
@@ -2519,7 +2564,7 @@ def test_non_2xx_result_returns_error(tmp_path: Path) -> None:
     assert result["ok"] is False
     assert_ax_envelope(result, "sensor.list")
     assert result["error"]["class"] == "policy"
-    assert result["error"]["code"] == "forbidden"
+    assert result["error"]["code"] == "missing_permission"
     assert result["error"]["message"] == "missing permission"
     assert result["error"]["retryable"] is False
     assert result["side_effects"] == []

@@ -2274,17 +2274,17 @@ def lc_get_schema(oid: str, name: str) -> dict:
 
 
 @mcp.tool()
-def lc_get_ontology(limit: int = 100) -> dict:
-    """Fetch LimaCharlie ontology/event definitions."""
+def lc_get_ontology(oid: str | None = None, limit: int = 100) -> dict:
+    """Fetch LimaCharlie ontology/event definitions, optionally using oid as the org-key JWT scope."""
 
-    return _call("ontology.get", lc.get_ontology, limit=limit)
+    return _call("ontology.get", lc.get_ontology, oid=oid, limit=limit)
 
 
 @mcp.tool()
-def lc_list_event_types(limit: int = 100) -> dict:
-    """List available LimaCharlie event types."""
+def lc_list_event_types(oid: str | None = None, limit: int = 100) -> dict:
+    """List available LimaCharlie event types, optionally using oid as the org-key JWT scope."""
 
-    return _call("event_type.list", lc.list_event_types, limit=limit)
+    return _call("event_type.list", lc.list_event_types, oid=oid, limit=limit)
 
 
 @mcp.tool()

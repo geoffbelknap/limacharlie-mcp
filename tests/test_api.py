@@ -909,6 +909,186 @@ def test_integrity_and_usp_tools_use_expected_paths(tmp_path: Path) -> None:
     assert fake.calls[3]["json"]["json_input"] == [{"x": 1}]
 
 
+def test_artifact_rule_previews_confirm_exact_requests(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("POST", f"https://api.limacharlie.io/v1/insight/{OID}/artifacts/rules", {"ok": True})
+    fake.add("DELETE", f"https://api.limacharlie.io/v1/insight/{OID}/artifacts/rules", {"ok": True})
+    client = make_client(tmp_path, fake)
+
+    set_preview = client.preview_set_artifact_rule(
+        OID,
+        "collect-logs",
+        platforms=["windows"],
+        patterns=["C:\\Windows\\Temp\\*.log"],
+        is_delete_after=True,
+        retention_days=14,
+        tags=["incident"],
+    )
+    delete_preview = client.preview_delete_artifact_rule(OID, "collect-logs")
+
+    assert set_preview["ok"] is True
+    assert_ax_envelope(set_preview, "artifact_rule.set.preview")
+    assert delete_preview["ok"] is True
+    assert fake.calls == []
+
+    set_confirmed = client.confirm_mutation(set_preview["data"]["confirmation_token"])
+    delete_confirmed = client.confirm_mutation(delete_preview["data"]["confirmation_token"])
+
+    assert set_confirmed["ok"] is True
+    assert set_confirmed["data"]["confirmed_operation"] == "artifact_rule.set"
+    assert set_confirmed["side_effects"][0]["type"] == "artifact_rule_set"
+    assert fake.calls[1]["method"] == "POST"
+    assert fake.calls[1]["json"] == {
+        "name": "collect-logs",
+        "platforms": ["windows"],
+        "patterns": ["C:\\Windows\\Temp\\*.log"],
+        "is_delete_after": True,
+        "days_retention": 14,
+        "tags": ["incident"],
+    }
+    assert delete_confirmed["ok"] is True
+    assert delete_confirmed["data"]["confirmed_operation"] == "artifact_rule.delete"
+    assert fake.calls[2]["method"] == "DELETE"
+    assert fake.calls[2]["params"] == {"name": "collect-logs"}
+
+
+def test_service_rule_previews_confirm_encoded_request_data(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("POST", f"https://api.limacharlie.io/v1/service/{OID}/logging", {"ok": True})
+    fake.add("POST", f"https://api.limacharlie.io/v1/service/{OID}/integrity", {"ok": True})
+    client = make_client(tmp_path, fake)
+
+    logging_preview = client.preview_set_logging_rule(
+        OID,
+        "retain-processes",
+        patterns=["event/NEW_PROCESS"],
+        tags=["windows"],
+        platforms=["windows"],
+        retention_days=30,
+        delete_after=True,
+    )
+    integrity_preview = client.preview_delete_integrity_rule(OID, "watch-bin")
+
+    assert logging_preview["ok"] is True
+    assert_ax_envelope(logging_preview, "logging_rule.set.preview")
+    assert integrity_preview["ok"] is True
+    assert fake.calls == []
+
+    logging_confirmed = client.confirm_mutation(logging_preview["data"]["confirmation_token"])
+    integrity_confirmed = client.confirm_mutation(integrity_preview["data"]["confirmation_token"])
+
+    assert logging_confirmed["ok"] is True
+    assert logging_confirmed["data"]["confirmed_operation"] == "logging_rule.set"
+    assert fake.calls[1]["url"] == f"https://api.limacharlie.io/v1/service/{OID}/logging"
+    assert fake.calls[1]["params"]["is_async"] is False
+    assert decode_request_data(fake.calls[1]["params"]["request_data"]) == {
+        "action": "add_rule",
+        "name": "retain-processes",
+        "patterns": ["event/NEW_PROCESS"],
+        "tags": ["windows"],
+        "platforms": ["windows"],
+        "days_retention": "30",
+        "is_delete_after": "true",
+    }
+    assert integrity_confirmed["ok"] is True
+    assert integrity_confirmed["data"]["confirmed_operation"] == "integrity_rule.delete"
+    assert fake.calls[2]["url"] == f"https://api.limacharlie.io/v1/service/{OID}/integrity"
+    assert decode_request_data(fake.calls[2]["params"]["request_data"]) == {
+        "action": "remove_rule",
+        "name": "watch-bin",
+    }
+
+
+def test_hive_rule_previews_confirm_encoded_params(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("POST", f"https://api.limacharlie.io/v1/hive/dr-managed/{OID}/rule-1/data", {"ok": True})
+    fake.add("DELETE", f"https://api.limacharlie.io/v1/hive/fp/{OID}/fp-1", {"ok": True})
+    client = make_client(tmp_path, fake)
+
+    dr_preview = client.preview_set_dr_rule(
+        OID,
+        "rule-1",
+        data={"detect": {"event": "NEW_PROCESS"}, "respond": []},
+        namespace="managed",
+        enabled=True,
+        tags=["prod"],
+        comment="created by test",
+        expiry=1_771_003_600,
+        etag="etag-1",
+    )
+    fp_preview = client.preview_delete_fp_rule(OID, "fp-1")
+
+    assert dr_preview["ok"] is True
+    assert_ax_envelope(dr_preview, "dr_rule.set.preview")
+    assert fp_preview["ok"] is True
+    assert fake.calls == []
+
+    dr_confirmed = client.confirm_mutation(dr_preview["data"]["confirmation_token"])
+    fp_confirmed = client.confirm_mutation(fp_preview["data"]["confirmation_token"])
+
+    assert dr_confirmed["ok"] is True
+    assert dr_confirmed["data"]["confirmed_operation"] == "dr_rule.set"
+    assert fake.calls[1]["method"] == "POST"
+    assert json.loads(fake.calls[1]["params"]["data"]) == {"detect": {"event": "NEW_PROCESS"}, "respond": []}
+    assert json.loads(fake.calls[1]["params"]["usr_mtd"]) == {
+        "enabled": True,
+        "tags": ["prod"],
+        "comment": "created by test",
+        "expiry": 1_771_003_600,
+    }
+    assert fake.calls[1]["params"]["etag"] == "etag-1"
+    assert fp_confirmed["ok"] is True
+    assert fp_confirmed["data"]["confirmed_operation"] == "fp_rule.delete"
+    assert fake.calls[2]["method"] == "DELETE"
+    assert fake.calls[2]["url"] == f"https://api.limacharlie.io/v1/hive/fp/{OID}/fp-1"
+
+
+def test_yara_previews_confirm_service_requests(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("POST", f"https://api.limacharlie.io/v1/service/{OID}/yara", {"ok": True})
+    client = make_client(tmp_path, fake)
+
+    scan_preview = client.preview_yara_scan(OID, SID, "rule test { condition: true }", timeout_seconds=120)
+    rule_preview = client.preview_set_yara_rule(OID, "rule-pack", sources=["source-1"], tags=["prod"], platforms=["linux"])
+    source_preview = client.preview_set_yara_source(OID, "source-1", "rule x { condition: true }")
+    delete_source_preview = client.preview_delete_yara_source(OID, "source-1")
+
+    assert scan_preview["ok"] is True
+    assert_ax_envelope(scan_preview, "yara.scan.preview")
+    assert fake.calls == []
+
+    scan_confirmed = client.confirm_mutation(scan_preview["data"]["confirmation_token"])
+    rule_confirmed = client.confirm_mutation(rule_preview["data"]["confirmation_token"])
+    source_confirmed = client.confirm_mutation(source_preview["data"]["confirmation_token"])
+    delete_source_confirmed = client.confirm_mutation(delete_source_preview["data"]["confirmation_token"])
+
+    assert scan_confirmed["data"]["confirmed_operation"] == "yara.scan"
+    assert decode_request_data(fake.calls[1]["params"]["request_data"]) == {
+        "action": "scan",
+        "sid": SID,
+        "rule": "rule test { condition: true }",
+        "timeout": "120",
+    }
+    assert rule_confirmed["data"]["confirmed_operation"] == "yara_rule.set"
+    rule_request = decode_request_data(fake.calls[2]["params"]["request_data"])
+    assert rule_request["action"] == "add_rule"
+    assert rule_request["name"] == "rule-pack"
+    assert json.loads(rule_request["sources"]) == ["source-1"]
+    assert json.loads(rule_request["tags"]) == ["prod"]
+    assert json.loads(rule_request["platforms"]) == ["linux"]
+    assert source_confirmed["data"]["confirmed_operation"] == "yara_source.set"
+    assert decode_request_data(fake.calls[3]["params"]["request_data"]) == {
+        "action": "add_source",
+        "name": "source-1",
+        "source": "rule x { condition: true }",
+    }
+    assert delete_source_confirmed["data"]["confirmed_operation"] == "yara_source.delete"
+    assert decode_request_data(fake.calls[4]["params"]["request_data"]) == {
+        "action": "remove_source",
+        "name": "source-1",
+    }
+
+
 def test_artifact_list_requires_time_window_without_cursor(tmp_path: Path) -> None:
     client = make_client(tmp_path, FakeHTTP())
 

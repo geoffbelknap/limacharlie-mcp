@@ -126,20 +126,35 @@ renaming tools.
 | `lc_list_event_types` | List available event types. |
 | `lc_get_mitre_report` | Fetch MITRE ATT&CK coverage data. |
 | `lc_list_artifact_rules` | List artifact collection rules. |
+| `lc_preview_set_artifact_rule` | Preview creating or updating an artifact collection rule. |
+| `lc_preview_delete_artifact_rule` | Preview deleting an artifact collection rule. |
 | `lc_list_logging_rules` | List logging collection rules. |
+| `lc_preview_set_logging_rule` | Preview creating or updating a logging collection rule. |
+| `lc_preview_delete_logging_rule` | Preview deleting a logging collection rule. |
 | `lc_validate_replay_rule` | Validate a D&R rule through Replay using dry-run evaluation. |
 | `lc_replay_scan_events` | Dry-run a D&R rule against explicit events. |
 | `lc_replay_dry_run` | Dry-run a D&R rule against historical data without creating detections. |
 | `lc_list_dr_rules` | List D&R rules from a hive namespace. |
 | `lc_get_dr_rule` | Fetch one D&R rule from a hive namespace. |
+| `lc_preview_set_dr_rule` | Preview creating or updating a D&R rule. |
+| `lc_preview_delete_dr_rule` | Preview deleting a D&R rule. |
 | `lc_list_fp_rules` | List false-positive rules. |
 | `lc_get_fp_rule` | Fetch one false-positive rule. |
+| `lc_preview_set_fp_rule` | Preview creating or updating a false-positive rule. |
+| `lc_preview_delete_fp_rule` | Preview deleting a false-positive rule. |
 | `lc_list_integrity_rules` | List integrity monitoring rules. |
 | `lc_get_integrity_rule` | Fetch one integrity monitoring rule. |
+| `lc_preview_set_integrity_rule` | Preview creating or updating an integrity monitoring rule. |
+| `lc_preview_delete_integrity_rule` | Preview deleting an integrity monitoring rule. |
 | `lc_validate_usp_mapping` | Validate USP mapping/input configuration. |
 | `lc_list_yara_rules` | List YARA scanning rules. |
+| `lc_preview_yara_scan` | Preview running an ad-hoc YARA scan on one sensor. |
+| `lc_preview_set_yara_rule` | Preview creating or updating a YARA scanning rule. |
+| `lc_preview_delete_yara_rule` | Preview deleting a YARA scanning rule. |
 | `lc_list_yara_sources` | List YARA source names. |
 | `lc_get_yara_source` | Fetch one YARA source. |
+| `lc_preview_set_yara_source` | Preview creating or updating a YARA source. |
+| `lc_preview_delete_yara_source` | Preview deleting a YARA source. |
 
 ### Response
 
@@ -158,10 +173,11 @@ renaming tools.
 | `lc_confirm_mutation` | Execute the exact typed mutation bound to a preview token. |
 | `lc_cancel_mutation` | Cancel a pending local mutation preview without calling LimaCharlie. |
 
-Sensor tag mutation is available only through the preview/confirm contract.
-Other writes remain gated until they have typed preview/confirm tools. That
-includes tasking, isolation, users, keys, D&R writes, extension subscriptions,
-outputs, and case updates.
+Mutations are available only through the preview/confirm contract. Current
+typed previews cover sensor response actions, job deletion, sensor tags, and
+artifact/logging/D&R/false-positive/integrity/YARA content changes. Remaining
+administration and case write surfaces stay gated until they have typed
+preview/confirm tools with request-shape tests.
 
 ## Agent Experience Contract
 

@@ -1041,6 +1041,40 @@ def lc_list_artifact_rules(oid: str, limit: int = 100) -> dict:
 
 
 @mcp.tool()
+def lc_preview_set_artifact_rule(
+    oid: str,
+    name: str,
+    platforms: list[str] | str,
+    patterns: list[str] | str,
+    is_delete_after: bool = False,
+    retention_days: int = 30,
+    tags: list[str] | str | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview creating or updating an artifact collection rule."""
+
+    return _call(
+        "artifact_rule.set.preview",
+        lc.preview_set_artifact_rule,
+        oid=oid,
+        name=name,
+        platforms=platforms,
+        patterns=patterns,
+        is_delete_after=is_delete_after,
+        retention_days=retention_days,
+        tags=tags,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_preview_delete_artifact_rule(oid: str, name: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview deleting an artifact collection rule."""
+
+    return _call("artifact_rule.delete.preview", lc.preview_delete_artifact_rule, oid=oid, name=name, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
 def lc_list_ingestion_keys(oid: str, limit: int = 100) -> dict:
     """List ingestion key metadata for an org."""
 
@@ -1052,6 +1086,40 @@ def lc_list_logging_rules(oid: str, limit: int = 100) -> dict:
     """List logging collection rules for an org."""
 
     return _call("logging_rule.list", lc.list_logging_rules, oid=oid, limit=limit)
+
+
+@mcp.tool()
+def lc_preview_set_logging_rule(
+    oid: str,
+    name: str,
+    patterns: list[str] | str,
+    tags: list[str] | str | None = None,
+    platforms: list[str] | str | None = None,
+    retention_days: int | None = None,
+    delete_after: bool = False,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview creating or updating a logging collection rule."""
+
+    return _call(
+        "logging_rule.set.preview",
+        lc.preview_set_logging_rule,
+        oid=oid,
+        name=name,
+        patterns=patterns,
+        tags=tags,
+        platforms=platforms,
+        retention_days=retention_days,
+        delete_after=delete_after,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_preview_delete_logging_rule(oid: str, name: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview deleting a logging collection rule."""
+
+    return _call("logging_rule.delete.preview", lc.preview_delete_logging_rule, oid=oid, name=name, token_ttl_seconds=token_ttl_seconds)
 
 
 @mcp.tool()
@@ -1069,6 +1137,44 @@ def lc_get_dr_rule(oid: str, name: str, namespace: str | None = None) -> dict:
 
 
 @mcp.tool()
+def lc_preview_set_dr_rule(
+    oid: str,
+    name: str,
+    data: dict[str, Any],
+    namespace: str | None = None,
+    enabled: bool | None = None,
+    tags: list[str] | str | None = None,
+    comment: str | None = None,
+    expiry: int | None = None,
+    etag: str | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview creating or updating a D&R rule."""
+
+    return _call(
+        "dr_rule.set.preview",
+        lc.preview_set_dr_rule,
+        oid=oid,
+        name=name,
+        data=data,
+        namespace=namespace,
+        enabled=enabled,
+        tags=tags,
+        comment=comment,
+        expiry=expiry,
+        etag=etag,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_preview_delete_dr_rule(oid: str, name: str, namespace: str | None = None, token_ttl_seconds: int = 300) -> dict:
+    """Preview deleting a D&R rule."""
+
+    return _call("dr_rule.delete.preview", lc.preview_delete_dr_rule, oid=oid, name=name, namespace=namespace, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
 def lc_list_fp_rules(oid: str, limit: int = 100) -> dict:
     """List false-positive rules for an org."""
 
@@ -1083,6 +1189,42 @@ def lc_get_fp_rule(oid: str, name: str) -> dict:
 
 
 @mcp.tool()
+def lc_preview_set_fp_rule(
+    oid: str,
+    name: str,
+    data: dict[str, Any],
+    enabled: bool | None = None,
+    tags: list[str] | str | None = None,
+    comment: str | None = None,
+    expiry: int | None = None,
+    etag: str | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview creating or updating a false-positive rule."""
+
+    return _call(
+        "fp_rule.set.preview",
+        lc.preview_set_fp_rule,
+        oid=oid,
+        name=name,
+        data=data,
+        enabled=enabled,
+        tags=tags,
+        comment=comment,
+        expiry=expiry,
+        etag=etag,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_preview_delete_fp_rule(oid: str, name: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview deleting a false-positive rule."""
+
+    return _call("fp_rule.delete.preview", lc.preview_delete_fp_rule, oid=oid, name=name, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
 def lc_list_integrity_rules(oid: str, limit: int = 100) -> dict:
     """List integrity monitoring rules for an org."""
 
@@ -1094,6 +1236,36 @@ def lc_get_integrity_rule(oid: str, name: str) -> dict:
     """Fetch one integrity monitoring rule by name."""
 
     return _call("integrity_rule.get", lc.get_integrity_rule, oid=oid, name=name)
+
+
+@mcp.tool()
+def lc_preview_set_integrity_rule(
+    oid: str,
+    name: str,
+    patterns: list[str] | str,
+    tags: list[str] | str | None = None,
+    platforms: list[str] | str | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview creating or updating an integrity monitoring rule."""
+
+    return _call(
+        "integrity_rule.set.preview",
+        lc.preview_set_integrity_rule,
+        oid=oid,
+        name=name,
+        patterns=patterns,
+        tags=tags,
+        platforms=platforms,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_preview_delete_integrity_rule(oid: str, name: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview deleting an integrity monitoring rule."""
+
+    return _call("integrity_rule.delete.preview", lc.preview_delete_integrity_rule, oid=oid, name=name, token_ttl_seconds=token_ttl_seconds)
 
 
 @mcp.tool()
@@ -1131,6 +1303,57 @@ def lc_list_yara_rules(oid: str, limit: int = 100) -> dict:
 
 
 @mcp.tool()
+def lc_preview_yara_scan(
+    oid: str,
+    sensor_id: str,
+    rule: str,
+    timeout_seconds: int | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview running an ad-hoc YARA scan on one sensor."""
+
+    return _call(
+        "yara.scan.preview",
+        lc.preview_yara_scan,
+        oid=oid,
+        sensor_id=sensor_id,
+        rule=rule,
+        timeout_seconds=timeout_seconds,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_preview_set_yara_rule(
+    oid: str,
+    name: str,
+    sources: list[str] | str,
+    tags: list[str] | str | None = None,
+    platforms: list[str] | str | None = None,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview creating or updating a YARA scanning rule."""
+
+    return _call(
+        "yara_rule.set.preview",
+        lc.preview_set_yara_rule,
+        oid=oid,
+        name=name,
+        sources=sources,
+        tags=tags,
+        platforms=platforms,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_preview_delete_yara_rule(oid: str, name: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview deleting a YARA scanning rule."""
+
+    return _call("yara_rule.delete.preview", lc.preview_delete_yara_rule, oid=oid, name=name, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
 def lc_list_yara_sources(oid: str, limit: int = 100) -> dict:
     """List YARA source names for an org."""
 
@@ -1142,6 +1365,20 @@ def lc_get_yara_source(oid: str, name: str) -> dict:
     """Fetch one YARA source by name."""
 
     return _call("yara_source.get", lc.get_yara_source, oid=oid, name=name)
+
+
+@mcp.tool()
+def lc_preview_set_yara_source(oid: str, name: str, source: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview creating or updating a YARA source."""
+
+    return _call("yara_source.set.preview", lc.preview_set_yara_source, oid=oid, name=name, source=source, token_ttl_seconds=token_ttl_seconds)
+
+
+@mcp.tool()
+def lc_preview_delete_yara_source(oid: str, name: str, token_ttl_seconds: int = 300) -> dict:
+    """Preview deleting a YARA source."""
+
+    return _call("yara_source.delete.preview", lc.preview_delete_yara_source, oid=oid, name=name, token_ttl_seconds=token_ttl_seconds)
 
 
 @mcp.tool()

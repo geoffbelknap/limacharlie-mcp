@@ -89,9 +89,24 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
         "lc_list_payloads",
         "lc_get_payload_download_url",
         "lc_get_arl",
+        "lc_preview_set_artifact_rule",
+        "lc_preview_delete_artifact_rule",
+        "lc_preview_set_logging_rule",
+        "lc_preview_delete_logging_rule",
+        "lc_preview_set_dr_rule",
+        "lc_preview_delete_dr_rule",
+        "lc_preview_set_fp_rule",
+        "lc_preview_delete_fp_rule",
         "lc_list_integrity_rules",
         "lc_get_integrity_rule",
+        "lc_preview_set_integrity_rule",
+        "lc_preview_delete_integrity_rule",
         "lc_validate_usp_mapping",
+        "lc_preview_yara_scan",
+        "lc_preview_set_yara_rule",
+        "lc_preview_delete_yara_rule",
+        "lc_preview_set_yara_source",
+        "lc_preview_delete_yara_source",
         "lc_list_pending_mutations",
         "lc_preview_add_sensor_tag",
         "lc_preview_remove_sensor_tag",
@@ -138,5 +153,15 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
     assert set(billing_invoice_schema["required"]) == {"oid", "year", "month"}
     usp_schema = tools["lc_validate_usp_mapping"]["inputSchema"]
     assert set(usp_schema["required"]) == {"oid", "platform"}
+    artifact_set_schema = tools["lc_preview_set_artifact_rule"]["inputSchema"]
+    assert set(artifact_set_schema["required"]) == {"oid", "name", "platforms", "patterns"}
+    assert artifact_set_schema["properties"]["retention_days"]["default"] == 30
+    dr_set_schema = tools["lc_preview_set_dr_rule"]["inputSchema"]
+    assert set(dr_set_schema["required"]) == {"oid", "name", "data"}
+    assert dr_set_schema["properties"]["token_ttl_seconds"]["default"] == 300
+    yara_scan_schema = tools["lc_preview_yara_scan"]["inputSchema"]
+    assert set(yara_scan_schema["required"]) == {"oid", "sensor_id", "rule"}
+    yara_source_schema = tools["lc_preview_set_yara_source"]["inputSchema"]
+    assert set(yara_source_schema["required"]) == {"oid", "name", "source"}
     confirm_schema = tools["lc_confirm_mutation"]["inputSchema"]
     assert set(confirm_schema["required"]) == {"confirmation_token"}

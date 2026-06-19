@@ -1054,6 +1054,26 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "side_effects": "none",
         "notes": "Lists artifact collection rules.",
     },
+    "artifact_rule.set.preview": {
+        "suite": "content",
+        "tool": "lc_preview_set_artifact_rule",
+        "action": "preview",
+        "resource_type": "artifact_rule",
+        "required_inputs": ["oid", "name", "platforms", "patterns"],
+        "optional_inputs": ["is_delete_after", "retention_days", "tags", "token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews creating or updating an artifact collection rule.",
+    },
+    "artifact_rule.delete.preview": {
+        "suite": "content",
+        "tool": "lc_preview_delete_artifact_rule",
+        "action": "preview",
+        "resource_type": "artifact_rule",
+        "required_inputs": ["oid", "name"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews deleting an artifact collection rule.",
+    },
     "ingestion_key.list": {
         "suite": "administration",
         "tool": "lc_list_ingestion_keys",
@@ -1075,6 +1095,26 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "bounds": {"limit_min": 1, "limit_max": 500},
         "side_effects": "none",
         "notes": "Lists logging collection rules through the logging service.",
+    },
+    "logging_rule.set.preview": {
+        "suite": "content",
+        "tool": "lc_preview_set_logging_rule",
+        "action": "preview",
+        "resource_type": "logging_rule",
+        "required_inputs": ["oid", "name", "patterns"],
+        "optional_inputs": ["tags", "platforms", "retention_days", "delete_after", "token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews creating or updating a logging collection rule.",
+    },
+    "logging_rule.delete.preview": {
+        "suite": "content",
+        "tool": "lc_preview_delete_logging_rule",
+        "action": "preview",
+        "resource_type": "logging_rule",
+        "required_inputs": ["oid", "name"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews deleting a logging collection rule.",
     },
     "dr_rule.list": {
         "suite": "content",
@@ -1098,6 +1138,26 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "side_effects": "none",
         "notes": "Fetches one D&R hive record.",
     },
+    "dr_rule.set.preview": {
+        "suite": "content",
+        "tool": "lc_preview_set_dr_rule",
+        "action": "preview",
+        "resource_type": "dr_rule",
+        "required_inputs": ["oid", "name", "data"],
+        "optional_inputs": ["namespace", "enabled", "tags", "comment", "expiry", "etag", "token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews creating or updating a D&R hive record.",
+    },
+    "dr_rule.delete.preview": {
+        "suite": "content",
+        "tool": "lc_preview_delete_dr_rule",
+        "action": "preview",
+        "resource_type": "dr_rule",
+        "required_inputs": ["oid", "name"],
+        "optional_inputs": ["namespace", "token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews deleting a D&R hive record.",
+    },
     "fp_rule.list": {
         "suite": "content",
         "tool": "lc_list_fp_rules",
@@ -1119,6 +1179,26 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "side_effects": "none",
         "notes": "Fetches one false-positive hive record.",
     },
+    "fp_rule.set.preview": {
+        "suite": "content",
+        "tool": "lc_preview_set_fp_rule",
+        "action": "preview",
+        "resource_type": "fp_rule",
+        "required_inputs": ["oid", "name", "data"],
+        "optional_inputs": ["enabled", "tags", "comment", "expiry", "etag", "token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews creating or updating a false-positive hive record.",
+    },
+    "fp_rule.delete.preview": {
+        "suite": "content",
+        "tool": "lc_preview_delete_fp_rule",
+        "action": "preview",
+        "resource_type": "fp_rule",
+        "required_inputs": ["oid", "name"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews deleting a false-positive hive record.",
+    },
     "integrity_rule.list": {
         "suite": "content",
         "tool": "lc_list_integrity_rules",
@@ -1139,6 +1219,26 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "optional_inputs": [],
         "side_effects": "none",
         "notes": "Fetches one integrity rule by name from the integrity service list.",
+    },
+    "integrity_rule.set.preview": {
+        "suite": "content",
+        "tool": "lc_preview_set_integrity_rule",
+        "action": "preview",
+        "resource_type": "integrity_rule",
+        "required_inputs": ["oid", "name", "patterns"],
+        "optional_inputs": ["tags", "platforms", "token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews creating or updating an integrity monitoring rule.",
+    },
+    "integrity_rule.delete.preview": {
+        "suite": "content",
+        "tool": "lc_preview_delete_integrity_rule",
+        "action": "preview",
+        "resource_type": "integrity_rule",
+        "required_inputs": ["oid", "name"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews deleting an integrity monitoring rule.",
     },
     "usp.validate": {
         "suite": "content",
@@ -1162,6 +1262,36 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "side_effects": "none",
         "notes": "Lists YARA scanning rules through the YARA service.",
     },
+    "yara.scan.preview": {
+        "suite": "response",
+        "tool": "lc_preview_yara_scan",
+        "action": "preview",
+        "resource_type": "yara_scan",
+        "required_inputs": ["oid", "sensor_id", "rule"],
+        "optional_inputs": ["timeout_seconds", "token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews running an ad-hoc YARA scan on one sensor.",
+    },
+    "yara_rule.set.preview": {
+        "suite": "content",
+        "tool": "lc_preview_set_yara_rule",
+        "action": "preview",
+        "resource_type": "yara_rule",
+        "required_inputs": ["oid", "name", "sources"],
+        "optional_inputs": ["tags", "platforms", "token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews creating or updating a YARA scanning rule.",
+    },
+    "yara_rule.delete.preview": {
+        "suite": "content",
+        "tool": "lc_preview_delete_yara_rule",
+        "action": "preview",
+        "resource_type": "yara_rule",
+        "required_inputs": ["oid", "name"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews deleting a YARA scanning rule.",
+    },
     "yara_source.list": {
         "suite": "content",
         "tool": "lc_list_yara_sources",
@@ -1182,6 +1312,26 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "optional_inputs": [],
         "side_effects": "none",
         "notes": "Fetches one YARA source through the YARA service.",
+    },
+    "yara_source.set.preview": {
+        "suite": "content",
+        "tool": "lc_preview_set_yara_source",
+        "action": "preview",
+        "resource_type": "yara_source",
+        "required_inputs": ["oid", "name", "source"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews creating or updating a YARA source.",
+    },
+    "yara_source.delete.preview": {
+        "suite": "content",
+        "tool": "lc_preview_delete_yara_source",
+        "action": "preview",
+        "resource_type": "yara_source",
+        "required_inputs": ["oid", "name"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews deleting a YARA source.",
     },
     "mutation.pending.list": {
         "suite": "response",
@@ -1536,6 +1686,28 @@ def require_sensor_tasks(tasks: str | list[str]) -> list[str]:
     if total > 20_000:
         raise ValidationError("tasks must be 20000 total bytes or less")
     return checked
+
+
+def require_string_list(values: list[str] | str | None, name: str, *, maximum: int = 100) -> list[str] | None:
+    if values is None:
+        return None
+    raw_values = [values] if isinstance(values, str) else values
+    if not isinstance(raw_values, list) or len(raw_values) > maximum:
+        raise ValidationError(f"{name} must be a string or list of at most {maximum} strings")
+    checked: list[str] = []
+    for value in raw_values:
+        if not isinstance(value, str) or not value or len(value) > 1000 or "\x00" in value:
+            raise ValidationError(f"{name} entries must be non-empty strings under 1000 characters")
+        checked.append(value)
+    return checked
+
+
+def require_retention_days(value: int | None) -> int | None:
+    if value is None:
+        return None
+    if not isinstance(value, int) or value < 1 or value > 3650:
+        raise ValidationError("retention_days must be between 1 and 3650")
+    return value
 
 
 def require_cve(value: str) -> str:
@@ -3583,6 +3755,63 @@ class LimaCharlieAPI:
             limit=bounded_limit,
         ).as_dict()
 
+    def preview_set_artifact_rule(
+        self,
+        oid: str,
+        name: str,
+        platforms: list[str] | str,
+        patterns: list[str] | str,
+        is_delete_after: bool = False,
+        retention_days: int = 30,
+        tags: list[str] | str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_name = require_token(name, "name")
+        token_ttl = require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900)
+        body: dict[str, Any] = {
+            "name": safe_name,
+            "platforms": require_string_list(platforms, "platforms") or [],
+            "patterns": require_string_list(patterns, "patterns") or [],
+            "is_delete_after": bool(is_delete_after),
+            "days_retention": require_retention_days(retention_days) or 30,
+        }
+        checked_tags = require_string_list(tags, "tags")
+        if checked_tags is not None:
+            body["tags"] = checked_tags
+        return self._create_mutation_preview(
+            operation="artifact_rule.set",
+            oid=scoped_oid,
+            method="POST",
+            path=f"insight/{scoped_oid}/artifacts/rules",
+            resource={"type": "artifact_rule", "id": safe_name, "parent": {"type": "organization", "id": scoped_oid}},
+            data=None,
+            json_body=body,
+            expected_effect=f"Create or update artifact collection rule {safe_name!r}.",
+            reversibility="Restore the previous artifact rule body or delete the rule if it was newly created.",
+            side_effects=[{"type": "artifact_rule_set", "resource": {"type": "artifact_rule", "id": safe_name}}],
+            token_ttl_seconds=token_ttl,
+        )
+
+    def preview_delete_artifact_rule(self, oid: str, name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_name = require_token(name, "name")
+        token_ttl = require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900)
+        return self._create_mutation_preview(
+            operation="artifact_rule.delete",
+            oid=scoped_oid,
+            method="DELETE",
+            path=f"insight/{scoped_oid}/artifacts/rules",
+            resource={"type": "artifact_rule", "id": safe_name, "parent": {"type": "organization", "id": scoped_oid}},
+            params={"name": safe_name},
+            data=None,
+            json_body=None,
+            expected_effect=f"Delete artifact collection rule {safe_name!r}.",
+            reversibility="Recreate the artifact rule from a known-good definition if deletion was unintended.",
+            side_effects=[{"type": "artifact_rule_deleted", "resource": {"type": "artifact_rule", "id": safe_name}}],
+            token_ttl_seconds=token_ttl,
+        )
+
     def list_ingestion_keys(self, oid: str, limit: int = 100) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         bounded_limit = require_limit(limit)
@@ -3607,6 +3836,62 @@ class LimaCharlieAPI:
             params=service_request_params({"action": "list_rules"}),
             limit=bounded_limit,
         ).as_dict()
+
+    def preview_set_logging_rule(
+        self,
+        oid: str,
+        name: str,
+        patterns: list[str] | str,
+        tags: list[str] | str | None = None,
+        platforms: list[str] | str | None = None,
+        retention_days: int | None = None,
+        delete_after: bool = False,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        safe_name = require_token(name, "name")
+        request_data: dict[str, Any] = {
+            "action": "add_rule",
+            "name": safe_name,
+            "patterns": require_string_list(patterns, "patterns") or [],
+        }
+        checked_tags = require_string_list(tags, "tags")
+        if checked_tags is not None:
+            request_data["tags"] = checked_tags
+        checked_platforms = require_string_list(platforms, "platforms")
+        if checked_platforms is not None:
+            request_data["platforms"] = checked_platforms
+        checked_retention = require_retention_days(retention_days)
+        if checked_retention is not None:
+            request_data["days_retention"] = str(checked_retention)
+        if delete_after:
+            request_data["is_delete_after"] = "true"
+        return self._preview_service_request(
+            operation="logging_rule.set",
+            oid=oid,
+            service="logging",
+            request_data=request_data,
+            resource_type="logging_rule",
+            resource_id=safe_name,
+            expected_effect=f"Create or update logging rule {safe_name!r}.",
+            reversibility="Restore the prior logging rule or delete this rule if it was newly created.",
+            side_effect_type="logging_rule_set",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_delete_logging_rule(self, oid: str, name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        safe_name = require_token(name, "name")
+        return self._preview_service_request(
+            operation="logging_rule.delete",
+            oid=oid,
+            service="logging",
+            request_data={"action": "remove_rule", "name": safe_name},
+            resource_type="logging_rule",
+            resource_id=safe_name,
+            expected_effect=f"Delete logging rule {safe_name!r}.",
+            reversibility="Recreate the logging rule from a known-good definition if deletion was unintended.",
+            side_effect_type="logging_rule_deleted",
+            token_ttl_seconds=token_ttl_seconds,
+        )
 
     def list_dr_rules(self, oid: str, namespace: str | None = None, limit: int = 100) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
@@ -3633,6 +3918,46 @@ class LimaCharlieAPI:
             resource={"type": "dr_rule", "id": safe_name, "parent": {"type": "organization", "id": scoped_oid}},
         ).as_dict()
 
+    def preview_set_dr_rule(
+        self,
+        oid: str,
+        name: str,
+        data: dict[str, Any],
+        namespace: str | None = None,
+        enabled: bool | None = None,
+        tags: list[str] | str | None = None,
+        comment: str | None = None,
+        expiry: int | None = None,
+        etag: str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        safe_namespace = require_dr_namespace(namespace)
+        return self._preview_hive_set(
+            operation="dr_rule.set",
+            oid=oid,
+            hive_name=f"dr-{safe_namespace}",
+            name=name,
+            data=data,
+            resource_type="dr_rule",
+            enabled=enabled,
+            tags=tags,
+            comment=comment,
+            expiry=expiry,
+            etag=etag,
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_delete_dr_rule(self, oid: str, name: str, namespace: str | None = None, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        safe_namespace = require_dr_namespace(namespace)
+        return self._preview_hive_delete(
+            operation="dr_rule.delete",
+            oid=oid,
+            hive_name=f"dr-{safe_namespace}",
+            name=name,
+            resource_type="dr_rule",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
     def list_fp_rules(self, oid: str, limit: int = 100) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         bounded_limit = require_limit(limit)
@@ -3655,6 +3980,43 @@ class LimaCharlieAPI:
             oid=scoped_oid,
             resource={"type": "fp_rule", "id": safe_name, "parent": {"type": "organization", "id": scoped_oid}},
         ).as_dict()
+
+    def preview_set_fp_rule(
+        self,
+        oid: str,
+        name: str,
+        data: dict[str, Any],
+        enabled: bool | None = None,
+        tags: list[str] | str | None = None,
+        comment: str | None = None,
+        expiry: int | None = None,
+        etag: str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        return self._preview_hive_set(
+            operation="fp_rule.set",
+            oid=oid,
+            hive_name="fp",
+            name=name,
+            data=data,
+            resource_type="fp_rule",
+            enabled=enabled,
+            tags=tags,
+            comment=comment,
+            expiry=expiry,
+            etag=etag,
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_delete_fp_rule(self, oid: str, name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        return self._preview_hive_delete(
+            operation="fp_rule.delete",
+            oid=oid,
+            hive_name="fp",
+            name=name,
+            resource_type="fp_rule",
+            token_ttl_seconds=token_ttl_seconds,
+        )
 
     def list_integrity_rules(self, oid: str, limit: int = 100) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
@@ -3698,6 +4060,55 @@ class LimaCharlieAPI:
                 }
                 result["meta"]["summary"] = {"shape": "empty"}
         return result
+
+    def preview_set_integrity_rule(
+        self,
+        oid: str,
+        name: str,
+        patterns: list[str] | str,
+        tags: list[str] | str | None = None,
+        platforms: list[str] | str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        safe_name = require_token(name, "name")
+        request_data: dict[str, Any] = {
+            "action": "add_rule",
+            "name": safe_name,
+            "patterns": require_string_list(patterns, "patterns") or [],
+        }
+        checked_tags = require_string_list(tags, "tags")
+        if checked_tags is not None:
+            request_data["tags"] = checked_tags
+        checked_platforms = require_string_list(platforms, "platforms")
+        if checked_platforms is not None:
+            request_data["platforms"] = checked_platforms
+        return self._preview_service_request(
+            operation="integrity_rule.set",
+            oid=oid,
+            service="integrity",
+            request_data=request_data,
+            resource_type="integrity_rule",
+            resource_id=safe_name,
+            expected_effect=f"Create or update integrity rule {safe_name!r}.",
+            reversibility="Restore the prior integrity rule or delete this rule if it was newly created.",
+            side_effect_type="integrity_rule_set",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_delete_integrity_rule(self, oid: str, name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        safe_name = require_token(name, "name")
+        return self._preview_service_request(
+            operation="integrity_rule.delete",
+            oid=oid,
+            service="integrity",
+            request_data={"action": "remove_rule", "name": safe_name},
+            resource_type="integrity_rule",
+            resource_id=safe_name,
+            expected_effect=f"Delete integrity rule {safe_name!r}.",
+            reversibility="Recreate the integrity rule from a known-good definition if deletion was unintended.",
+            side_effect_type="integrity_rule_deleted",
+            token_ttl_seconds=token_ttl_seconds,
+        )
 
     def validate_usp_mapping(
         self,
@@ -3757,6 +4168,82 @@ class LimaCharlieAPI:
             limit=bounded_limit,
         ).as_dict()
 
+    def preview_yara_scan(
+        self,
+        oid: str,
+        sensor_id: str,
+        rule: str,
+        timeout_seconds: int | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        safe_sensor_id = require_oid(sensor_id)
+        if not isinstance(rule, str) or not rule.strip() or len(rule.encode()) > 200_000 or "\x00" in rule:
+            raise ValidationError("rule must be a non-empty YARA source string under 200000 bytes")
+        request_data: dict[str, Any] = {"action": "scan", "sid": safe_sensor_id, "rule": rule}
+        if timeout_seconds is not None:
+            request_data["timeout"] = str(require_seconds(timeout_seconds, "timeout_seconds", minimum=1, maximum=3600))
+        return self._preview_service_request(
+            operation="yara.scan",
+            oid=oid,
+            service="yara",
+            request_data=request_data,
+            resource_type="yara_scan",
+            resource_id=safe_sensor_id,
+            expected_effect=f"Run an ad-hoc YARA scan on sensor {safe_sensor_id}.",
+            reversibility="YARA scan execution is not reversible; inspect returned job/results and take compensating action if needed.",
+            side_effect_type="yara_scan_started",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_set_yara_rule(
+        self,
+        oid: str,
+        name: str,
+        sources: list[str] | str,
+        tags: list[str] | str | None = None,
+        platforms: list[str] | str | None = None,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        safe_name = require_token(name, "name")
+        request_data: dict[str, Any] = {
+            "action": "add_rule",
+            "name": safe_name,
+            "sources": json.dumps(require_string_list(sources, "sources") or []),
+        }
+        checked_tags = require_string_list(tags, "tags")
+        if checked_tags is not None:
+            request_data["tags"] = json.dumps(checked_tags)
+        checked_platforms = require_string_list(platforms, "platforms")
+        if checked_platforms is not None:
+            request_data["platforms"] = json.dumps(checked_platforms)
+        return self._preview_service_request(
+            operation="yara_rule.set",
+            oid=oid,
+            service="yara",
+            request_data=request_data,
+            resource_type="yara_rule",
+            resource_id=safe_name,
+            expected_effect=f"Create or update YARA rule {safe_name!r}.",
+            reversibility="Restore the prior YARA rule or delete this rule if it was newly created.",
+            side_effect_type="yara_rule_set",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_delete_yara_rule(self, oid: str, name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        safe_name = require_token(name, "name")
+        return self._preview_service_request(
+            operation="yara_rule.delete",
+            oid=oid,
+            service="yara",
+            request_data={"action": "remove_rule", "name": safe_name},
+            resource_type="yara_rule",
+            resource_id=safe_name,
+            expected_effect=f"Delete YARA rule {safe_name!r}.",
+            reversibility="Recreate the YARA rule from a known-good definition if deletion was unintended.",
+            side_effect_type="yara_rule_deleted",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
     def list_yara_sources(self, oid: str, limit: int = 100) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         bounded_limit = require_limit(limit)
@@ -3781,6 +4268,38 @@ class LimaCharlieAPI:
             resource={"type": "yara_source", "id": safe_name, "parent": {"type": "organization", "id": scoped_oid}},
             params=service_request_params({"action": "get_source", "name": safe_name}),
         ).as_dict()
+
+    def preview_set_yara_source(self, oid: str, name: str, source: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        safe_name = require_token(name, "name")
+        if not isinstance(source, str) or not source.strip() or len(source.encode()) > 200_000 or "\x00" in source:
+            raise ValidationError("source must be a non-empty YARA source string under 200000 bytes")
+        return self._preview_service_request(
+            operation="yara_source.set",
+            oid=oid,
+            service="yara",
+            request_data={"action": "add_source", "name": safe_name, "source": source},
+            resource_type="yara_source",
+            resource_id=safe_name,
+            expected_effect=f"Create or update YARA source {safe_name!r}.",
+            reversibility="Restore the prior YARA source or delete this source if it was newly created.",
+            side_effect_type="yara_source_set",
+            token_ttl_seconds=token_ttl_seconds,
+        )
+
+    def preview_delete_yara_source(self, oid: str, name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
+        safe_name = require_token(name, "name")
+        return self._preview_service_request(
+            operation="yara_source.delete",
+            oid=oid,
+            service="yara",
+            request_data={"action": "remove_source", "name": safe_name},
+            resource_type="yara_source",
+            resource_id=safe_name,
+            expected_effect=f"Delete YARA source {safe_name!r}.",
+            reversibility="Recreate the YARA source from a known-good definition if deletion was unintended.",
+            side_effect_type="yara_source_deleted",
+            token_ttl_seconds=token_ttl_seconds,
+        )
 
     def list_pending_mutations(self) -> dict[str, Any]:
         self._prune_expired_mutations()
@@ -4150,6 +4669,128 @@ class LimaCharlieAPI:
             expected_effect=f"{expected_effect} Target sensor: {safe_sensor_id}.",
             reversibility=reversibility,
             side_effects=[{"type": side_effect_type, "resource": {"type": "sensor", "id": safe_sensor_id}}],
+            token_ttl_seconds=token_ttl,
+        )
+
+    def _hive_set_params(
+        self,
+        data: dict[str, Any],
+        *,
+        enabled: bool | None = None,
+        tags: list[str] | str | None = None,
+        comment: str | None = None,
+        expiry: int | None = None,
+        etag: str | None = None,
+    ) -> dict[str, Any]:
+        require_dict(data, "data")
+        params: dict[str, Any] = {"data": json.dumps(data)}
+        usr_mtd: dict[str, Any] = {}
+        if enabled is not None:
+            usr_mtd["enabled"] = require_bool_or_none(enabled, "enabled")
+        checked_tags = require_string_list(tags, "tags")
+        if checked_tags is not None:
+            usr_mtd["tags"] = checked_tags
+        if comment is not None:
+            if not isinstance(comment, str) or len(comment) > 1000 or "\x00" in comment:
+                raise ValidationError("comment must be a string under 1000 characters without NUL bytes")
+            usr_mtd["comment"] = comment
+        if expiry is not None:
+            usr_mtd["expiry"] = require_unix_seconds(expiry, "expiry")
+        if usr_mtd:
+            params["usr_mtd"] = json.dumps(usr_mtd)
+        if etag is not None:
+            params["etag"] = require_token(etag, "etag")
+        return params
+
+    def _preview_hive_set(
+        self,
+        *,
+        operation: str,
+        oid: str,
+        hive_name: str,
+        name: str,
+        data: dict[str, Any],
+        resource_type: str,
+        enabled: bool | None,
+        tags: list[str] | str | None,
+        comment: str | None,
+        expiry: int | None,
+        etag: str | None,
+        token_ttl_seconds: int,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_name = require_token(name, "name")
+        token_ttl = require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900)
+        return self._create_mutation_preview(
+            operation=operation,
+            oid=scoped_oid,
+            method="POST",
+            path=f"hive/{hive_name}/{scoped_oid}/{quote(safe_name, safe='')}/data",
+            resource={"type": resource_type, "id": safe_name, "parent": {"type": "organization", "id": scoped_oid}},
+            params=self._hive_set_params(data, enabled=enabled, tags=tags, comment=comment, expiry=expiry, etag=etag),
+            data=None,
+            json_body=None,
+            expected_effect=f"Create or update {resource_type} {safe_name!r} in hive {hive_name}.",
+            reversibility="Restore the prior hive record value or delete this record if it was newly created.",
+            side_effects=[{"type": f"{resource_type}_set", "resource": {"type": resource_type, "id": safe_name}}],
+            token_ttl_seconds=token_ttl,
+        )
+
+    def _preview_hive_delete(
+        self,
+        *,
+        operation: str,
+        oid: str,
+        hive_name: str,
+        name: str,
+        resource_type: str,
+        token_ttl_seconds: int,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_name = require_token(name, "name")
+        token_ttl = require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900)
+        return self._create_mutation_preview(
+            operation=operation,
+            oid=scoped_oid,
+            method="DELETE",
+            path=f"hive/{hive_name}/{scoped_oid}/{quote(safe_name, safe='')}",
+            resource={"type": resource_type, "id": safe_name, "parent": {"type": "organization", "id": scoped_oid}},
+            data=None,
+            json_body=None,
+            expected_effect=f"Delete {resource_type} {safe_name!r} from hive {hive_name}.",
+            reversibility="Recreate the hive record from a known-good backup if deletion was unintended.",
+            side_effects=[{"type": f"{resource_type}_deleted", "resource": {"type": resource_type, "id": safe_name}}],
+            token_ttl_seconds=token_ttl,
+        )
+
+    def _preview_service_request(
+        self,
+        *,
+        operation: str,
+        oid: str,
+        service: str,
+        request_data: dict[str, Any],
+        resource_type: str,
+        resource_id: str,
+        expected_effect: str,
+        reversibility: str,
+        side_effect_type: str,
+        token_ttl_seconds: int,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        token_ttl = require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900)
+        return self._create_mutation_preview(
+            operation=operation,
+            oid=scoped_oid,
+            method="POST",
+            path=f"service/{scoped_oid}/{service}",
+            resource={"type": resource_type, "id": resource_id, "parent": {"type": "organization", "id": scoped_oid}},
+            params=service_request_params(request_data),
+            data=None,
+            json_body=None,
+            expected_effect=expected_effect,
+            reversibility=reversibility,
+            side_effects=[{"type": side_effect_type, "resource": {"type": resource_type, "id": resource_id}}],
             token_ttl_seconds=token_ttl,
         )
 

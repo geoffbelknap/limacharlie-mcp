@@ -404,6 +404,87 @@ def test_tag_and_hostname_read_tools_use_expected_paths(tmp_path: Path) -> None:
     assert fake.calls[3]["params"] == {"hostname": "host"}
 
 
+def test_preview_add_sensor_tag_does_not_call_limacharlie(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    client = make_client(tmp_path, fake)
+
+    result = client.preview_add_sensor_tag(OID, SID, "incident-response", ttl_seconds=3600)
+
+    assert result["ok"] is True
+    assert_ax_envelope(result, "sensor.tag.add.preview")
+    assert result["state"]["current"] == "pending_confirmation"
+    assert result["side_effects"] == []
+    assert result["data"]["http_method"] == "POST"
+    assert result["data"]["endpoint"] == f"https://api.limacharlie.io/v1/{SID}/tags"
+    assert result["data"]["expected_side_effects"][0]["type"] == "sensor_tag_added"
+    assert result["data"]["confirmation_token"].startswith("mut_")
+    assert fake.calls == []
+
+
+def test_confirm_add_sensor_tag_executes_exact_preview_once(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("POST", f"https://api.limacharlie.io/v1/{SID}/tags", {"ok": True})
+    client = make_client(tmp_path, fake)
+    preview = client.preview_add_sensor_tag(OID, SID, "incident-response", ttl_seconds=3600)
+    token = preview["data"]["confirmation_token"]
+
+    result = client.confirm_mutation(token)
+
+    assert result["ok"] is True
+    assert_ax_envelope(result, "mutation.confirm")
+    assert result["data"]["confirmed_operation"] == "sensor.tag.add"
+    assert result["side_effects"] == [
+        {
+            "type": "sensor_tag_added",
+            "resource": {"type": "sensor", "id": SID},
+            "tag": "incident-response",
+            "ttl_seconds": 3600,
+        }
+    ]
+    assert fake.calls[0]["url"] == "https://jwt.limacharlie.io"
+    assert fake.calls[0]["data"]["oid"] == OID
+    assert fake.calls[1]["method"] == "POST"
+    assert fake.calls[1]["url"] == f"https://api.limacharlie.io/v1/{SID}/tags"
+    assert fake.calls[1]["data"] == {"tags": "incident-response", "ttl": 3600}
+
+    second = client.confirm_mutation(token)
+    assert second["ok"] is False
+    assert second["error"]["code"] == "mutation_preview_not_found"
+    assert len(fake.calls) == 2
+
+
+def test_preview_remove_sensor_tag_can_be_cancelled_without_http(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    client = make_client(tmp_path, fake)
+    preview = client.preview_remove_sensor_tag(OID, SID, "old-tag")
+    token = preview["data"]["confirmation_token"]
+
+    pending = client.list_pending_mutations()
+    cancelled = client.cancel_mutation(token)
+    confirmed = client.confirm_mutation(token)
+
+    assert pending["data"]["previews"][0]["operation"] == "sensor.tag.remove"
+    assert cancelled["ok"] is True
+    assert cancelled["side_effects"][0]["type"] == "local_preview_deleted"
+    assert confirmed["ok"] is False
+    assert fake.calls == []
+
+
+def test_confirm_remove_sensor_tag_uses_delete_endpoint(tmp_path: Path) -> None:
+    fake = FakeHTTP()
+    fake.add("DELETE", f"https://api.limacharlie.io/v1/{SID}/tags", {"ok": True})
+    client = make_client(tmp_path, fake)
+    preview = client.preview_remove_sensor_tag(OID, SID, "old-tag")
+
+    result = client.confirm_mutation(preview["data"]["confirmation_token"])
+
+    assert result["ok"] is True
+    assert result["data"]["confirmed_operation"] == "sensor.tag.remove"
+    assert result["side_effects"][0]["type"] == "sensor_tag_removed"
+    assert fake.calls[1]["method"] == "DELETE"
+    assert fake.calls[1]["data"] == {"tag": "old-tag"}
+
+
 def test_schema_ontology_and_mitre_tools_use_expected_paths(tmp_path: Path) -> None:
     fake = FakeHTTP()
     fake.add("GET", f"https://api.limacharlie.io/v1/orgs/{OID}/schema", {"schemas": [{"name": "NEW_PROCESS"}]})

@@ -529,5 +529,66 @@ def lc_get_yara_source(oid: str, name: str) -> dict:
     return _call("yara_source.get", lc.get_yara_source, oid=oid, name=name)
 
 
+@mcp.tool()
+def lc_list_pending_mutations() -> dict:
+    """List local mutation previews that can still be confirmed."""
+
+    return lc.list_pending_mutations()
+
+
+@mcp.tool()
+def lc_preview_add_sensor_tag(
+    oid: str,
+    sensor_id: str,
+    tag: str,
+    ttl_seconds: int = 0,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview adding a tag to one sensor. No LimaCharlie write occurs until confirmation."""
+
+    return _call(
+        "sensor.tag.add.preview",
+        lc.preview_add_sensor_tag,
+        oid=oid,
+        sensor_id=sensor_id,
+        tag=tag,
+        ttl_seconds=ttl_seconds,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_preview_remove_sensor_tag(
+    oid: str,
+    sensor_id: str,
+    tag: str,
+    token_ttl_seconds: int = 300,
+) -> dict:
+    """Preview removing a tag from one sensor. No LimaCharlie write occurs until confirmation."""
+
+    return _call(
+        "sensor.tag.remove.preview",
+        lc.preview_remove_sensor_tag,
+        oid=oid,
+        sensor_id=sensor_id,
+        tag=tag,
+        token_ttl_seconds=token_ttl_seconds,
+    )
+
+
+@mcp.tool()
+def lc_confirm_mutation(confirmation_token: str) -> dict:
+    """Execute the exact typed mutation bound to a short-lived preview token."""
+
+    return _call("mutation.confirm", lc.confirm_mutation, confirmation_token=confirmation_token)
+
+
+@mcp.tool()
+def lc_cancel_mutation(confirmation_token: str) -> dict:
+    """Cancel one pending local mutation preview without calling LimaCharlie."""
+
+    return _call("mutation.cancel", lc.cancel_mutation, confirmation_token=confirmation_token)
+
+
 def main() -> None:
     mcp.run()

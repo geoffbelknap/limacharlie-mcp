@@ -68,6 +68,22 @@ class Token:
     expires_at: float
 
 
+@dataclass
+class PendingMutation:
+    token: str
+    expires_at: float
+    operation: str
+    oid: str
+    method: str
+    path: str
+    resource: dict[str, Any]
+    data: dict[str, Any] | None
+    json_body: Any | None
+    expected_effect: str
+    reversibility: str
+    side_effects: list[dict[str, Any]]
+
+
 class ValidationError(ValueError):
     """Invalid MCP tool input."""
 
@@ -661,6 +677,58 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "side_effects": "none",
         "notes": "Fetches one YARA source through the YARA service.",
     },
+    "mutation.pending.list": {
+        "suite": "response",
+        "tool": "lc_list_pending_mutations",
+        "action": "read",
+        "resource_type": "mutation_preview_collection",
+        "required_inputs": [],
+        "optional_inputs": [],
+        "side_effects": "none",
+        "notes": "Lists short-lived local mutation previews that can still be confirmed.",
+    },
+    "mutation.cancel": {
+        "suite": "response",
+        "tool": "lc_cancel_mutation",
+        "action": "local_execute",
+        "resource_type": "mutation_preview",
+        "required_inputs": ["confirmation_token"],
+        "optional_inputs": [],
+        "side_effects": "local_preview_deleted",
+        "notes": "Cancels one pending preview token without calling LimaCharlie.",
+    },
+    "mutation.confirm": {
+        "suite": "response",
+        "tool": "lc_confirm_mutation",
+        "action": "execute",
+        "resource_type": "mutation_preview",
+        "required_inputs": ["confirmation_token"],
+        "optional_inputs": [],
+        "side_effects": "executes_exact_previewed_mutation",
+        "notes": "Executes only the exact operation, target, and payload bound to a preview token.",
+    },
+    "sensor.tag.add.preview": {
+        "suite": "response",
+        "tool": "lc_preview_add_sensor_tag",
+        "action": "preview",
+        "resource_type": "sensor_tag",
+        "required_inputs": ["oid", "sensor_id", "tag"],
+        "optional_inputs": ["ttl_seconds", "token_ttl_seconds"],
+        "bounds": {"ttl_min": 0, "ttl_max": 2592000, "token_ttl_min": 30, "token_ttl_max": 900},
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews POST /v1/{sid}/tags. Requires lc_confirm_mutation before any remote write.",
+    },
+    "sensor.tag.remove.preview": {
+        "suite": "response",
+        "tool": "lc_preview_remove_sensor_tag",
+        "action": "preview",
+        "resource_type": "sensor_tag",
+        "required_inputs": ["oid", "sensor_id", "tag"],
+        "optional_inputs": ["token_ttl_seconds"],
+        "bounds": {"token_ttl_min": 30, "token_ttl_max": 900},
+        "side_effects": "none_until_confirmed",
+        "notes": "Previews DELETE /v1/{sid}/tags. Requires lc_confirm_mutation before any remote write.",
+    },
 }
 
 
@@ -726,6 +794,14 @@ def require_seconds(value: int, name: str, *, minimum: int, maximum: int) -> int
     return value
 
 
+def require_ttl_seconds(value: int) -> int:
+    if not isinstance(value, int):
+        raise ValidationError("ttl_seconds must be an integer")
+    if value < 0 or value > 2_592_000:
+        raise ValidationError("ttl_seconds must be between 0 and 2592000")
+    return value
+
+
 def require_unix_seconds(value: int, name: str) -> int:
     if not isinstance(value, int):
         raise ValidationError(f"{name} must be an integer unix timestamp in seconds")
@@ -767,6 +843,12 @@ def require_extension_name(value: str) -> str:
 def require_token(value: str, name: str) -> str:
     if not isinstance(value, str) or not _SAFE_TOKEN.match(value):
         raise ValidationError(f"{name} contains unsupported characters")
+    return value
+
+
+def require_confirmation_token(value: str) -> str:
+    if not isinstance(value, str) or not re.match(r"^mut_[a-f0-9]{32}$", value):
+        raise ValidationError("confirmation_token is not a valid mutation preview token")
     return value
 
 
@@ -970,6 +1052,7 @@ class LimaCharlieAPI:
         self.audit_path = audit_path or Path(os.environ.get("LC_MCP_AUDIT_LOG", default_audit_path()))
         self.http: HttpClient = http_client or httpx.Client()
         self._tokens: dict[str, Token] = {}
+        self._pending_mutations: dict[str, PendingMutation] = {}
 
     def auth_whoami(self, oid: str | None = None, check_perm: str | None = None) -> dict[str, Any]:
         scoped_oid = require_oid(oid) if oid else "-"
@@ -1948,6 +2031,150 @@ class LimaCharlieAPI:
             params=service_request_params({"action": "get_source", "name": safe_name}),
         ).as_dict()
 
+    def list_pending_mutations(self) -> dict[str, Any]:
+        self._prune_expired_mutations()
+        now = time.time()
+        previews = [self._preview_data(mutation, now) for mutation in self._pending_mutations.values()]
+        return ToolResponse(
+            ok=True,
+            operation="mutation.pending.list",
+            request_id=f"req_{uuid.uuid4().hex}",
+            resource={"type": "mutation_preview_collection", "id": "local"},
+            state={"current": "ready"},
+            data={"previews": previews},
+            side_effects=[],
+            warnings=[],
+            meta={"summary": {"shape": "object", "previews_count": len(previews)}, "truncated": False},
+            observed_at=observed_at(),
+        ).as_dict()
+
+    def cancel_mutation(self, confirmation_token: str) -> dict[str, Any]:
+        token = require_confirmation_token(confirmation_token)
+        self._prune_expired_mutations()
+        mutation = self._pending_mutations.pop(token, None)
+        if mutation is None:
+            return self._mutation_token_error(
+                "mutation.cancel",
+                token,
+                "mutation_preview_not_found",
+                "No active mutation preview exists for that confirmation token.",
+            )
+        return ToolResponse(
+            ok=True,
+            operation="mutation.cancel",
+            request_id=f"req_{uuid.uuid4().hex}",
+            resource=mutation.resource,
+            state={"previous": "pending", "current": "cancelled"},
+            data={"cancelled_operation": mutation.operation, "confirmation_token": token},
+            side_effects=[{"type": "local_preview_deleted", "resource": mutation.resource}],
+            warnings=[],
+            meta={"summary": {"cancelled": True, "operation": mutation.operation}, "truncated": False},
+            observed_at=observed_at(),
+        ).as_dict()
+
+    def preview_add_sensor_tag(
+        self,
+        oid: str,
+        sensor_id: str,
+        tag: str,
+        ttl_seconds: int = 0,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_sensor_id = require_oid(sensor_id)
+        safe_tag = require_token(tag, "tag")
+        ttl = require_ttl_seconds(ttl_seconds)
+        token_ttl = require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900)
+        data = {"tags": safe_tag, "ttl": ttl}
+        return self._create_mutation_preview(
+            operation="sensor.tag.add",
+            oid=scoped_oid,
+            method="POST",
+            path=f"{safe_sensor_id}/tags",
+            resource={
+                "type": "sensor_tag",
+                "id": safe_tag,
+                "parent": {"type": "sensor", "id": safe_sensor_id, "parent": {"type": "organization", "id": scoped_oid}},
+            },
+            data=data,
+            json_body=None,
+            expected_effect=f"Add tag {safe_tag!r} to sensor {safe_sensor_id}.",
+            reversibility="Remove the same tag from the sensor. TTL 0 means no automatic expiry.",
+            side_effects=[
+                {
+                    "type": "sensor_tag_added",
+                    "resource": {"type": "sensor", "id": safe_sensor_id},
+                    "tag": safe_tag,
+                    "ttl_seconds": ttl,
+                }
+            ],
+            token_ttl_seconds=token_ttl,
+        )
+
+    def preview_remove_sensor_tag(
+        self,
+        oid: str,
+        sensor_id: str,
+        tag: str,
+        token_ttl_seconds: int = 300,
+    ) -> dict[str, Any]:
+        scoped_oid = require_oid(oid)
+        safe_sensor_id = require_oid(sensor_id)
+        safe_tag = require_token(tag, "tag")
+        token_ttl = require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900)
+        return self._create_mutation_preview(
+            operation="sensor.tag.remove",
+            oid=scoped_oid,
+            method="DELETE",
+            path=f"{safe_sensor_id}/tags",
+            resource={
+                "type": "sensor_tag",
+                "id": safe_tag,
+                "parent": {"type": "sensor", "id": safe_sensor_id, "parent": {"type": "organization", "id": scoped_oid}},
+            },
+            data={"tag": safe_tag},
+            json_body=None,
+            expected_effect=f"Remove tag {safe_tag!r} from sensor {safe_sensor_id}.",
+            reversibility="Add the same tag back to the sensor if removal was unintended.",
+            side_effects=[
+                {
+                    "type": "sensor_tag_removed",
+                    "resource": {"type": "sensor", "id": safe_sensor_id},
+                    "tag": safe_tag,
+                }
+            ],
+            token_ttl_seconds=token_ttl,
+        )
+
+    def confirm_mutation(self, confirmation_token: str) -> dict[str, Any]:
+        token = require_confirmation_token(confirmation_token)
+        self._prune_expired_mutations()
+        mutation = self._pending_mutations.pop(token, None)
+        if mutation is None:
+            return self._mutation_token_error(
+                "mutation.confirm",
+                token,
+                "mutation_preview_not_found",
+                "No active mutation preview exists for that confirmation token.",
+            )
+        response = self._request(
+            mutation.method,
+            mutation.path,
+            operation="mutation.confirm",
+            oid=mutation.oid,
+            resource=mutation.resource,
+            data=mutation.data,
+            json_body=mutation.json_body,
+            side_effects=mutation.side_effects,
+        ).as_dict()
+        response["data"] = {
+            "confirmed_operation": mutation.operation,
+            "confirmed_preview": self._preview_data(mutation, time.time(), include_token=False),
+            "result": response.get("data"),
+        }
+        response["meta"]["summary"]["confirmed_operation"] = mutation.operation
+        return response
+
     def _request(
         self,
         method: str,
@@ -1961,6 +2188,7 @@ class LimaCharlieAPI:
         json_body: Any | None = None,
         limit: int = 100,
         base_url: str | None = None,
+        side_effects: list[dict[str, Any]] | None = None,
     ) -> ToolResponse:
         started = time.time()
         request_id = f"req_{uuid.uuid4().hex}"
@@ -2042,8 +2270,110 @@ class LimaCharlieAPI:
             meta=meta,
             request_id=request_id,
             resource=resource,
+            side_effects=side_effects or [],
             observed_at=observed_at(),
         )
+
+    def _create_mutation_preview(
+        self,
+        *,
+        operation: str,
+        oid: str,
+        method: str,
+        path: str,
+        resource: dict[str, Any],
+        data: dict[str, Any] | None,
+        json_body: Any | None,
+        expected_effect: str,
+        reversibility: str,
+        side_effects: list[dict[str, Any]],
+        token_ttl_seconds: int,
+    ) -> dict[str, Any]:
+        self._prune_expired_mutations()
+        token = f"mut_{uuid.uuid4().hex}"
+        mutation = PendingMutation(
+            token=token,
+            expires_at=time.time() + token_ttl_seconds,
+            operation=operation,
+            oid=oid,
+            method=method,
+            path=path,
+            resource=resource,
+            data=data,
+            json_body=json_body,
+            expected_effect=expected_effect,
+            reversibility=reversibility,
+            side_effects=side_effects,
+        )
+        self._pending_mutations[token] = mutation
+        preview = self._preview_data(mutation, time.time())
+        return ToolResponse(
+            ok=True,
+            operation=f"{operation}.preview",
+            request_id=f"req_{uuid.uuid4().hex}",
+            resource=resource,
+            state={"current": "pending_confirmation"},
+            data=preview,
+            side_effects=[],
+            warnings=["No LimaCharlie change has been made. Call lc_confirm_mutation with confirmation_token to execute."],
+            meta={
+                "summary": {
+                    "preview_operation": operation,
+                    "expires_in_seconds": preview["expires_in_seconds"],
+                    "requires_confirmation": True,
+                },
+                "truncated": False,
+            },
+            observed_at=observed_at(),
+        ).as_dict()
+
+    def _preview_data(self, mutation: PendingMutation, now: float, *, include_token: bool = True) -> dict[str, Any]:
+        root = f"{self.api_root}/v1"
+        preview = {
+            "operation": mutation.operation,
+            "http_method": mutation.method,
+            "endpoint": f"{root.rstrip('/')}/{mutation.path.lstrip('/')}",
+            "oid": mutation.oid,
+            "resource": mutation.resource,
+            "expected_effect": mutation.expected_effect,
+            "reversibility": mutation.reversibility,
+            "expected_side_effects": mutation.side_effects,
+            "expires_in_seconds": max(0, int(mutation.expires_at - now)),
+        }
+        if include_token:
+            preview["confirmation_token"] = mutation.token
+        return preview
+
+    def _prune_expired_mutations(self) -> None:
+        now = time.time()
+        expired = [token for token, mutation in self._pending_mutations.items() if mutation.expires_at <= now]
+        for token in expired:
+            self._pending_mutations.pop(token, None)
+
+    def _mutation_token_error(self, operation: str, token: str, code: str, message: str) -> dict[str, Any]:
+        return ToolResponse(
+            ok=False,
+            operation=operation,
+            request_id=f"req_{uuid.uuid4().hex}",
+            resource={"type": "mutation_preview", "id": token},
+            state={"current": "not_found"},
+            data=None,
+            side_effects=[],
+            warnings=[],
+            meta={"summary": {"shape": "empty"}, "truncated": False},
+            observed_at=observed_at(),
+            error={
+                "code": code,
+                "class": "not_found",
+                "message": message,
+                "retryable": False,
+                "same_input_retryable": False,
+                "suggested_next_actions": [
+                    "Create a new preview for the intended mutation.",
+                    "Confirm the new token before it expires.",
+                ],
+            },
+        ).as_dict()
 
     def _get_jwt(self, oid: str | None, *, force_refresh: bool = False) -> str:
         scoped_oid = "-" if oid == "-" else require_oid(oid or "")

@@ -45,6 +45,11 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
         "lc_list_yara_rules",
         "lc_list_fp_rules",
         "lc_list_schemas",
+        "lc_list_pending_mutations",
+        "lc_preview_add_sensor_tag",
+        "lc_preview_remove_sensor_tag",
+        "lc_confirm_mutation",
+        "lc_cancel_mutation",
     } <= set(tools)
     event_schema = tools["lc_list_sensor_events"]["inputSchema"]
     assert set(event_schema["required"]) == {"oid", "sensor_id", "start", "end"}
@@ -54,3 +59,9 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
     assert set(wait_schema["required"]) == {"oid", "job_id"}
     assert wait_schema["properties"]["timeout_seconds"]["default"] == 60
     assert wait_schema["properties"]["poll_interval_seconds"]["default"] == 5
+    preview_tag_schema = tools["lc_preview_add_sensor_tag"]["inputSchema"]
+    assert set(preview_tag_schema["required"]) == {"oid", "sensor_id", "tag"}
+    assert preview_tag_schema["properties"]["ttl_seconds"]["default"] == 0
+    assert preview_tag_schema["properties"]["token_ttl_seconds"]["default"] == 300
+    confirm_schema = tools["lc_confirm_mutation"]["inputSchema"]
+    assert set(confirm_schema["required"]) == {"confirmation_token"}

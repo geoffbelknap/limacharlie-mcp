@@ -101,9 +101,20 @@ renaming tools.
 | `lc_list_yara_sources` | List YARA source names. |
 | `lc_get_yara_source` | Fetch one YARA source. |
 
-Write and response tools are intentionally gated for a later preview/confirm
-contract. That includes tasking, isolation, tags, users, keys, D&R writes,
-extension subscriptions, outputs, and case updates.
+### Response
+
+| Tool | Purpose |
+| --- | --- |
+| `lc_list_pending_mutations` | List local mutation previews that can still be confirmed. |
+| `lc_preview_add_sensor_tag` | Preview adding a tag to one sensor, optionally with TTL. |
+| `lc_preview_remove_sensor_tag` | Preview removing a tag from one sensor. |
+| `lc_confirm_mutation` | Execute the exact typed mutation bound to a preview token. |
+| `lc_cancel_mutation` | Cancel a pending local mutation preview without calling LimaCharlie. |
+
+Sensor tag mutation is available only through the preview/confirm contract.
+Other writes remain gated until they have typed preview/confirm tools. That
+includes tasking, isolation, users, keys, D&R writes, extension subscriptions,
+outputs, and case updates.
 
 ## Agent Experience Contract
 

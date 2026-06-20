@@ -216,6 +216,18 @@ def test_review_org_posture_aggregates_component_findings(tmp_path) -> None:
     assert result["state"]["current"] == "needs_attention"
     assert result["data"]["metrics"]["component_count"] == 6
     assert any(finding["id"] == "org.component_errors" for finding in result["data"]["findings"])
+    assert result["data"]["executive_summary"]["status"] == "needs_attention"
+    assert result["data"]["executive_summary"]["detection_window"] == {"start": 1_750_000_000, "end": 1_750_003_600}
+    assert result["data"]["top_risks"]
+    assert result["data"]["top_risks"][0]["severity"] in {"critical", "high", "medium", "low"}
+    domain_ids = {domain["id"] for domain in result["data"]["domains"]}
+    assert {"fleet", "output", "access", "content", "case", "detection", "organization"} <= domain_ids
+    candidate_tools = {candidate["action_tool"] for candidate in result["data"]["safe_remediation_candidates"]}
+    assert "lc_preview_create_output" in candidate_tools
+    assert "lc_preview_set_fp_rule" in candidate_tools
+    assert all(candidate["human_approval_required"] is True for candidate in result["data"]["safe_remediation_candidates"])
+    assert result["data"]["evidence"]["source_count"] == result["data"]["metrics"]["source_count"]
+    assert result["data"]["evidence"]["source_request_ids"]
 
 
 def test_review_org_posture_explains_service_managed_rule_state_errors(tmp_path) -> None:
@@ -262,3 +274,8 @@ def test_review_org_posture_exposes_failed_component_sources(tmp_path) -> None:
         component for component in result["data"]["metrics"]["components"] if component["operation"] == "review.access_hygiene"
     )
     assert access_component["failed_source_count"] == 1
+    limited = result["data"]["permission_limited_visibility"]
+    assert limited
+    assert limited[0]["operation"] == "user.permission.list"
+    assert "do not treat this source failure as an operational posture finding" in limited[0]["interpretation"]
+    assert result["data"]["executive_summary"]["permission_limited_source_count"] == len(limited)

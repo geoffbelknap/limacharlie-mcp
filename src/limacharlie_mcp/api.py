@@ -4778,6 +4778,7 @@ class LimaCharlieAPI:
         source: dict[str, Any] = {
             "name": name,
             "operation": result.get("operation"),
+            "request_id": result.get("request_id"),
             "ok": bool(result.get("ok")),
             "summary": result.get("meta", {}).get("summary", {}),
             "truncated": bool(result.get("meta", {}).get("truncated", False)),
@@ -4917,6 +4918,7 @@ class LimaCharlieAPI:
         sources: list[dict[str, Any]],
         limit: int,
         warnings: list[str] | None = None,
+        extra_data: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
         sorted_findings = sorted(findings, key=lambda finding: (severity_order.get(str(finding.get("severity")), 9), str(finding.get("id"))))
@@ -4934,6 +4936,7 @@ class LimaCharlieAPI:
                 "findings": sorted_findings,
                 "recommendations": recommendations,
                 "sources": sources,
+                **(extra_data or {}),
             },
             resource={"type": OPERATION_CATALOG[operation]["resource_type"], "id": oid},
             state={"current": state, "terminal": True},
@@ -5290,6 +5293,164 @@ class LimaCharlieAPI:
             limit=bounded_limit,
         )
 
+    def _posture_domain_sections(
+        self,
+        component_summaries: list[dict[str, Any]],
+        findings: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        domain_specs = {
+            "fleet": ("Fleet Health", "review.fleet_health"),
+            "output": ("Output Health", "review.output_health"),
+            "access": ("Access And API Key Hygiene", "review.access_hygiene"),
+            "content": ("Content Coverage", "review.content_coverage"),
+            "case": ("Case Backlog", "review.case_backlog"),
+            "detection": ("Detection Noise", "review.detection_noise"),
+            "organization": ("Organization Components", "org.errors"),
+        }
+        components_by_operation = {str(component.get("operation")): component for component in component_summaries}
+        sections: list[dict[str, Any]] = []
+        for domain_id, (title, operation) in domain_specs.items():
+            domain_findings = [finding for finding in findings if finding.get("category") == domain_id]
+            component = components_by_operation.get(operation, {})
+            if not component and not domain_findings and domain_id != "organization":
+                continue
+            state = component.get("state")
+            if not state:
+                state = "needs_attention" if domain_findings else "reviewed"
+            sections.append(
+                {
+                    "id": domain_id,
+                    "title": title,
+                    "operation": operation,
+                    "state": state,
+                    "finding_count": len(domain_findings),
+                    "failed_source_count": component.get("failed_source_count", 0),
+                    "metrics": component.get("metrics", {}),
+                    "top_findings": [finding["id"] for finding in domain_findings[:3]],
+                }
+            )
+        return sections
+
+    def _posture_permission_limited_visibility(self, failed_sources: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        limited: list[dict[str, Any]] = []
+        for source in failed_sources:
+            error = source.get("error") or {}
+            error_class = str(error.get("class") or "")
+            error_code = str(error.get("code") or "")
+            message = str(error.get("message") or "")
+            is_permission_limited = (
+                error_class in {"auth", "authorization", "policy"}
+                or "permission" in error_code
+                or "permission" in message.lower()
+            )
+            if not is_permission_limited:
+                continue
+            limited.append(
+                {
+                    "source": source.get("name"),
+                    "operation": source.get("operation"),
+                    "request_id": source.get("request_id"),
+                    "error": error,
+                    "interpretation": "Visibility is limited by credentials or LimaCharlie policy; do not treat this source failure as an operational posture finding by itself.",
+                    "next_actions": [
+                        "Check lc_tool_catalog permission metadata for this operation.",
+                        "Use lc_auth_whoami with check_perm if a concrete permission needs validation.",
+                    ],
+                }
+            )
+        return limited
+
+    def _posture_safe_remediation_candidates(self, findings: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        remediation_by_finding = {
+            "output.no_outputs": {
+                "action_tool": "lc_preview_create_output",
+                "intent": "Create a durable output integration after the destination and retention goal are chosen.",
+                "preconditions": ["Confirm destination type, credentials, and data handling requirements."],
+            },
+            "output.no_feedback_channels": {
+                "action_tool": "lc_preview_set_feedback_channels",
+                "intent": "Configure approval or acknowledgement feedback channels for human-in-the-loop workflows.",
+                "preconditions": ["Confirm the external feedback destination and escalation owner."],
+            },
+            "content.no_dr_rules": {
+                "action_tool": "lc_preview_set_dr_rule",
+                "intent": "Create or enable D&R content after validating the desired rule behavior.",
+                "preconditions": ["Validate the rule with replay or test events before writing."],
+            },
+            "content.no_collection_rules": {
+                "action_tool": "lc_preview_set_logging_rule",
+                "intent": "Add collection coverage for required platforms and telemetry classes.",
+                "preconditions": ["Confirm the target platforms and expected event types."],
+            },
+            "detection.concentrated_rule_volume": {
+                "action_tool": "lc_preview_set_fp_rule",
+                "intent": "Prepare a false-positive or rule-tuning change only after narrowing the noisy condition.",
+                "preconditions": ["Review representative detections and run a before/after measurement window."],
+            },
+            "case.open_backlog": {
+                "action_tool": "lc_preview_update_case",
+                "intent": "Update stale or resolved cases after analyst review.",
+                "preconditions": ["Inspect case details and confirm the intended status/classification."],
+            },
+            "access.many_org_api_keys": {
+                "action_tool": "lc_preview_delete_api_key",
+                "intent": "Remove unused user-generated API keys after owner, last-used, and permission review.",
+                "preconditions": ["Inspect key metadata and verify the key is not service-managed or in use."],
+            },
+            "org.component_errors": {
+                "action_tool": "lc_preview_dismiss_org_error",
+                "intent": "Dismiss an org error only after validating the underlying condition has been resolved or accepted.",
+                "preconditions": ["Inspect org errors and verify the component no longer needs action."],
+            },
+        }
+        candidates: list[dict[str, Any]] = []
+        for finding in findings:
+            remediation = remediation_by_finding.get(str(finding.get("id")))
+            if not remediation:
+                continue
+            candidates.append(
+                {
+                    "finding_id": finding.get("id"),
+                    "severity": finding.get("severity"),
+                    "title": finding.get("title"),
+                    "human_approval_required": True,
+                    "safe_action_required": True,
+                    **remediation,
+                }
+            )
+        return candidates
+
+    def _posture_executive_summary(
+        self,
+        oid: str,
+        findings: list[dict[str, Any]],
+        failed_sources: list[dict[str, Any]],
+        permission_limited_visibility: list[dict[str, Any]],
+        *,
+        start_ts: int | None,
+        end_ts: int | None,
+    ) -> dict[str, Any]:
+        severity_counts = {severity: 0 for severity in ("critical", "high", "medium", "low", "info")}
+        for finding in findings:
+            severity = str(finding.get("severity") or "info")
+            severity_counts[severity] = severity_counts.get(severity, 0) + 1
+        high_or_medium = severity_counts.get("critical", 0) + severity_counts.get("high", 0) + severity_counts.get("medium", 0)
+        status = "needs_attention" if high_or_medium else "reviewed"
+        headline = "Posture review found issues that need operator attention." if high_or_medium else "Posture review completed without high or medium findings."
+        if permission_limited_visibility:
+            headline += " Some visibility was permission-limited."
+        return {
+            "oid": oid,
+            "status": status,
+            "headline": headline,
+            "finding_count": len(findings),
+            "high_or_medium_finding_count": high_or_medium,
+            "severity_counts": severity_counts,
+            "failed_source_count": len(failed_sources),
+            "permission_limited_source_count": len(permission_limited_visibility),
+            "detection_window": {"start": start_ts, "end": end_ts} if start_ts is not None and end_ts is not None else None,
+        }
+
     def review_org_posture(self, oid: str, start: int | None = None, end: int | None = None, limit: int = 100) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         bounded_limit = require_limit(limit)
@@ -5367,6 +5528,33 @@ class LimaCharlieAPI:
             )
         all_sources = [org_errors_source, *component_sources]
         failed_sources = [source for source in all_sources if not source.get("ok")]
+        component_summaries.append(
+            {
+                "operation": "org.errors",
+                "state": "needs_attention" if org_error_metrics["actionable_org_error_count"] else "reviewed",
+                "finding_count": sum(1 for finding in findings if finding.get("category") == "organization"),
+                "failed_source_count": 0 if org_errors_source.get("ok") else 1,
+                "metrics": org_error_metrics,
+            }
+        )
+        severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
+        sorted_findings = sorted(findings, key=lambda finding: (severity_order.get(str(finding.get("severity")), 9), str(finding.get("id"))))
+        top_risks = [
+            finding
+            for finding in sorted_findings
+            if finding.get("severity") in {"critical", "high", "medium", "low"}
+        ][:5]
+        permission_limited_visibility = self._posture_permission_limited_visibility(failed_sources)
+        safe_remediation_candidates = self._posture_safe_remediation_candidates(sorted_findings)
+        domains = self._posture_domain_sections(component_summaries, sorted_findings)
+        executive_summary = self._posture_executive_summary(
+            scoped_oid,
+            sorted_findings,
+            failed_sources,
+            permission_limited_visibility,
+            start_ts=start_ts,
+            end_ts=end_ts,
+        )
         return self._review_response(
             "review.org_posture",
             scoped_oid,
@@ -5393,6 +5581,23 @@ class LimaCharlieAPI:
             ],
             sources=all_sources,
             limit=bounded_limit,
+            extra_data={
+                "executive_summary": executive_summary,
+                "top_risks": top_risks,
+                "domains": domains,
+                "safe_remediation_candidates": safe_remediation_candidates,
+                "permission_limited_visibility": permission_limited_visibility,
+                "evidence": {
+                    "source_count": len(all_sources),
+                    "failed_source_count": len(failed_sources),
+                    "source_request_ids": [
+                        {"operation": source.get("operation"), "request_id": source.get("request_id")}
+                        for source in all_sources
+                        if source.get("request_id")
+                    ],
+                    "finding_ids": [finding.get("id") for finding in sorted_findings],
+                },
+            },
         )
 
     def list_sensors(self, oid: str, selector: str | None = None, limit: int = 100) -> dict[str, Any]:

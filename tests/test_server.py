@@ -40,6 +40,7 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
     assert {
         "lc_auth_status",
         "lc_auth_refresh",
+        "lc_explain_permission",
         "lc_list_sensor_events",
         "lc_get_sensor_isolation_status",
         "lc_get_sensor_seal_status",
@@ -457,3 +458,7 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
     assert set(yara_source_schema["required"]) == {"oid", "name", "source"}
     confirm_schema = tools["lc_confirm_action"]["inputSchema"]
     assert set(confirm_schema["required"]) == {"confirmation_token"}
+    permission_schema = tools["lc_explain_permission"]["inputSchema"]
+    assert set(permission_schema.get("required", [])) == set()
+    assert permission_schema["properties"]["operation"]["default"] is None
+    assert permission_schema["properties"]["permission"]["default"] is None

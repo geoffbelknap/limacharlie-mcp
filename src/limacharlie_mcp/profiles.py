@@ -34,7 +34,7 @@ CORE_OPERATION_PREFIXES = (
     "ontology.",
     "event_type.",
 )
-CORE_OPERATIONS = frozenset({"org.list"})
+CORE_OPERATIONS = frozenset({"org.list", "permission.explain"})
 
 REVIEW_OPERATIONS = CORE_OPERATIONS | frozenset(
     {

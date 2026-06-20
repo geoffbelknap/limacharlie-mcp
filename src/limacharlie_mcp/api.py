@@ -162,6 +162,16 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "side_effects": "none",
         "notes": "Describes tools, inputs, bounds, side effects, unsupported capabilities, and intended use cases.",
     },
+    "permission.explain": {
+        "suite": "platform",
+        "tool": "lc_explain_permission",
+        "action": "read",
+        "resource_type": "permission_diagnostic",
+        "required_inputs": [],
+        "optional_inputs": ["operation", "permission", "profile", "error_message"],
+        "side_effects": "none",
+        "notes": "Explains a LimaCharlie permission or missing-permission failure in plain English.",
+    },
     "auth.whoami": {
         "suite": "platform",
         "tool": "lc_auth_whoami",
@@ -3052,6 +3062,7 @@ DEFAULT_MCP_RUNTIME_PERMISSIONS = (
 
 _LOCAL_PERMISSION_OPERATIONS = {
     "tool.catalog",
+    "permission.explain",
     "auth.status",
     "download.sensor_targets.list",
     "download.adapter_targets.list",
@@ -3216,6 +3227,58 @@ _REVIEW_RECOMMENDED_PERMISSIONS: dict[str, tuple[str, ...]] = {
     "review.fleet_health": ("sensor.list",),
     "review.org_posture": DEFAULT_MCP_RUNTIME_PERMISSIONS,
     "review.output_health": ("output.list", "replicant.get", "replicant.task"),
+}
+
+_PERMISSION_GLOSSARY: dict[str, dict[str, Any]] = {
+    "org.get": {
+        "workflow": "review and administration",
+        "needed_for": "Reading organization metadata, stats, URLs, runtime metadata, schemas, and posture-review evidence.",
+        "plain_english": "The key can read basic organization information. Without it, agents may still authenticate but cannot inspect the org well enough to explain posture.",
+        "suggested_fix": "Add org.get to the runtime API key when agents need org inventory, posture review, or setup smoke tests.",
+        "caution": "This is a common baseline read permission.",
+    },
+    "apikey.ctrl": {
+        "workflow": "administration and access hygiene",
+        "needed_for": "Listing, creating, and deleting LimaCharlie API keys.",
+        "plain_english": "The key can manage other API keys. This is useful for MCP onboarding and access hygiene, but it is powerful.",
+        "suggested_fix": "Use apikey.ctrl on the temporary bootstrap key or an admin-focused MCP key; avoid adding it to narrow investigation-only keys.",
+        "caution": "Treat this as elevated administrative access.",
+    },
+    "user.ctrl": {
+        "workflow": "administration and access hygiene",
+        "needed_for": "Listing users and reviewing or changing user permissions.",
+        "plain_english": "The key can inspect and manage LimaCharlie users and their permissions.",
+        "suggested_fix": "Add user.ctrl only for user onboarding, access reviews, or admin workflows.",
+        "caution": "This can expose or change account access, so keep it out of response-only keys.",
+    },
+    "replicant.task": {
+        "workflow": "response and service-backed operations",
+        "needed_for": "Running LimaCharlie service requests, reliable tasks, extension requests, spotchecks, and some output-health probes.",
+        "plain_english": "The key can ask LimaCharlie services to do work. That can be operationally useful, but it is not just a read permission.",
+        "suggested_fix": "Add replicant.task only when the agent should run response, extension, service, or tasking workflows through safe actions.",
+        "caution": "Prefer a focused response key instead of adding it to a read-only review key.",
+    },
+    "sensor.task": {
+        "workflow": "containment, eviction, and recovery",
+        "needed_for": "Confirming endpoint tasks such as isolate, rejoin, seal, unseal, or custom sensor tasks.",
+        "plain_english": "The key can send tasks to endpoints. In this MCP those actions are previewed first and require lc_confirm_action.",
+        "suggested_fix": "Add sensor.task only to keys used for endpoint response safe actions.",
+        "caution": "This is endpoint-impacting access.",
+    },
+    "dr.set": {
+        "workflow": "content and detection tuning",
+        "needed_for": "Confirming Detection & Response rule writes.",
+        "plain_english": "The key can change D&R rules after a safe-action preview is confirmed.",
+        "suggested_fix": "Add dr.set only when agents should tune or create D&R rules, and keep review-only keys on dr.list instead.",
+        "caution": "Rule changes can affect alerting and response behavior.",
+    },
+    "output.set": {
+        "workflow": "administration and integrations",
+        "needed_for": "Confirming output and integration creation or updates.",
+        "plain_english": "The key can configure where LimaCharlie sends data.",
+        "suggested_fix": "Add output.set only for integration-management workflows.",
+        "caution": "Output changes can redirect security data, so use safe actions and review carefully.",
+    },
 }
 
 
@@ -4197,6 +4260,131 @@ def error_text(data: Any, raw_text: str) -> str:
     return raw_text or "LimaCharlie API returned an error"
 
 
+def _extract_permission_from_error(message: str | None) -> str | None:
+    if not message:
+        return None
+    redacted = redact_text(str(message))
+    patterns = (
+        r"\bmissing permission[:\s]+([A-Za-z0-9_.:-]+)",
+        r"\brequires(?:\s+permission)?\s+([A-Za-z0-9_.:-]+)",
+        r"\bpermission[:=]\s*([A-Za-z0-9_.:-]+)",
+    )
+    ignored = {"a", "an", "permission", "permissions", "for", "to"}
+    for pattern in patterns:
+        match = re.search(pattern, redacted, flags=re.IGNORECASE)
+        if not match:
+            continue
+        candidate = match.group(1).strip(" .,:;")
+        if candidate.lower() in ignored:
+            continue
+        try:
+            return require_permission(candidate)
+        except ValidationError:
+            return None
+    return None
+
+
+def _permission_workflow(permission: str) -> str:
+    if permission in _PERMISSION_GLOSSARY:
+        return str(_PERMISSION_GLOSSARY[permission]["workflow"])
+    if permission.startswith(("user.", "apikey.", "org.", "group.", "billing.")):
+        return "administration"
+    if permission.startswith(("dr.", "fp.", "yara.", "lookup.", "secret.")):
+        return "content and tuning"
+    if permission.startswith(("sensor.task", "replicant.task")):
+        return "response"
+    if permission.startswith(("sensor.", "insight.", "audit.", "job.")):
+        return "investigation and review"
+    if permission.startswith(("output.", "ingestkey.", "ikey.")):
+        return "administration and integrations"
+    if permission.startswith("replicant."):
+        return "review and service-backed operations"
+    return "unknown"
+
+
+def _permission_detail(permission: str) -> dict[str, Any]:
+    known = dict(_PERMISSION_GLOSSARY.get(permission, {}))
+    if not known:
+        workflow = _permission_workflow(permission)
+        known = {
+            "workflow": workflow,
+            "needed_for": "Operations that declare this permission in lc_tool_catalog.",
+            "plain_english": f"The key needs LimaCharlie permission {permission} for this workflow.",
+            "suggested_fix": f"Add {permission} only to an API key used for {workflow} workflows, or choose a narrower MCP profile/tool.",
+            "caution": "Use the narrowest key that supports the workflow.",
+        }
+    known["name"] = permission
+    return known
+
+
+def _permission_values_from_contract(contract: dict[str, Any]) -> dict[str, list[str]]:
+    result = {
+        "required": list(contract.get("required") or []),
+        "required_for_confirm": list(contract.get("required_for_confirm") or []),
+        "recommended": list(contract.get("recommended") or []),
+        "conditional": [],
+    }
+    for item in contract.get("conditional") or []:
+        if not isinstance(item, dict):
+            continue
+        for value in item.get("required") or []:
+            if isinstance(value, str) and re.match(r"^[A-Za-z0-9_.:-]+$", value):
+                result["conditional"].append(value)
+    return result
+
+
+def _operation_permission_values(operation: str) -> dict[str, list[str]]:
+    entry = OPERATION_CATALOG.get(operation)
+    if not entry:
+        return {"required": [], "required_for_confirm": [], "recommended": [], "conditional": []}
+    return _permission_values_from_contract(entry.get("permissions") or {})
+
+
+def _matching_permission_operations(permission: str, *, limit: int = 20) -> list[dict[str, Any]]:
+    matches: list[dict[str, Any]] = []
+    for operation, entry in sorted(OPERATION_CATALOG.items()):
+        values = _permission_values_from_contract(entry.get("permissions") or {})
+        match_types = [name for name, permissions in values.items() if permission in permissions]
+        if not match_types:
+            continue
+        matches.append(
+            {
+                "operation": operation,
+                "tool": entry.get("tool"),
+                "suite": entry.get("suite"),
+                "action": entry.get("action"),
+                "match": match_types,
+            }
+        )
+        if len(matches) >= limit:
+            break
+    return matches
+
+
+def _permission_explanation_text(
+    *,
+    operation: str | None,
+    permission: str | None,
+    required: dict[str, list[str]],
+    detail: dict[str, Any] | None,
+) -> str:
+    if operation and permission:
+        if permission in required["required_for_confirm"]:
+            return f"{operation} is a safe action. Previewing is local, but confirming it needs {permission}."
+        if permission in required["required"]:
+            return f"{operation} needs {permission} to read or execute the requested LimaCharlie API call."
+        if permission in required["recommended"]:
+            return f"{operation} can run with partial results, but {permission} improves review coverage."
+        if permission in required["conditional"]:
+            return f"{operation} may need {permission} for this specific input."
+    if operation and any(required.values()):
+        all_permissions = sorted({item for values in required.values() for item in values})
+        return f"{operation} is associated with LimaCharlie permission(s): {', '.join(all_permissions)}."
+    if permission and detail:
+        return str(detail["plain_english"])
+    return "No specific LimaCharlie permission was identified. Use lc_tool_catalog for operation-level permission metadata."
+
+
 class LimaCharlieAPI:
     def __init__(
         self,
@@ -4713,7 +4901,7 @@ class LimaCharlieAPI:
                     "profile_selection": "Use the narrowest profile that matches the workflow; avoid full-dev for normal operator sessions.",
                     "start_with": active_profile["start_with"],
                     "safe_actions": "Preview tools do not change LimaCharlie until lc_confirm_action confirms the returned token.",
-                    "permission_diagnosis": "Use permissions.required for reads, permissions.required_for_confirm for safe actions, and lc_auth_whoami with check_perm when a call fails with missing_permission.",
+                    "permission_diagnosis": "Use lc_explain_permission when a call fails with missing_permission; use lc_auth_whoami with oid plus check_perm only when you need to test a concrete permission against the configured key.",
                     "unsupported": "Live telemetry streaming and firehose ingestion are intentionally unsupported.",
                 },
                 "permission_summary": operation_permission_summary(operations),
@@ -4738,6 +4926,85 @@ class LimaCharlieAPI:
             },
             observed_at=observed_at(),
         ).as_dict()
+
+    def explain_permission(
+        self,
+        operation: str | None = None,
+        permission: str | None = None,
+        profile: str | None = None,
+        error_message: str | None = None,
+    ) -> dict[str, Any]:
+        selected_profile = normalize_profile(profile) if profile else None
+        safe_operation = str(operation).strip() if operation else None
+        if safe_operation and safe_operation not in OPERATION_CATALOG:
+            raise ValidationError(f"unknown operation: {safe_operation}")
+
+        extracted_permission = _extract_permission_from_error(error_message)
+        safe_permission = require_permission(permission) if permission else extracted_permission
+        operation_entry = OPERATION_CATALOG.get(safe_operation) if safe_operation else None
+        required = _operation_permission_values(safe_operation) if safe_operation else {"required": [], "required_for_confirm": [], "recommended": [], "conditional": []}
+        if not safe_permission and safe_operation:
+            for bucket in ("required", "required_for_confirm", "recommended", "conditional"):
+                values = required.get(bucket) or []
+                if values:
+                    safe_permission = values[0]
+                    break
+
+        detail = _permission_detail(safe_permission) if safe_permission else None
+        matching_operations = _matching_permission_operations(safe_permission) if safe_permission else []
+        profile_info: dict[str, Any] | None = None
+        if selected_profile:
+            profile_operations = filter_operation_catalog(OPERATION_CATALOG, selected_profile)
+            profile_info = {
+                "name": selected_profile,
+                "contains_operation": safe_operation in profile_operations if safe_operation else None,
+                "matching_operation_count": sum(1 for item in matching_operations if item["operation"] in profile_operations),
+            }
+
+        warnings: list[str] = []
+        if error_message and not extracted_permission:
+            warnings.append("No permission string could be extracted from the provided error_message.")
+        if safe_operation and operation_entry and operation_entry.get("permissions", {}).get("mode") == "unknown":
+            warnings.append("The operation is cataloged, but the exact LimaCharlie permission is not known yet.")
+        if safe_permission and not matching_operations:
+            warnings.append("No cataloged MCP operations currently declare this permission.")
+
+        suggested_fix = detail["suggested_fix"] if detail else "Look up the operation in lc_tool_catalog and choose the narrowest key or profile that supports the workflow."
+        data = {
+            "query": {
+                "operation": safe_operation,
+                "permission": safe_permission,
+                "profile": selected_profile,
+                "error_message_supplied": bool(error_message),
+                "permission_source": "argument" if permission else "error_message" if extracted_permission else "operation_catalog" if safe_permission else None,
+            },
+            "workflow": detail["workflow"] if detail else operation_entry.get("suite") if operation_entry else None,
+            "explanation": _permission_explanation_text(operation=safe_operation, permission=safe_permission, required=required, detail=detail),
+            "suggested_fix": suggested_fix,
+            "permission": detail,
+            "operation": {
+                "id": safe_operation,
+                "tool": operation_entry.get("tool") if operation_entry else None,
+                "suite": operation_entry.get("suite") if operation_entry else None,
+                "action": operation_entry.get("action") if operation_entry else None,
+                "permissions": operation_entry.get("permissions") if operation_entry else None,
+            }
+            if safe_operation
+            else None,
+            "required_permissions": required,
+            "matching_operations": matching_operations,
+            "profile": profile_info,
+            "next_actions": [
+                "If this was a failed tool call, retry only after changing the API key permissions or choosing a narrower tool.",
+                "Use lc_auth_whoami with oid and check_perm to verify the permission against the configured key when needed.",
+            ],
+        }
+        return self._local_response(
+            "permission.explain",
+            data,
+            resource={"type": "permission_diagnostic", "id": safe_permission or safe_operation or "unknown"},
+            warnings=warnings,
+        )
 
     def list_sensor_download_targets(self) -> dict[str, Any]:
         return self._local_response(

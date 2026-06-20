@@ -93,6 +93,8 @@ def test_tool_catalog_exposes_operation_contracts(tmp_path: Path) -> None:
     assert result["data"]["permission_summary"]["required_for_safe_actions"]
     assert result["data"]["action_summary"]["preview"] > 0
     assert result["data"]["suite_summary"]["investigation"] > 0
+    assert "lc_explain_permission" in result["data"]["agent_guidance"]["permission_diagnosis"]
+    assert result["data"]["operations"]["permission.explain"]["permissions"]["mode"] == "local"
     assert result["data"]["operations"]["sensor.list"]["required_inputs"] == ["oid"]
     assert result["data"]["operations"]["sensor.list"]["permissions"]["required"] == ["sensor.list"]
     assert result["data"]["operations"]["sensor.task.preview"]["permissions"]["mode"] == "safe_action"
@@ -126,6 +128,63 @@ def test_operation_catalog_has_permission_contracts() -> None:
         assert isinstance(contract["required_for_confirm"], list), operation
         assert isinstance(contract["conditional"], list), operation
         assert isinstance(contract["notes"], str) and contract["notes"], operation
+
+
+def test_explain_permission_maps_operation_to_plain_english_fix(tmp_path: Path) -> None:
+    client = make_client(tmp_path, FakeHTTP())
+
+    result = client.explain_permission(operation="dr_rule.set.preview", profile="review")
+
+    assert result["ok"] is True
+    assert_ax_envelope(result, "permission.explain")
+    assert result["data"]["query"]["permission"] == "dr.set"
+    assert result["data"]["query"]["permission_source"] == "operation_catalog"
+    assert result["data"]["workflow"] == "content and detection tuning"
+    assert result["data"]["required_permissions"]["required_for_confirm"] == ["dr.set"]
+    assert "safe action" in result["data"]["explanation"]
+    assert "lc_preview_set_dr_rule" in result["data"]["operation"]["tool"]
+    assert result["data"]["profile"]["name"] == "review"
+    assert result["data"]["profile"]["contains_operation"] is False
+    assert "review-only keys on dr.list" in result["data"]["suggested_fix"]
+
+
+def test_explain_permission_extracts_missing_permission_from_error_message(tmp_path: Path) -> None:
+    client = make_client(tmp_path, FakeHTTP())
+
+    result = client.explain_permission(
+        operation="org.get",
+        error_message=f"lc_error_code:UNAUTHORIZED - access to {OID} requires org.get",
+    )
+
+    assert result["ok"] is True
+    assert result["data"]["query"]["permission"] == "org.get"
+    assert result["data"]["query"]["permission_source"] == "error_message"
+    assert result["data"]["workflow"] == "review and administration"
+    assert "basic organization information" in result["data"]["permission"]["plain_english"]
+    assert result["data"]["matching_operations"]
+
+
+@pytest.mark.parametrize(
+    ("permission", "workflow_fragment", "fix_fragment"),
+    [
+        ("apikey.ctrl", "administration", "bootstrap key"),
+        ("user.ctrl", "access hygiene", "user onboarding"),
+        ("replicant.task", "response", "safe actions"),
+        ("sensor.task", "containment", "endpoint response"),
+        ("dr.set", "content", "tune or create D&R rules"),
+        ("output.set", "integrations", "integration-management"),
+    ],
+)
+def test_explain_permission_common_limacharlie_permissions(tmp_path: Path, permission: str, workflow_fragment: str, fix_fragment: str) -> None:
+    client = make_client(tmp_path, FakeHTTP())
+
+    result = client.explain_permission(permission=permission)
+
+    assert result["ok"] is True
+    assert result["data"]["query"]["permission"] == permission
+    assert workflow_fragment in result["data"]["workflow"]
+    assert fix_fragment in result["data"]["suggested_fix"]
+    assert result["data"]["matching_operations"], permission
 
 
 def test_list_orgs_uses_direct_api_and_jwt(tmp_path: Path) -> None:

@@ -34,6 +34,7 @@ def test_profile_catalog_filters_operations_and_reports_counts(tmp_path) -> None
     assert recover["meta"]["summary"]["operation_count"] != review["meta"]["summary"]["operation_count"]
     assert set(full["data"]["profiles"]) == set(available_profiles())
     assert "auth.status" in core["data"]["operations"]
+    assert "permission.explain" in core["data"]["operations"]
     assert "sensor.list" not in core["data"]["operations"]
     assert "sensor.list" in review["data"]["operations"]
     assert "sensor.isolate.preview" not in review["data"]["operations"]
@@ -63,6 +64,7 @@ def test_profile_tool_sets_are_focused_and_keep_safety_tools() -> None:
     for profile in available_profiles():
         names = tool_names_for_profile(OPERATION_CATALOG, profile)
         assert "lc_tool_catalog" in names
+        assert "lc_explain_permission" in names
         assert not any("firehose" in name or name.startswith("lc_stream") for name in names)
     assert "lc_confirm_action" in contain
     assert "lc_cancel_action" in contain
@@ -98,5 +100,6 @@ print(json.dumps(sorted(tool.name for tool in tools)))
 
     assert "lc_tool_catalog" in tools
     assert "lc_auth_status" in tools
+    assert "lc_explain_permission" in tools
     assert "lc_list_sensors" not in tools
     assert "lc_preview_isolate_sensor" not in tools

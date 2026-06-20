@@ -31,6 +31,25 @@ def lc_tool_catalog(profile: str | None = None) -> dict:
 
 
 @mcp.tool()
+def lc_explain_permission(
+    operation: str | None = None,
+    permission: str | None = None,
+    profile: str | None = None,
+    error_message: str | None = None,
+) -> dict:
+    """Explain LimaCharlie permissions and missing-permission failures in plain English."""
+
+    return _call(
+        "permission.explain",
+        lc.explain_permission,
+        operation=operation,
+        permission=permission,
+        profile=profile,
+        error_message=error_message,
+    )
+
+
+@mcp.tool()
 def lc_auth_whoami(oid: str | None = None, check_perm: str | None = None) -> dict:
     """Return the authenticated LimaCharlie API identity.
 

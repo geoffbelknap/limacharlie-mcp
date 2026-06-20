@@ -81,7 +81,7 @@
       "decision": "reference_only",
       "reason": "Onboarding concepts are documentation and setup flow, not LimaCharlie API tools. Auth and org discovery are covered in platform tools.",
       "required_operations": ["auth.status", "auth.refresh", "auth.whoami", "org.list"],
-      "operation_keys": ["tool.catalog"],
+      "operation_keys": ["tool.catalog", "permission.explain"],
       "operation_prefixes": ["auth.", "org.list", "download."]
     },
     {

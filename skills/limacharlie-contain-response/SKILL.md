@@ -20,7 +20,7 @@ as eviction or recovery.
    - Job cancellation: `lc_preview_delete_job` when a running job is harmful or stale.
 3. Preview first:
    - Explain expected effect, reversibility, and target resource.
-   - Ask for explicit confirmation before `lc_confirm_mutation`.
+   - Ask for explicit confirmation before `lc_confirm_action`.
 4. Verify:
    - Re-read isolation/seal status or job state.
    - Update a case only through preview tools if documentation is needed.

@@ -28,7 +28,7 @@ to any external product runtime or schema.
 ## Safety Rules
 
 - Read-only tools are the default.
-- Response actions, D&R writes, sensor isolation, tag mutation, deletion, and
+- Response actions, D&R writes, sensor isolation, tag action, deletion, and
   config changes need an explicit preview/confirm design before implementation.
 - Every tool call should leave an auditable local trace.
 - Tool outputs must be bounded by limits or explicit time windows.

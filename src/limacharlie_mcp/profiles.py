@@ -5,7 +5,7 @@ from typing import Any
 
 
 DEFAULT_PROFILE = "full-dev"
-MUTATION_OPERATION_PREFIXES = ("mutation.",)
+ACTION_OPERATION_PREFIXES = ("action.",)
 
 
 @dataclass(frozen=True)
@@ -161,9 +161,9 @@ RECOVER_OPERATIONS = CORE_OPERATIONS | frozenset(
         "job.list",
         "job.wait",
         "logging_rule.list",
-        "mutation.cancel",
-        "mutation.confirm",
-        "mutation.pending.list",
+        "action.cancel",
+        "action.confirm",
+        "action.pending.list",
         "org.errors",
         "org.get",
         "org.stats",
@@ -234,21 +234,21 @@ PROFILE_DEFINITIONS: dict[str, ProfileDefinition] = {
                 "tag.sensor_search",
             }
         ),
-        include_operation_prefixes=CORE_OPERATION_PREFIXES + ("installation_key.",) + MUTATION_OPERATION_PREFIXES,
+        include_operation_prefixes=CORE_OPERATION_PREFIXES + ("installation_key.",) + ACTION_OPERATION_PREFIXES,
     ),
     "admin": ProfileDefinition(
         name="admin",
         title="Organization administration",
         description="Organizations, users, groups, API keys, billing, outputs, extensions, and org-level configuration.",
         include_suites=frozenset({"platform", "administration"}),
-        include_operation_prefixes=CORE_OPERATION_PREFIXES + MUTATION_OPERATION_PREFIXES,
+        include_operation_prefixes=CORE_OPERATION_PREFIXES + ACTION_OPERATION_PREFIXES,
     ),
     "content": ProfileDefinition(
         name="content",
         title="Detection and content maintenance",
         description="D&R, false positives, YARA, Hive content, lookups, secrets references, playbooks, SOPs, and content governance.",
         include_suites=frozenset({"platform", "content"}),
-        include_operation_prefixes=CORE_OPERATION_PREFIXES + MUTATION_OPERATION_PREFIXES,
+        include_operation_prefixes=CORE_OPERATION_PREFIXES + ACTION_OPERATION_PREFIXES,
     ),
     "detect": ProfileDefinition(
         name="detect",
@@ -279,7 +279,7 @@ PROFILE_DEFINITIONS: dict[str, ProfileDefinition] = {
                 "case.get",
             }
         ),
-        include_operation_prefixes=CORE_OPERATION_PREFIXES + MUTATION_OPERATION_PREFIXES,
+        include_operation_prefixes=CORE_OPERATION_PREFIXES + ACTION_OPERATION_PREFIXES,
     ),
     "evict": ProfileDefinition(
         name="evict",
@@ -298,7 +298,7 @@ PROFILE_DEFINITIONS: dict[str, ProfileDefinition] = {
                 "case.get",
             }
         ),
-        include_operation_prefixes=CORE_OPERATION_PREFIXES + MUTATION_OPERATION_PREFIXES,
+        include_operation_prefixes=CORE_OPERATION_PREFIXES + ACTION_OPERATION_PREFIXES,
     ),
     "recover": ProfileDefinition(
         name="recover",

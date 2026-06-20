@@ -18,7 +18,7 @@ driven by evidence gathered during detect and contain.
    - YARA scan preview for suspicious artifacts.
    - D&R, false-positive, integrity, logging, or YARA content previews for durable coverage changes.
 3. Stage changes:
-   - Preview every mutation.
+   - Preview every action.
    - Prefer one logical change per preview so rollback and audit are clear.
    - Record expected effect and validation read before confirmation.
 4. Validate eviction:

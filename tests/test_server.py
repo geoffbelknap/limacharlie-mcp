@@ -276,11 +276,11 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
         "lc_preview_delete_yara_rule",
         "lc_preview_set_yara_source",
         "lc_preview_delete_yara_source",
-        "lc_list_pending_mutations",
+        "lc_list_pending_actions",
         "lc_preview_add_sensor_tag",
         "lc_preview_remove_sensor_tag",
-        "lc_confirm_mutation",
-        "lc_cancel_mutation",
+        "lc_confirm_action",
+        "lc_cancel_action",
     } <= set(tools)
     event_schema = tools["lc_list_sensor_events"]["inputSchema"]
     assert set(event_schema["required"]) == {"oid", "sensor_id", "start", "end"}
@@ -455,5 +455,5 @@ def test_mcp_tool_schema_snapshot_for_representative_tools() -> None:
     assert set(yara_scan_schema["required"]) == {"oid", "sensor_id", "rule"}
     yara_source_schema = tools["lc_preview_set_yara_source"]["inputSchema"]
     assert set(yara_source_schema["required"]) == {"oid", "name", "source"}
-    confirm_schema = tools["lc_confirm_mutation"]["inputSchema"]
+    confirm_schema = tools["lc_confirm_action"]["inputSchema"]
     assert set(confirm_schema["required"]) == {"confirmation_token"}

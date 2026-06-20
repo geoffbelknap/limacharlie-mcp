@@ -74,7 +74,7 @@ class Token:
 
 
 @dataclass
-class PendingMutation:
+class PendingAction:
     token: str
     expires_at: float
     operation: str
@@ -276,7 +276,7 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "optional_inputs": ["investigation_id", "token_ttl_seconds"],
         "bounds": {"tasks_max": 20, "token_ttl_min": 30, "token_ttl_max": 900},
         "side_effects": "none_until_confirmed",
-        "notes": "Previews tasking one sensor. Requires lc_confirm_mutation before remote execution.",
+        "notes": "Previews tasking one sensor. Requires lc_confirm_action before remote execution.",
     },
     "sensor.isolate.preview": {
         "suite": "response",
@@ -1838,34 +1838,34 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "side_effects": "none_until_confirmed",
         "notes": "Previews deleting a YARA source.",
     },
-    "mutation.pending.list": {
+    "action.pending.list": {
         "suite": "response",
-        "tool": "lc_list_pending_mutations",
+        "tool": "lc_list_pending_actions",
         "action": "read",
-        "resource_type": "mutation_preview_collection",
+        "resource_type": "action_preview_collection",
         "required_inputs": [],
         "optional_inputs": [],
         "side_effects": "none",
-        "notes": "Lists short-lived local mutation previews that can still be confirmed.",
+        "notes": "Lists short-lived local action previews that can still be confirmed.",
     },
-    "mutation.cancel": {
+    "action.cancel": {
         "suite": "response",
-        "tool": "lc_cancel_mutation",
+        "tool": "lc_cancel_action",
         "action": "local_execute",
-        "resource_type": "mutation_preview",
+        "resource_type": "action_preview",
         "required_inputs": ["confirmation_token"],
         "optional_inputs": [],
         "side_effects": "local_preview_deleted",
         "notes": "Cancels one pending preview token without calling LimaCharlie.",
     },
-    "mutation.confirm": {
+    "action.confirm": {
         "suite": "response",
-        "tool": "lc_confirm_mutation",
+        "tool": "lc_confirm_action",
         "action": "execute",
-        "resource_type": "mutation_preview",
+        "resource_type": "action_preview",
         "required_inputs": ["confirmation_token"],
         "optional_inputs": [],
-        "side_effects": "executes_exact_previewed_mutation",
+        "side_effects": "executes_exact_previewed_action",
         "notes": "Executes only the exact operation, target, and payload bound to a preview token.",
     },
     "sensor.tag.add.preview": {
@@ -1877,7 +1877,7 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "optional_inputs": ["ttl_seconds", "token_ttl_seconds"],
         "bounds": {"ttl_min": 0, "ttl_max": 2592000, "token_ttl_min": 30, "token_ttl_max": 900},
         "side_effects": "none_until_confirmed",
-        "notes": "Previews POST /v1/{sid}/tags. Requires lc_confirm_mutation before any remote write.",
+        "notes": "Previews POST /v1/{sid}/tags. Requires lc_confirm_action before any remote write.",
     },
     "sensor.tag.remove.preview": {
         "suite": "response",
@@ -1888,7 +1888,7 @@ OPERATION_CATALOG: dict[str, dict[str, Any]] = {
         "optional_inputs": ["token_ttl_seconds"],
         "bounds": {"token_ttl_min": 30, "token_ttl_max": 900},
         "side_effects": "none_until_confirmed",
-        "notes": "Previews DELETE /v1/{sid}/tags. Requires lc_confirm_mutation before any remote write.",
+        "notes": "Previews DELETE /v1/{sid}/tags. Requires lc_confirm_action before any remote write.",
     },
 }
 
@@ -3397,8 +3397,8 @@ def require_quota(value: int) -> int:
 
 
 def require_confirmation_token(value: str) -> str:
-    if not isinstance(value, str) or not re.match(r"^mut_[a-f0-9]{32}$", value):
-        raise ValidationError("confirmation_token is not a valid mutation preview token")
+    if not isinstance(value, str) or not re.match(r"^act_[a-f0-9]{32}$", value):
+        raise ValidationError("confirmation_token is not a valid action preview token")
     return value
 
 
@@ -4135,7 +4135,7 @@ class LimaCharlieAPI:
         self.audit_path = Path(raw_audit_path) if raw_audit_path else Path(default_audit_path())
         self.http: HttpClient = http_client or httpx.Client()
         self._tokens: dict[str, Token] = {}
-        self._pending_mutations: dict[str, PendingMutation] = {}
+        self._pending_actions: dict[str, PendingAction] = {}
         self._search_roots: dict[str, str] = {}
 
     def _uses_user_api_key(self) -> bool:
@@ -5132,7 +5132,7 @@ class LimaCharlieAPI:
             findings=findings,
             recommendations=[
                 "Prioritize high and medium findings, then inspect each component review for concrete follow-up tools.",
-                "Do not change content, access, or response state from this aggregate; use preview/confirm mutation tools for any remediation.",
+                "Do not change content, access, or response state from this aggregate; use preview/confirm action tools for any remediation.",
             ],
             sources=all_sources,
             limit=bounded_limit,
@@ -5287,7 +5287,7 @@ class LimaCharlieAPI:
         data: dict[str, Any] = {"tasks": checked_tasks}
         if investigation_id:
             data["investigation_id"] = require_token(investigation_id, "investigation_id")
-        return self._create_mutation_preview(
+        return self._create_action_preview(
             operation="sensor.task",
             oid=scoped_oid,
             method="POST",
@@ -5362,7 +5362,7 @@ class LimaCharlieAPI:
         scoped_oid = require_oid(oid)
         safe_sensor_id = require_oid(sensor_id)
         token_ttl = require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900)
-        return self._create_mutation_preview(
+        return self._create_action_preview(
             operation="sensor.delete",
             oid=scoped_oid,
             method="DELETE",
@@ -5471,7 +5471,7 @@ class LimaCharlieAPI:
             raise ValidationError("at least one case update field is required")
         return body
 
-    def _preview_case_api_mutation(
+    def _preview_case_api_action(
         self,
         *,
         operation: str,
@@ -5488,7 +5488,7 @@ class LimaCharlieAPI:
         token_ttl_seconds: int,
     ) -> dict[str, Any]:
         token_ttl = require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900)
-        return self._create_mutation_preview(
+        return self._create_action_preview(
             operation=operation,
             oid=oid,
             method=method,
@@ -5591,7 +5591,7 @@ class LimaCharlieAPI:
         if checked_summary is not None:
             data["summary"] = checked_summary
         token_ttl = require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900)
-        return self._create_mutation_preview(
+        return self._create_action_preview(
             operation="case.create",
             oid=scoped_oid,
             method="POST",
@@ -5630,7 +5630,7 @@ class LimaCharlieAPI:
             conclusion=conclusion,
             tags=tags,
         )
-        return self._preview_case_api_mutation(
+        return self._preview_case_api_action(
             operation="case.update",
             oid=scoped_oid,
             method="PATCH",
@@ -5662,7 +5662,7 @@ class LimaCharlieAPI:
             body["note_type"] = checked_note_type
         if is_public is not None:
             body["is_public"] = require_bool_or_none(is_public, "is_public")
-        return self._preview_case_api_mutation(
+        return self._preview_case_api_action(
             operation="case.note.add",
             oid=scoped_oid,
             method="POST",
@@ -5688,7 +5688,7 @@ class LimaCharlieAPI:
         scoped_oid = require_oid(oid)
         safe_case_number = require_case_number(case_number)
         safe_event_id = require_path_segment(event_id, "event_id")
-        return self._preview_case_api_mutation(
+        return self._preview_case_api_action(
             operation="case.note.visibility",
             oid=scoped_oid,
             method="PATCH",
@@ -5727,7 +5727,7 @@ class LimaCharlieAPI:
             conclusion=conclusion,
             tags=tags,
         )
-        return self._preview_case_api_mutation(
+        return self._preview_case_api_action(
             operation="case.bulk_update",
             oid=scoped_oid,
             method="POST",
@@ -5753,7 +5753,7 @@ class LimaCharlieAPI:
         sources = require_case_numbers(source_case_numbers)
         if target in sources:
             raise ValidationError("target_case_number must not also be in source_case_numbers")
-        return self._preview_case_api_mutation(
+        return self._preview_case_api_action(
             operation="case.merge",
             oid=scoped_oid,
             method="POST",
@@ -5792,7 +5792,7 @@ class LimaCharlieAPI:
         checked_detection = require_dict(detection, "detection")
         if checked_detection is None:
             raise ValidationError("detection is required")
-        return self._preview_case_api_mutation(
+        return self._preview_case_api_action(
             operation="case.detection.add",
             oid=scoped_oid,
             method="POST",
@@ -5817,7 +5817,7 @@ class LimaCharlieAPI:
         scoped_oid = require_oid(oid)
         safe_case_number = require_case_number(case_number)
         safe_detection_id = require_detect_id(detection_id)
-        return self._preview_case_api_mutation(
+        return self._preview_case_api_action(
             operation="case.detection.remove",
             oid=scoped_oid,
             method="DELETE",
@@ -5880,7 +5880,7 @@ class LimaCharlieAPI:
         checked_verdict = require_case_choice(verdict, "verdict", _CASE_VERDICTS)
         if checked_verdict is not None:
             body["verdict"] = checked_verdict
-        return self._preview_case_api_mutation(
+        return self._preview_case_api_action(
             operation="case.entity.add",
             oid=scoped_oid,
             method="POST",
@@ -5916,7 +5916,7 @@ class LimaCharlieAPI:
             body["verdict"] = checked_verdict
         if not body:
             raise ValidationError("note or verdict is required")
-        return self._preview_case_api_mutation(
+        return self._preview_case_api_action(
             operation="case.entity.update",
             oid=scoped_oid,
             method="PATCH",
@@ -5941,7 +5941,7 @@ class LimaCharlieAPI:
         scoped_oid = require_oid(oid)
         safe_case_number = require_case_number(case_number)
         safe_entity_id = require_path_segment(entity_id, "entity_id")
-        return self._preview_case_api_mutation(
+        return self._preview_case_api_action(
             operation="case.entity.remove",
             oid=scoped_oid,
             method="DELETE",
@@ -5989,7 +5989,7 @@ class LimaCharlieAPI:
         checked_verdict = require_case_choice(verdict, "verdict", _CASE_VERDICTS)
         if checked_verdict is not None:
             body["verdict"] = checked_verdict
-        return self._preview_case_api_mutation(
+        return self._preview_case_api_action(
             operation="case.telemetry.add",
             oid=scoped_oid,
             method="POST",
@@ -6025,7 +6025,7 @@ class LimaCharlieAPI:
             body["verdict"] = checked_verdict
         if not body:
             raise ValidationError("note or verdict is required")
-        return self._preview_case_api_mutation(
+        return self._preview_case_api_action(
             operation="case.telemetry.update",
             oid=scoped_oid,
             method="PATCH",
@@ -6050,7 +6050,7 @@ class LimaCharlieAPI:
         scoped_oid = require_oid(oid)
         safe_case_number = require_case_number(case_number)
         safe_telemetry_id = require_path_segment(telemetry_id, "telemetry_id")
-        return self._preview_case_api_mutation(
+        return self._preview_case_api_action(
             operation="case.telemetry.remove",
             oid=scoped_oid,
             method="DELETE",
@@ -6102,7 +6102,7 @@ class LimaCharlieAPI:
         checked_verdict = require_case_choice(verdict, "verdict", _CASE_VERDICTS)
         if checked_verdict is not None:
             body["verdict"] = checked_verdict
-        return self._preview_case_api_mutation(
+        return self._preview_case_api_action(
             operation="case.artifact.add",
             oid=scoped_oid,
             method="POST",
@@ -6127,7 +6127,7 @@ class LimaCharlieAPI:
         scoped_oid = require_oid(oid)
         safe_case_number = require_case_number(case_number)
         safe_artifact_id = require_path_segment(artifact_id, "artifact_id")
-        return self._preview_case_api_mutation(
+        return self._preview_case_api_action(
             operation="case.artifact.remove",
             oid=scoped_oid,
             method="DELETE",
@@ -6230,7 +6230,7 @@ class LimaCharlieAPI:
         checked_config = require_dict(config, "config")
         if checked_config is None:
             raise ValidationError("config is required")
-        return self._preview_case_api_mutation(
+        return self._preview_case_api_action(
             operation="case.config.set",
             oid=scoped_oid,
             method="PUT",
@@ -6278,7 +6278,7 @@ class LimaCharlieAPI:
         checked_tags = require_case_tag_list(tags)
         if checked_tags is None:
             raise ValidationError("tags are required")
-        return self._preview_case_api_mutation(
+        return self._preview_case_api_action(
             operation="case.tag.set",
             oid=scoped_oid,
             method="PATCH",
@@ -6314,7 +6314,7 @@ class LimaCharlieAPI:
         for tag in requested_tags:
             seen.setdefault(tag.lower(), tag)
         merged = list(seen.values())
-        return self._preview_case_api_mutation(
+        return self._preview_case_api_action(
             operation="case.tag.add",
             oid=scoped_oid,
             method="PATCH",
@@ -6347,7 +6347,7 @@ class LimaCharlieAPI:
             return current
         remove_set = {tag.lower() for tag in requested_tags}
         remaining = [tag for tag in self._case_tags_from_data(current.get("data")) if tag.lower() not in remove_set]
-        return self._preview_case_api_mutation(
+        return self._preview_case_api_action(
             operation="case.tag.remove",
             oid=scoped_oid,
             method="PATCH",
@@ -6778,7 +6778,7 @@ class LimaCharlieAPI:
         if safe_stream:
             data["stream"] = safe_stream
         params = self._hive_record_params(data=data, tags=tags, comment=comment)
-        return self._create_mutation_preview(
+        return self._create_action_preview(
             operation="saved_query.set",
             oid=scoped_oid,
             method="POST",
@@ -6796,7 +6796,7 @@ class LimaCharlieAPI:
     def preview_delete_saved_query(self, oid: str, name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         safe_name = require_hive_record_key(name, "name")
-        return self._create_mutation_preview(
+        return self._create_action_preview(
             operation="saved_query.delete",
             oid=scoped_oid,
             method="DELETE",
@@ -7094,7 +7094,7 @@ class LimaCharlieAPI:
     def preview_payload_upload_url(self, oid: str, name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         safe_name = require_token(name, "name")
-        return self._preview_mutation(
+        return self._preview_action(
             operation="payload.upload_url",
             oid=scoped_oid,
             method="POST",
@@ -7111,7 +7111,7 @@ class LimaCharlieAPI:
     def preview_delete_payload(self, oid: str, name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         safe_name = require_token(name, "name")
-        return self._preview_mutation(
+        return self._preview_action(
             operation="payload.delete",
             oid=scoped_oid,
             method="DELETE",
@@ -7257,7 +7257,7 @@ class LimaCharlieAPI:
         scoped_oid = require_oid(oid)
         safe_job_id = require_path_segment(job_id, "job_id")
         token_ttl = require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900)
-        return self._create_mutation_preview(
+        return self._create_action_preview(
             operation="job.delete",
             oid=scoped_oid,
             method="DELETE",
@@ -7313,7 +7313,7 @@ class LimaCharlieAPI:
             request_data["context"] = require_token(context, "context")
         if ttl_seconds is not None:
             request_data["ttl"] = require_seconds(ttl_seconds, "ttl_seconds", minimum=60, maximum=2_592_000)
-        return self._preview_mutation(
+        return self._preview_action(
             operation="reliable_task.send",
             oid=scoped_oid,
             method="POST",
@@ -7345,7 +7345,7 @@ class LimaCharlieAPI:
             request_data["sid"] = require_oid(sensor_id)
         if selector:
             request_data["selector"] = require_selector(selector)
-        return self._preview_mutation(
+        return self._preview_action(
             operation="reliable_task.delete",
             oid=scoped_oid,
             method="POST",
@@ -7493,7 +7493,7 @@ class LimaCharlieAPI:
             params["is_sleep"] = "true"
         if not params:
             raise ValidationError("version, is_fallback, or is_sleep is required")
-        return self._preview_mutation(
+        return self._preview_action(
             operation="sensor.version.set",
             oid=scoped_oid,
             method="POST",
@@ -7696,7 +7696,7 @@ class LimaCharlieAPI:
             "push",
             {"config": json.dumps(checked_config, sort_keys=True), "options": options},
         )
-        return self._preview_mutation(
+        return self._preview_action(
             operation="config.push",
             oid=scoped_oid,
             method="POST",
@@ -7904,7 +7904,7 @@ class LimaCharlieAPI:
     ) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         token_ttl = require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900)
-        return self._create_mutation_preview(
+        return self._create_action_preview(
             operation=operation,
             oid=scoped_oid,
             method="POST",
@@ -8219,7 +8219,7 @@ class LimaCharlieAPI:
         if not params:
             raise ValidationError("at least one of data, arl_url, enabled, tags, comment, expiry, etag, or ui_actions is required")
         target = "data" if data is not None or arl_url is not None else "mtd"
-        return self._create_mutation_preview(
+        return self._create_action_preview(
             operation="hive.record.set",
             oid=scoped_oid,
             method="POST",
@@ -8244,7 +8244,7 @@ class LimaCharlieAPI:
     ) -> dict[str, Any]:
         scoped_oid, safe_hive, partition = self._hive_context(oid, hive_name, partition_key)
         safe_key = require_hive_record_key(key)
-        return self._create_mutation_preview(
+        return self._create_action_preview(
             operation="hive.record.delete",
             oid=scoped_oid,
             method="DELETE",
@@ -8271,7 +8271,7 @@ class LimaCharlieAPI:
         scoped_oid, safe_hive, partition = self._hive_context(oid, hive_name, partition_key)
         safe_key = require_hive_record_key(key)
         safe_new_name = require_hive_record_key(new_name, "new_name")
-        return self._create_mutation_preview(
+        return self._create_action_preview(
             operation="hive.record.rename",
             oid=scoped_oid,
             method="POST",
@@ -8315,7 +8315,7 @@ class LimaCharlieAPI:
         params = {"usr_mtd": json.dumps(usr_mtd)}
         if isinstance(sys_mtd, dict) and sys_mtd.get("etag"):
             params["etag"] = require_token(str(sys_mtd["etag"]), "etag")
-        return self._create_mutation_preview(
+        return self._create_action_preview(
             operation="hive.record.enabled.set",
             oid=scoped_oid,
             method="POST",
@@ -8389,7 +8389,7 @@ class LimaCharlieAPI:
             ui_actions=ui_actions,
         )
         resource = self._typed_hive_record_resource(resource_type, scoped_oid, safe_key)
-        return self._create_mutation_preview(
+        return self._create_action_preview(
             operation=operation,
             oid=scoped_oid,
             method="POST",
@@ -8418,7 +8418,7 @@ class LimaCharlieAPI:
         scoped_oid, safe_hive, partition = self._hive_context(oid, hive_name, None)
         safe_key = require_hive_record_key(key, "name")
         resource = self._typed_hive_record_resource(resource_type, scoped_oid, safe_key)
-        return self._create_mutation_preview(
+        return self._create_action_preview(
             operation=operation,
             oid=scoped_oid,
             method="DELETE",
@@ -8460,7 +8460,7 @@ class LimaCharlieAPI:
         if isinstance(sys_mtd, dict) and sys_mtd.get("etag"):
             params["etag"] = require_token(str(sys_mtd["etag"]), "etag")
         resource = self._typed_hive_record_resource(resource_type, scoped_oid, safe_key)
-        return self._create_mutation_preview(
+        return self._create_action_preview(
             operation=operation,
             oid=scoped_oid,
             method="POST",
@@ -9181,7 +9181,7 @@ class LimaCharlieAPI:
         checked_content = require_case_text(content, "content", maximum=200_000, required=True)
         scoped_oid, _, partition = self._hive_context(oid, "ai_memory", partition_key)
         assert checked_content is not None
-        return self._create_mutation_preview(
+        return self._create_action_preview(
             operation="ai_memory.set",
             oid=scoped_oid,
             method="POST",
@@ -9207,7 +9207,7 @@ class LimaCharlieAPI:
         safe_agent = require_hive_record_key(agent, "agent")
         safe_memory_name = require_hive_record_key(memory_name, "memory_name")
         scoped_oid, _, partition = self._hive_context(oid, "ai_memory", partition_key)
-        return self._create_mutation_preview(
+        return self._create_action_preview(
             operation="ai_memory.delete",
             oid=scoped_oid,
             method="POST",
@@ -9231,7 +9231,7 @@ class LimaCharlieAPI:
     ) -> dict[str, Any]:
         safe_agent = require_hive_record_key(agent, "agent")
         scoped_oid, _, partition = self._hive_context(oid, "ai_memory", partition_key)
-        return self._create_mutation_preview(
+        return self._create_action_preview(
             operation="ai_memory.record.delete",
             oid=scoped_oid,
             method="DELETE",
@@ -9329,7 +9329,7 @@ class LimaCharlieAPI:
     def preview_terminate_ai_session(self, oid: str, session_id: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         safe_session_id = require_path_segment(session_id, "session_id")
-        return self._create_mutation_preview(
+        return self._create_action_preview(
             operation="ai.session.terminate",
             oid=scoped_oid,
             method="DELETE",
@@ -9529,7 +9529,7 @@ class LimaCharlieAPI:
             params["loc"] = require_token(location, "location")
         if template:
             params["template"] = require_token(template, "template")
-        return self._preview_mutation(
+        return self._preview_action(
             operation="org.create",
             oid="-",
             method="POST",
@@ -9564,7 +9564,7 @@ class LimaCharlieAPI:
         scoped_oid = require_oid(oid)
         safe_name = require_path_segment(config_name, "config_name")
         safe_value = require_config_value(value)
-        return self._preview_mutation(
+        return self._preview_action(
             operation="org.config.set",
             oid=scoped_oid,
             method="POST",
@@ -9582,7 +9582,7 @@ class LimaCharlieAPI:
     def preview_dismiss_org_error(self, oid: str, component: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         safe_component = require_path_segment(component, "component")
-        return self._preview_mutation(
+        return self._preview_action(
             operation="org.error.dismiss",
             oid=scoped_oid,
             method="DELETE",
@@ -9609,7 +9609,7 @@ class LimaCharlieAPI:
     def preview_delete_org(self, oid: str, confirmation: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         safe_confirmation = require_token(confirmation, "confirmation")
-        return self._preview_mutation(
+        return self._preview_action(
             operation="org.delete",
             oid=scoped_oid,
             method="DELETE",
@@ -9627,7 +9627,7 @@ class LimaCharlieAPI:
     def preview_set_org_quota(self, oid: str, quota: int, token_ttl_seconds: int = 300) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         safe_quota = require_quota(quota)
-        return self._preview_mutation(
+        return self._preview_action(
             operation="org.quota.set",
             oid=scoped_oid,
             method="POST",
@@ -9645,7 +9645,7 @@ class LimaCharlieAPI:
     def preview_rename_org(self, oid: str, new_name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         safe_name = require_token(new_name, "new_name")
-        return self._preview_mutation(
+        return self._preview_action(
             operation="org.rename",
             oid=scoped_oid,
             method="POST",
@@ -9719,7 +9719,7 @@ class LimaCharlieAPI:
 
     def preview_create_group(self, name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
         safe_name = require_token(name, "name")
-        return self._preview_mutation(
+        return self._preview_action(
             operation="group.create",
             oid="-",
             method="POST",
@@ -9757,7 +9757,7 @@ class LimaCharlieAPI:
 
     def preview_delete_group(self, group_id: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
         safe_group_id = require_path_segment(group_id, "group_id")
-        return self._preview_mutation(
+        return self._preview_action(
             operation="group.delete",
             oid="-",
             method="DELETE",
@@ -9771,21 +9771,21 @@ class LimaCharlieAPI:
         )
 
     def preview_add_group_member(self, group_id: str, email: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
-        return self._preview_group_email_mutation("group.member.add", "POST", group_id, email, "users", "group_member_added", token_ttl_seconds)
+        return self._preview_group_email_action("group.member.add", "POST", group_id, email, "users", "group_member_added", token_ttl_seconds)
 
     def preview_remove_group_member(self, group_id: str, email: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
-        return self._preview_group_email_mutation("group.member.remove", "DELETE", group_id, email, "users", "group_member_removed", token_ttl_seconds)
+        return self._preview_group_email_action("group.member.remove", "DELETE", group_id, email, "users", "group_member_removed", token_ttl_seconds)
 
     def preview_add_group_owner(self, group_id: str, email: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
-        return self._preview_group_email_mutation("group.owner.add", "POST", group_id, email, "owners", "group_owner_added", token_ttl_seconds)
+        return self._preview_group_email_action("group.owner.add", "POST", group_id, email, "owners", "group_owner_added", token_ttl_seconds)
 
     def preview_remove_group_owner(self, group_id: str, email: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
-        return self._preview_group_email_mutation("group.owner.remove", "DELETE", group_id, email, "owners", "group_owner_removed", token_ttl_seconds)
+        return self._preview_group_email_action("group.owner.remove", "DELETE", group_id, email, "owners", "group_owner_removed", token_ttl_seconds)
 
     def preview_set_group_permissions(self, group_id: str, permissions: list[str] | str, token_ttl_seconds: int = 300) -> dict[str, Any]:
         safe_group_id = require_path_segment(group_id, "group_id")
         safe_permissions = require_permission_list(permissions)
-        return self._preview_mutation(
+        return self._preview_action(
             operation="group.permissions.set",
             oid="-",
             method="POST",
@@ -9800,10 +9800,10 @@ class LimaCharlieAPI:
         )
 
     def preview_add_group_org(self, group_id: str, member_oid: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
-        return self._preview_group_org_mutation("group.org.add", "POST", group_id, member_oid, "group_org_added", token_ttl_seconds)
+        return self._preview_group_org_action("group.org.add", "POST", group_id, member_oid, "group_org_added", token_ttl_seconds)
 
     def preview_remove_group_org(self, group_id: str, member_oid: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
-        return self._preview_group_org_mutation("group.org.remove", "DELETE", group_id, member_oid, "group_org_removed", token_ttl_seconds)
+        return self._preview_group_org_action("group.org.remove", "DELETE", group_id, member_oid, "group_org_removed", token_ttl_seconds)
 
     def list_users(self, oid: str, limit: int = 100) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
@@ -9820,7 +9820,7 @@ class LimaCharlieAPI:
     def preview_invite_user(self, oid: str, email: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         safe_email = require_email(email)
-        return self._preview_mutation(
+        return self._preview_action(
             operation="user.invite",
             oid=scoped_oid,
             method="POST",
@@ -9838,7 +9838,7 @@ class LimaCharlieAPI:
     def preview_remove_user(self, oid: str, email: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         safe_email = require_email(email)
-        return self._preview_mutation(
+        return self._preview_action(
             operation="user.remove",
             oid=scoped_oid,
             method="DELETE",
@@ -9867,7 +9867,7 @@ class LimaCharlieAPI:
         scoped_oid = require_oid(oid)
         safe_email = require_email(email)
         safe_permission = require_permission(permission)
-        return self._preview_mutation(
+        return self._preview_action(
             operation="user.permission.add",
             oid=scoped_oid,
             method="POST",
@@ -9886,7 +9886,7 @@ class LimaCharlieAPI:
         scoped_oid = require_oid(oid)
         safe_email = require_email(email)
         safe_permission = require_permission(permission)
-        return self._preview_mutation(
+        return self._preview_action(
             operation="user.permission.remove",
             oid=scoped_oid,
             method="DELETE",
@@ -9905,7 +9905,7 @@ class LimaCharlieAPI:
         scoped_oid = require_oid(oid)
         safe_email = require_email(email)
         safe_role = require_org_role(role)
-        return self._preview_mutation(
+        return self._preview_action(
             operation="user.role.set",
             oid=scoped_oid,
             method="PUT",
@@ -9946,7 +9946,7 @@ class LimaCharlieAPI:
         params: dict[str, Any] = {"key_name": safe_name, "perms": ",".join(safe_permissions)}
         if ip_range:
             params["allowed_ip_range"] = require_token(ip_range, "ip_range")
-        return self._preview_mutation(
+        return self._preview_action(
             operation="api_key.create",
             oid=scoped_oid,
             method="POST",
@@ -9964,7 +9964,7 @@ class LimaCharlieAPI:
     def preview_delete_api_key(self, oid: str, key_hash: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         safe_key_hash = require_path_segment(key_hash, "key_hash")
-        return self._preview_mutation(
+        return self._preview_action(
             operation="api_key.delete",
             oid=scoped_oid,
             method="DELETE",
@@ -10019,7 +10019,7 @@ class LimaCharlieAPI:
         checked_tags = require_string_list(tags, "tags")
         if checked_tags:
             params["tags"] = ",".join(checked_tags)
-        return self._preview_mutation(
+        return self._preview_action(
             operation="installation_key.create",
             oid=scoped_oid,
             method="POST",
@@ -10037,7 +10037,7 @@ class LimaCharlieAPI:
     def preview_delete_installation_key(self, oid: str, installation_key_id: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         safe_iid = require_path_segment(installation_key_id, "installation_key_id")
-        return self._preview_mutation(
+        return self._preview_action(
             operation="installation_key.delete",
             oid=scoped_oid,
             method="DELETE",
@@ -10067,7 +10067,7 @@ class LimaCharlieAPI:
     def preview_create_ingestion_key(self, oid: str, name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         safe_name = require_token(name, "name")
-        return self._preview_mutation(
+        return self._preview_action(
             operation="ingestion_key.create",
             oid=scoped_oid,
             method="POST",
@@ -10085,7 +10085,7 @@ class LimaCharlieAPI:
     def preview_delete_ingestion_key(self, oid: str, name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         safe_name = require_token(name, "name")
-        return self._preview_mutation(
+        return self._preview_action(
             operation="ingestion_key.delete",
             oid=scoped_oid,
             method="DELETE",
@@ -10118,7 +10118,7 @@ class LimaCharlieAPI:
         }
         checked_config = require_dict(config, "config") or {}
         params.update(checked_config)
-        return self._preview_mutation(
+        return self._preview_action(
             operation="output.create",
             oid=scoped_oid,
             method="POST",
@@ -10136,7 +10136,7 @@ class LimaCharlieAPI:
     def preview_delete_output(self, oid: str, name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         safe_name = require_token(name, "name")
-        return self._preview_mutation(
+        return self._preview_action(
             operation="output.delete",
             oid=scoped_oid,
             method="DELETE",
@@ -10166,7 +10166,7 @@ class LimaCharlieAPI:
     def preview_subscribe_extension(self, oid: str, extension_name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         safe_name = require_extension_name(extension_name)
-        return self._preview_mutation(
+        return self._preview_action(
             operation="extension.subscribe",
             oid=scoped_oid,
             method="POST",
@@ -10184,7 +10184,7 @@ class LimaCharlieAPI:
     def preview_unsubscribe_extension(self, oid: str, extension_name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         safe_name = require_extension_name(extension_name)
-        return self._preview_mutation(
+        return self._preview_action(
             operation="extension.unsubscribe",
             oid=scoped_oid,
             method="DELETE",
@@ -10202,7 +10202,7 @@ class LimaCharlieAPI:
     def preview_rekey_extension(self, oid: str, extension_name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         safe_name = require_extension_name(extension_name)
-        return self._preview_mutation(
+        return self._preview_action(
             operation="extension.rekey",
             oid=scoped_oid,
             method="PATCH",
@@ -10247,7 +10247,7 @@ class LimaCharlieAPI:
     ) -> dict[str, Any]:
         safe_definition = require_dict(extension_definition, "extension_definition") or {}
         safe_name = self._extension_definition_id(safe_definition, extension_name)
-        return self._preview_mutation(
+        return self._preview_action(
             operation="extension.create",
             oid="-",
             method="POST",
@@ -10270,7 +10270,7 @@ class LimaCharlieAPI:
     ) -> dict[str, Any]:
         safe_definition = require_dict(extension_definition, "extension_definition") or {}
         safe_name = self._extension_definition_id(safe_definition, extension_name)
-        return self._preview_mutation(
+        return self._preview_action(
             operation="extension.update",
             oid="-",
             method="PUT",
@@ -10287,7 +10287,7 @@ class LimaCharlieAPI:
 
     def preview_delete_extension(self, extension_name: str, token_ttl_seconds: int = 300) -> dict[str, Any]:
         safe_name = require_extension_name(extension_name)
-        return self._preview_mutation(
+        return self._preview_action(
             operation="extension.delete",
             oid="-",
             method="DELETE",
@@ -10327,7 +10327,7 @@ class LimaCharlieAPI:
         safe_name = require_extension_name(extension_name)
         safe_action = require_token(action, "action")
         safe_data = require_dict(data, "data") or {}
-        return self._preview_mutation(
+        return self._preview_action(
             operation="extension.request",
             oid=scoped_oid,
             method="POST",
@@ -10649,7 +10649,7 @@ class LimaCharlieAPI:
         checked_tags = require_string_list(tags, "tags")
         if checked_tags is not None:
             body["tags"] = checked_tags
-        return self._create_mutation_preview(
+        return self._create_action_preview(
             operation="artifact_rule.set",
             oid=scoped_oid,
             method="POST",
@@ -10667,7 +10667,7 @@ class LimaCharlieAPI:
         scoped_oid = require_oid(oid)
         safe_name = require_token(name, "name")
         token_ttl = require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900)
-        return self._create_mutation_preview(
+        return self._create_action_preview(
             operation="artifact_rule.delete",
             oid=scoped_oid,
             method="DELETE",
@@ -11171,15 +11171,15 @@ class LimaCharlieAPI:
             token_ttl_seconds=token_ttl_seconds,
         )
 
-    def list_pending_mutations(self) -> dict[str, Any]:
-        self._prune_expired_mutations()
+    def list_pending_actions(self) -> dict[str, Any]:
+        self._prune_expired_actions()
         now = time.time()
-        previews = [self._preview_data(mutation, now) for mutation in self._pending_mutations.values()]
+        previews = [self._preview_data(action, now) for action in self._pending_actions.values()]
         return ToolResponse(
             ok=True,
-            operation="mutation.pending.list",
+            operation="action.pending.list",
             request_id=f"req_{uuid.uuid4().hex}",
-            resource={"type": "mutation_preview_collection", "id": "local"},
+            resource={"type": "action_preview_collection", "id": "local"},
             state={"current": "ready"},
             data={"previews": previews},
             side_effects=[],
@@ -11188,27 +11188,27 @@ class LimaCharlieAPI:
             observed_at=observed_at(),
         ).as_dict()
 
-    def cancel_mutation(self, confirmation_token: str) -> dict[str, Any]:
+    def cancel_action(self, confirmation_token: str) -> dict[str, Any]:
         token = require_confirmation_token(confirmation_token)
-        self._prune_expired_mutations()
-        mutation = self._pending_mutations.pop(token, None)
-        if mutation is None:
-            return self._mutation_token_error(
-                "mutation.cancel",
+        self._prune_expired_actions()
+        action = self._pending_actions.pop(token, None)
+        if action is None:
+            return self._action_token_error(
+                "action.cancel",
                 token,
-                "mutation_preview_not_found",
-                "No active mutation preview exists for that confirmation token.",
+                "action_preview_not_found",
+                "No active action preview exists for that confirmation token.",
             )
         return ToolResponse(
             ok=True,
-            operation="mutation.cancel",
+            operation="action.cancel",
             request_id=f"req_{uuid.uuid4().hex}",
-            resource=mutation.resource,
+            resource=action.resource,
             state={"previous": "pending", "current": "cancelled"},
-            data={"cancelled_operation": mutation.operation, "confirmation_token": token},
-            side_effects=[{"type": "local_preview_deleted", "resource": mutation.resource}],
+            data={"cancelled_operation": action.operation, "confirmation_token": token},
+            side_effects=[{"type": "local_preview_deleted", "resource": action.resource}],
             warnings=[],
-            meta={"summary": {"cancelled": True, "operation": mutation.operation}, "truncated": False},
+            meta={"summary": {"cancelled": True, "operation": action.operation}, "truncated": False},
             observed_at=observed_at(),
         ).as_dict()
 
@@ -11226,7 +11226,7 @@ class LimaCharlieAPI:
         ttl = require_ttl_seconds(ttl_seconds)
         token_ttl = require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900)
         data = {"tags": safe_tag, "ttl": ttl}
-        return self._create_mutation_preview(
+        return self._create_action_preview(
             operation="sensor.tag.add",
             oid=scoped_oid,
             method="POST",
@@ -11263,7 +11263,7 @@ class LimaCharlieAPI:
         safe_sensor_id = require_oid(sensor_id)
         safe_tag = require_token(tag, "tag")
         token_ttl = require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900)
-        return self._create_mutation_preview(
+        return self._create_action_preview(
             operation="sensor.tag.remove",
             oid=scoped_oid,
             method="DELETE",
@@ -11288,36 +11288,36 @@ class LimaCharlieAPI:
             token_ttl_seconds=token_ttl,
         )
 
-    def confirm_mutation(self, confirmation_token: str) -> dict[str, Any]:
+    def confirm_action(self, confirmation_token: str) -> dict[str, Any]:
         token = require_confirmation_token(confirmation_token)
-        self._prune_expired_mutations()
-        mutation = self._pending_mutations.pop(token, None)
-        if mutation is None:
-            return self._mutation_token_error(
-                "mutation.confirm",
+        self._prune_expired_actions()
+        action = self._pending_actions.pop(token, None)
+        if action is None:
+            return self._action_token_error(
+                "action.confirm",
                 token,
-                "mutation_preview_not_found",
-                "No active mutation preview exists for that confirmation token.",
+                "action_preview_not_found",
+                "No active action preview exists for that confirmation token.",
             )
         response = self._request(
-            mutation.method,
-            mutation.path,
-            operation="mutation.confirm",
-            oid=mutation.oid,
-            resource=mutation.resource,
-            base_url=mutation.base_url,
-            params=mutation.params,
-            data=mutation.data,
-            json_body=mutation.json_body,
-            extra_headers=mutation.extra_headers,
-            side_effects=mutation.side_effects,
+            action.method,
+            action.path,
+            operation="action.confirm",
+            oid=action.oid,
+            resource=action.resource,
+            base_url=action.base_url,
+            params=action.params,
+            data=action.data,
+            json_body=action.json_body,
+            extra_headers=action.extra_headers,
+            side_effects=action.side_effects,
         ).as_dict()
         response["data"] = {
-            "confirmed_operation": mutation.operation,
-            "confirmed_preview": self._preview_data(mutation, time.time(), include_token=False),
+            "confirmed_operation": action.operation,
+            "confirmed_preview": self._preview_data(action, time.time(), include_token=False),
             "result": response.get("data"),
         }
-        response["meta"]["summary"]["confirmed_operation"] = mutation.operation
+        response["meta"]["summary"]["confirmed_operation"] = action.operation
         return response
 
     def _vulnerability_query(
@@ -11535,7 +11535,7 @@ class LimaCharlieAPI:
         scoped_oid = require_oid(oid)
         safe_sensor_id = require_oid(sensor_id)
         token_ttl = require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900)
-        return self._create_mutation_preview(
+        return self._create_action_preview(
             operation=operation,
             oid=scoped_oid,
             method=method,
@@ -11549,7 +11549,7 @@ class LimaCharlieAPI:
             token_ttl_seconds=token_ttl,
         )
 
-    def _preview_mutation(
+    def _preview_action(
         self,
         *,
         operation: str,
@@ -11572,7 +11572,7 @@ class LimaCharlieAPI:
         resource: dict[str, Any] = {"type": resource_type, "id": resource_id}
         if parent_oid is not None:
             resource["parent"] = {"type": "organization", "id": parent_oid}
-        return self._create_mutation_preview(
+        return self._create_action_preview(
             operation=operation,
             oid=oid,
             method=method,
@@ -11588,7 +11588,7 @@ class LimaCharlieAPI:
             token_ttl_seconds=token_ttl,
         )
 
-    def _preview_group_email_mutation(
+    def _preview_group_email_action(
         self,
         operation: str,
         method: str,
@@ -11600,7 +11600,7 @@ class LimaCharlieAPI:
     ) -> dict[str, Any]:
         safe_group_id = require_path_segment(group_id, "group_id")
         safe_email = require_email(email)
-        return self._preview_mutation(
+        return self._preview_action(
             operation=operation,
             oid="-",
             method=method,
@@ -11614,7 +11614,7 @@ class LimaCharlieAPI:
             token_ttl_seconds=token_ttl_seconds,
         )
 
-    def _preview_group_org_mutation(
+    def _preview_group_org_action(
         self,
         operation: str,
         method: str,
@@ -11625,7 +11625,7 @@ class LimaCharlieAPI:
     ) -> dict[str, Any]:
         safe_group_id = require_path_segment(group_id, "group_id")
         safe_member_oid = require_oid(member_oid)
-        return self._preview_mutation(
+        return self._preview_action(
             operation=operation,
             oid="-",
             method=method,
@@ -11696,7 +11696,7 @@ class LimaCharlieAPI:
         scoped_oid = require_oid(oid)
         safe_name = require_token(name, "name")
         token_ttl = require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900)
-        return self._create_mutation_preview(
+        return self._create_action_preview(
             operation=operation,
             oid=scoped_oid,
             method="POST",
@@ -11724,7 +11724,7 @@ class LimaCharlieAPI:
         scoped_oid = require_oid(oid)
         safe_name = require_token(name, "name")
         token_ttl = require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900)
-        return self._create_mutation_preview(
+        return self._create_action_preview(
             operation=operation,
             oid=scoped_oid,
             method="DELETE",
@@ -11755,7 +11755,7 @@ class LimaCharlieAPI:
     ) -> dict[str, Any]:
         scoped_oid = require_oid(oid)
         token_ttl = require_seconds(token_ttl_seconds, "token_ttl_seconds", minimum=30, maximum=900)
-        return self._create_mutation_preview(
+        return self._create_action_preview(
             operation=operation,
             oid=scoped_oid,
             method="POST",
@@ -11770,7 +11770,7 @@ class LimaCharlieAPI:
             token_ttl_seconds=token_ttl,
         )
 
-    def _create_mutation_preview(
+    def _create_action_preview(
         self,
         *,
         operation: str,
@@ -11788,9 +11788,9 @@ class LimaCharlieAPI:
         base_url: str | None = None,
         extra_headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
-        self._prune_expired_mutations()
-        token = f"mut_{uuid.uuid4().hex}"
-        mutation = PendingMutation(
+        self._prune_expired_actions()
+        token = f"act_{uuid.uuid4().hex}"
+        action = PendingAction(
             token=token,
             expires_at=time.time() + token_ttl_seconds,
             operation=operation,
@@ -11807,8 +11807,8 @@ class LimaCharlieAPI:
             reversibility=reversibility,
             side_effects=side_effects,
         )
-        self._pending_mutations[token] = mutation
-        preview = self._preview_data(mutation, time.time())
+        self._pending_actions[token] = action
+        preview = self._preview_data(action, time.time())
         return ToolResponse(
             ok=True,
             operation=f"{operation}.preview",
@@ -11817,7 +11817,7 @@ class LimaCharlieAPI:
             state={"current": "pending_confirmation"},
             data=preview,
             side_effects=[],
-            warnings=["No LimaCharlie change has been made. Call lc_confirm_mutation with confirmation_token to execute."],
+            warnings=["No LimaCharlie change has been made. Call lc_confirm_action with confirmation_token to execute."],
             meta={
                 "summary": {
                     "preview_operation": operation,
@@ -11829,39 +11829,39 @@ class LimaCharlieAPI:
             observed_at=observed_at(),
         ).as_dict()
 
-    def _preview_data(self, mutation: PendingMutation, now: float, *, include_token: bool = True) -> dict[str, Any]:
-        root = (mutation.base_url or f"{self.api_root}/v1").rstrip("/")
+    def _preview_data(self, action: PendingAction, now: float, *, include_token: bool = True) -> dict[str, Any]:
+        root = (action.base_url or f"{self.api_root}/v1").rstrip("/")
         preview = {
-            "operation": mutation.operation,
-            "http_method": mutation.method,
-            "endpoint": f"{root.rstrip('/')}/{mutation.path.lstrip('/')}",
-            "oid": mutation.oid,
-            "resource": mutation.resource,
-            "params": redact_preview_data(mutation.params),
-            "data": redact_preview_data(mutation.data),
-            "json_body": redact_preview_data(mutation.json_body),
-            "headers": redact_preview_data(mutation.extra_headers),
-            "expected_effect": mutation.expected_effect,
-            "reversibility": mutation.reversibility,
-            "expected_side_effects": mutation.side_effects,
-            "expires_in_seconds": max(0, int(mutation.expires_at - now)),
+            "operation": action.operation,
+            "http_method": action.method,
+            "endpoint": f"{root.rstrip('/')}/{action.path.lstrip('/')}",
+            "oid": action.oid,
+            "resource": action.resource,
+            "params": redact_preview_data(action.params),
+            "data": redact_preview_data(action.data),
+            "json_body": redact_preview_data(action.json_body),
+            "headers": redact_preview_data(action.extra_headers),
+            "expected_effect": action.expected_effect,
+            "reversibility": action.reversibility,
+            "expected_side_effects": action.side_effects,
+            "expires_in_seconds": max(0, int(action.expires_at - now)),
         }
         if include_token:
-            preview["confirmation_token"] = mutation.token
+            preview["confirmation_token"] = action.token
         return preview
 
-    def _prune_expired_mutations(self) -> None:
+    def _prune_expired_actions(self) -> None:
         now = time.time()
-        expired = [token for token, mutation in self._pending_mutations.items() if mutation.expires_at <= now]
+        expired = [token for token, action in self._pending_actions.items() if action.expires_at <= now]
         for token in expired:
-            self._pending_mutations.pop(token, None)
+            self._pending_actions.pop(token, None)
 
-    def _mutation_token_error(self, operation: str, token: str, code: str, message: str) -> dict[str, Any]:
+    def _action_token_error(self, operation: str, token: str, code: str, message: str) -> dict[str, Any]:
         return ToolResponse(
             ok=False,
             operation=operation,
             request_id=f"req_{uuid.uuid4().hex}",
-            resource={"type": "mutation_preview", "id": token},
+            resource={"type": "action_preview", "id": token},
             state={"current": "not_found"},
             data=None,
             side_effects=[],
@@ -11875,7 +11875,7 @@ class LimaCharlieAPI:
                 "retryable": False,
                 "same_input_retryable": False,
                 "suggested_next_actions": [
-                    "Create a new preview for the intended mutation.",
+                    "Create a new preview for the intended action.",
                     "Confirm the new token before it expires.",
                 ],
             },

@@ -311,7 +311,7 @@ added permission with `lc_auth_whoami` and the specific read tool before adding
 more.
 
 Do not grant write permissions such as `sensor.task`, `sensor.tag`, `dr.set`,
-`dr.del`, or `output.set` until the matching MCP mutation tool has a
+`dr.del`, or `output.set` until the matching MCP action tool has a
 preview/confirm implementation.
 
 ## Troubleshooting

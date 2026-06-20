@@ -68,7 +68,7 @@
   },
   "decision_values": {
     "cover": "MCP should provide direct tool coverage.",
-    "cover_bounded": "MCP should cover the category only through bounded reads or preview/confirm mutations.",
+    "cover_bounded": "MCP should cover the category only through bounded reads or preview/confirm actions.",
     "defer": "MCP should not implement this until a safer typed design is reviewed.",
     "exclude": "MCP should intentionally not expose this capability.",
     "reference_only": "No MCP API surface is expected; keep as docs or catalog metadata."
@@ -148,7 +148,7 @@
         "sensor.task.",
         "reliable_task.",
         "spotcheck.",
-        "mutation.",
+        "action.",
         "yara.",
         "yara_",
         "mitre.",

@@ -624,12 +624,12 @@ def test_case_lifecycle_previews_confirm_exact_requests(tmp_path: Path) -> None:
 
     assert update["data"]["endpoint"] == "https://cases.limacharlie.io/api/v1/cases/42"
     assert update["data"]["json_body"]["assignees"] == ["analyst@example.com"]
-    client.confirm_mutation(create["data"]["confirmation_token"])
-    client.confirm_mutation(update["data"]["confirmation_token"])
-    client.confirm_mutation(note["data"]["confirmation_token"])
-    client.confirm_mutation(visibility["data"]["confirmation_token"])
-    client.confirm_mutation(bulk["data"]["confirmation_token"])
-    client.confirm_mutation(merge["data"]["confirmation_token"])
+    client.confirm_action(create["data"]["confirmation_token"])
+    client.confirm_action(update["data"]["confirmation_token"])
+    client.confirm_action(note["data"]["confirmation_token"])
+    client.confirm_action(visibility["data"]["confirmation_token"])
+    client.confirm_action(bulk["data"]["confirmation_token"])
+    client.confirm_action(merge["data"]["confirmation_token"])
 
     assert fake.calls[1]["url"] == "https://api.limacharlie.io/v1/extension/request/ext-cases"
     assert fake.calls[1]["params"]["oid"] == OID
@@ -679,7 +679,7 @@ def test_case_investigation_previews_confirm_exact_requests(tmp_path: Path) -> N
     ]
     for preview in previews:
         assert preview["data"]["endpoint"].startswith("https://cases.limacharlie.io/api/v1/")
-        client.confirm_mutation(preview["data"]["confirmation_token"])
+        client.confirm_action(preview["data"]["confirmation_token"])
 
     assert fake.calls[1]["json"] == {"detection": {"detect_id": "det-1"}}
     assert fake.calls[3]["json"] == {"entity_type": "domain", "entity_value": "example.com", "note": "triage", "verdict": "suspicious"}
@@ -708,10 +708,10 @@ def test_case_config_export_and_tag_previews(tmp_path: Path) -> None:
 
     assert exported["ok"] is True
     assert sorted(exported["data"].keys()) == ["artifacts", "case", "detections", "entities", "telemetry"]
-    client.confirm_mutation(config["data"]["confirmation_token"])
-    client.confirm_mutation(set_tags["data"]["confirmation_token"])
-    client.confirm_mutation(add_tags["data"]["confirmation_token"])
-    client.confirm_mutation(remove_tags["data"]["confirmation_token"])
+    client.confirm_action(config["data"]["confirmation_token"])
+    client.confirm_action(set_tags["data"]["confirmation_token"])
+    client.confirm_action(add_tags["data"]["confirmation_token"])
+    client.confirm_action(remove_tags["data"]["confirmation_token"])
 
     assert fake.calls[8]["json"] == {"sla_config": {"high": 3600}}
     assert fake.calls[9]["json"] == {"tags": ["urgent"]}
@@ -907,8 +907,8 @@ def test_saved_query_tools_use_query_hive_and_paginated_search(tmp_path: Path) -
         "stream": "event",
     }
 
-    set_confirmed = client.confirm_mutation(set_preview["data"]["confirmation_token"])
-    delete_confirmed = client.confirm_mutation(delete_preview["data"]["confirmation_token"])
+    set_confirmed = client.confirm_action(set_preview["data"]["confirmation_token"])
+    delete_confirmed = client.confirm_action(delete_preview["data"]["confirmation_token"])
     executed = client.execute_saved_query(OID, "prod-powershell")
 
     assert set_confirmed["data"]["confirmed_operation"] == "saved_query.set"
@@ -1027,8 +1027,8 @@ def test_payload_and_arl_read_tools_use_expected_paths(tmp_path: Path) -> None:
     upload = client.preview_payload_upload_url(OID, "p1")
     delete_payload = client.preview_delete_payload(OID, "p1")
     arl = client.get_arl(OID, "lc://example/resource", limit=1)
-    upload_confirmed = client.confirm_mutation(upload["data"]["confirmation_token"])
-    delete_confirmed = client.confirm_mutation(delete_payload["data"]["confirmation_token"])
+    upload_confirmed = client.confirm_action(upload["data"]["confirmation_token"])
+    delete_confirmed = client.confirm_action(delete_payload["data"]["confirmation_token"])
 
     assert payloads["operation"] == "payload.list"
     assert payloads["data"]["payloads"][0]["name"] == "p1"
@@ -1113,7 +1113,7 @@ def test_preview_add_sensor_tag_does_not_call_limacharlie(tmp_path: Path) -> Non
     assert result["data"]["http_method"] == "POST"
     assert result["data"]["endpoint"] == f"https://api.limacharlie.io/v1/{SID}/tags"
     assert result["data"]["expected_side_effects"][0]["type"] == "sensor_tag_added"
-    assert result["data"]["confirmation_token"].startswith("mut_")
+    assert result["data"]["confirmation_token"].startswith("act_")
     assert fake.calls == []
 
 
@@ -1124,10 +1124,10 @@ def test_confirm_add_sensor_tag_executes_exact_preview_once(tmp_path: Path) -> N
     preview = client.preview_add_sensor_tag(OID, SID, "incident-response", ttl_seconds=3600)
     token = preview["data"]["confirmation_token"]
 
-    result = client.confirm_mutation(token)
+    result = client.confirm_action(token)
 
     assert result["ok"] is True
-    assert_ax_envelope(result, "mutation.confirm")
+    assert_ax_envelope(result, "action.confirm")
     assert result["data"]["confirmed_operation"] == "sensor.tag.add"
     assert result["side_effects"] == [
         {
@@ -1143,9 +1143,9 @@ def test_confirm_add_sensor_tag_executes_exact_preview_once(tmp_path: Path) -> N
     assert fake.calls[1]["url"] == f"https://api.limacharlie.io/v1/{SID}/tags"
     assert fake.calls[1]["params"] == {"tags": "incident-response", "ttl": 3600}
 
-    second = client.confirm_mutation(token)
+    second = client.confirm_action(token)
     assert second["ok"] is False
-    assert second["error"]["code"] == "mutation_preview_not_found"
+    assert second["error"]["code"] == "action_preview_not_found"
     assert len(fake.calls) == 2
 
 
@@ -1155,9 +1155,9 @@ def test_preview_remove_sensor_tag_can_be_cancelled_without_http(tmp_path: Path)
     preview = client.preview_remove_sensor_tag(OID, SID, "old-tag")
     token = preview["data"]["confirmation_token"]
 
-    pending = client.list_pending_mutations()
-    cancelled = client.cancel_mutation(token)
-    confirmed = client.confirm_mutation(token)
+    pending = client.list_pending_actions()
+    cancelled = client.cancel_action(token)
+    confirmed = client.confirm_action(token)
 
     assert pending["data"]["previews"][0]["operation"] == "sensor.tag.remove"
     assert cancelled["ok"] is True
@@ -1172,7 +1172,7 @@ def test_confirm_remove_sensor_tag_uses_delete_endpoint(tmp_path: Path) -> None:
     client = make_client(tmp_path, fake)
     preview = client.preview_remove_sensor_tag(OID, SID, "old-tag")
 
-    result = client.confirm_mutation(preview["data"]["confirmation_token"])
+    result = client.confirm_action(preview["data"]["confirmation_token"])
 
     assert result["ok"] is True
     assert result["data"]["confirmed_operation"] == "sensor.tag.remove"
@@ -1192,7 +1192,7 @@ def test_preview_sensor_task_confirms_exact_task_params(tmp_path: Path) -> None:
     assert preview["side_effects"] == []
     assert fake.calls == []
 
-    confirmed = client.confirm_mutation(preview["data"]["confirmation_token"])
+    confirmed = client.confirm_action(preview["data"]["confirmation_token"])
 
     assert confirmed["ok"] is True
     assert confirmed["data"]["confirmed_operation"] == "sensor.task"
@@ -1215,10 +1215,10 @@ def test_preview_sensor_state_and_job_delete_endpoints(tmp_path: Path) -> None:
     delete_sensor = client.preview_delete_sensor(OID, SID)
     delete_job = client.preview_delete_job(OID, "job-1")
 
-    confirmed_isolate = client.confirm_mutation(isolate["data"]["confirmation_token"])
-    confirmed_unseal = client.confirm_mutation(unseal["data"]["confirmation_token"])
-    confirmed_delete_sensor = client.confirm_mutation(delete_sensor["data"]["confirmation_token"])
-    confirmed_delete_job = client.confirm_mutation(delete_job["data"]["confirmation_token"])
+    confirmed_isolate = client.confirm_action(isolate["data"]["confirmation_token"])
+    confirmed_unseal = client.confirm_action(unseal["data"]["confirmation_token"])
+    confirmed_delete_sensor = client.confirm_action(delete_sensor["data"]["confirmation_token"])
+    confirmed_delete_job = client.confirm_action(delete_job["data"]["confirmation_token"])
 
     assert confirmed_isolate["side_effects"][0]["type"] == "sensor_isolated"
     assert confirmed_unseal["side_effects"][0]["type"] == "sensor_unsealed"
@@ -1256,8 +1256,8 @@ def test_reliable_tasking_uses_extension_request_contract(tmp_path: Path) -> Non
         "ttl": 3600,
     }
 
-    confirmed_send = client.confirm_mutation(send["data"]["confirmation_token"])
-    confirmed_delete = client.confirm_mutation(delete["data"]["confirmation_token"])
+    confirmed_send = client.confirm_action(send["data"]["confirmation_token"])
+    confirmed_delete = client.confirm_action(delete["data"]["confirmation_token"])
 
     assert confirmed_send["ok"] is True
     assert confirmed_send["data"]["confirmed_operation"] == "reliable_task.send"
@@ -1493,8 +1493,8 @@ def test_artifact_rule_previews_confirm_exact_requests(tmp_path: Path) -> None:
     assert delete_preview["ok"] is True
     assert fake.calls == []
 
-    set_confirmed = client.confirm_mutation(set_preview["data"]["confirmation_token"])
-    delete_confirmed = client.confirm_mutation(delete_preview["data"]["confirmation_token"])
+    set_confirmed = client.confirm_action(set_preview["data"]["confirmation_token"])
+    delete_confirmed = client.confirm_action(delete_preview["data"]["confirmation_token"])
 
     assert set_confirmed["ok"] is True
     assert set_confirmed["data"]["confirmed_operation"] == "artifact_rule.set"
@@ -1536,8 +1536,8 @@ def test_service_rule_previews_confirm_encoded_request_data(tmp_path: Path) -> N
     assert integrity_preview["ok"] is True
     assert fake.calls == []
 
-    logging_confirmed = client.confirm_mutation(logging_preview["data"]["confirmation_token"])
-    integrity_confirmed = client.confirm_mutation(integrity_preview["data"]["confirmation_token"])
+    logging_confirmed = client.confirm_action(logging_preview["data"]["confirmation_token"])
+    integrity_confirmed = client.confirm_action(integrity_preview["data"]["confirmation_token"])
 
     assert logging_confirmed["ok"] is True
     assert logging_confirmed["data"]["confirmed_operation"] == "logging_rule.set"
@@ -1581,7 +1581,7 @@ def test_generic_service_config_and_exfil_tools_use_exact_requests(tmp_path: Pat
     delete_watch = client.preview_delete_exfil_watch(OID, "watch-1")
 
     for preview in [service, push, watch, event, delete_event, delete_watch]:
-        client.confirm_mutation(preview["data"]["confirmation_token"])
+        client.confirm_action(preview["data"]["confirmation_token"])
 
     calls = [call for call in fake.calls if call["url"] != "https://jwt.limacharlie.io"]
     assert calls[0]["url"] == f"https://api.limacharlie.io/v1/service/{OID}"
@@ -1634,7 +1634,7 @@ def test_spotcheck_preview_uses_bounded_service_request(tmp_path: Path) -> None:
         "selector": "hostname startswith 'web-'",
     }
 
-    confirmed = client.confirm_mutation(preview["data"]["confirmation_token"])
+    confirmed = client.confirm_action(preview["data"]["confirmation_token"])
 
     assert confirmed["data"]["confirmed_operation"] == "spotcheck.run"
     assert decode_request_data(fake.calls[1]["params"]["request_data"]) == {
@@ -1688,7 +1688,7 @@ def test_feedback_tools_preview_extension_and_hive_requests(tmp_path: Path) -> N
     assert acknowledgement["operation"] == "feedback.acknowledgement.preview"
     assert question["operation"] == "feedback.question.preview"
     for preview in [channels, approval, acknowledgement, question]:
-        client.confirm_mutation(preview["data"]["confirmation_token"])
+        client.confirm_action(preview["data"]["confirmation_token"])
 
     calls = [call for call in fake.calls if call["url"] != "https://jwt.limacharlie.io"]
     assert json.loads(calls[1]["params"]["data"]) == {"channels": [{"name": "web", "channel_type": "web"}]}
@@ -1764,7 +1764,7 @@ def test_generic_hive_tools_redact_secret_preview_and_audit_params(tmp_path: Pat
     assert enabled_preview["data"]["params"]["usr_mtd"]["enabled"] is False
 
     for preview in [set_preview, delete_preview, rename_preview, enabled_preview]:
-        client.confirm_mutation(preview["data"]["confirmation_token"])
+        client.confirm_action(preview["data"]["confirmation_token"])
 
     calls = [call for call in fake.calls if call["url"] != "https://jwt.limacharlie.io"]
     set_call = next(call for call in calls if call["url"].endswith("/secret-1/data") and call["method"] == "POST")
@@ -1850,7 +1850,7 @@ def test_typed_secret_and_lookup_tools_use_safe_hive_shortcuts(tmp_path: Path) -
     assert lookup_enabled["data"]["params"]["etag"] == "lookup-etag"
 
     for preview in [secret_set, secret_enabled, secret_delete, lookup_set, lookup_enabled, lookup_delete]:
-        client.confirm_mutation(preview["data"]["confirmation_token"])
+        client.confirm_action(preview["data"]["confirmation_token"])
 
     calls = [call for call in fake.calls if call["url"] != "https://jwt.limacharlie.io"]
     secret_set_call = next(call for call in calls if call["method"] == "POST" and call["url"].endswith("/secret-1/data"))
@@ -2023,7 +2023,7 @@ def test_structured_hive_shortcuts_cover_cli_hive_resources(tmp_path: Path) -> N
     assert ai_preview["data"]["params"]["data"]["anthropic_secret"] == "[redacted]"
 
     for preview in previews:
-        client.confirm_mutation(preview["data"]["confirmation_token"])
+        client.confirm_action(preview["data"]["confirmation_token"])
 
     calls = [call for call in fake.calls if call["url"] != "https://jwt.limacharlie.io"]
     cloud_set_call = next(call for call in calls if call["method"] == "POST" and call["url"].endswith("/cloud-adapter-1/data"))
@@ -2062,7 +2062,7 @@ def test_ai_memory_tools_use_hive_partial_merge_requests(tmp_path: Path) -> None
     assert delete_preview["operation"] == "ai_memory.delete.preview"
     assert record_delete_preview["operation"] == "ai_memory.record.delete.preview"
     for preview in [set_preview, delete_preview, record_delete_preview]:
-        client.confirm_mutation(preview["data"]["confirmation_token"])
+        client.confirm_action(preview["data"]["confirmation_token"])
 
     calls = [call for call in fake.calls if call["url"] != "https://jwt.limacharlie.io"]
     post_calls = [call for call in calls if call["method"] == "POST" and call["url"].endswith("/agent-1/data")]
@@ -2087,7 +2087,7 @@ def test_ai_session_governance_tools_use_ai_root_and_org_header(tmp_path: Path) 
     identities = client.list_ai_usage_identities(OID)
     usage = client.get_ai_usage(OID, "reader")
     terminate = client.preview_terminate_ai_session(OID, "session-1")
-    confirmed = client.confirm_mutation(terminate["data"]["confirmation_token"])
+    confirmed = client.confirm_action(terminate["data"]["confirmation_token"])
 
     assert sessions["operation"] == "ai.session.list"
     assert sessions["data"]["sessions"] == [{"id": "session-1"}]
@@ -2131,8 +2131,8 @@ def test_hive_rule_previews_confirm_encoded_params(tmp_path: Path) -> None:
     assert fp_preview["ok"] is True
     assert fake.calls == []
 
-    dr_confirmed = client.confirm_mutation(dr_preview["data"]["confirmation_token"])
-    fp_confirmed = client.confirm_mutation(fp_preview["data"]["confirmation_token"])
+    dr_confirmed = client.confirm_action(dr_preview["data"]["confirmation_token"])
+    fp_confirmed = client.confirm_action(fp_preview["data"]["confirmation_token"])
 
     assert dr_confirmed["ok"] is True
     assert dr_confirmed["data"]["confirmed_operation"] == "dr_rule.set"
@@ -2165,10 +2165,10 @@ def test_yara_previews_confirm_service_requests(tmp_path: Path) -> None:
     assert_ax_envelope(scan_preview, "yara.scan.preview")
     assert fake.calls == []
 
-    scan_confirmed = client.confirm_mutation(scan_preview["data"]["confirmation_token"])
-    rule_confirmed = client.confirm_mutation(rule_preview["data"]["confirmation_token"])
-    source_confirmed = client.confirm_mutation(source_preview["data"]["confirmation_token"])
-    delete_source_confirmed = client.confirm_mutation(delete_source_preview["data"]["confirmation_token"])
+    scan_confirmed = client.confirm_action(scan_preview["data"]["confirmation_token"])
+    rule_confirmed = client.confirm_action(rule_preview["data"]["confirmation_token"])
+    source_confirmed = client.confirm_action(source_preview["data"]["confirmation_token"])
+    delete_source_confirmed = client.confirm_action(delete_source_preview["data"]["confirmation_token"])
 
     assert scan_confirmed["data"]["confirmed_operation"] == "yara.scan"
     assert decode_request_data(fake.calls[1]["params"]["request_data"]) == {
@@ -2252,12 +2252,12 @@ def test_org_user_and_api_key_previews_confirm_exact_requests(tmp_path: Path) ->
     assert fake.calls == []
 
     confirmed = [
-        client.confirm_mutation(quota["data"]["confirmation_token"]),
-        client.confirm_mutation(rename["data"]["confirmation_token"]),
-        client.confirm_mutation(invite["data"]["confirmation_token"]),
-        client.confirm_mutation(role["data"]["confirmation_token"]),
-        client.confirm_mutation(create_key["data"]["confirmation_token"]),
-        client.confirm_mutation(delete_key["data"]["confirmation_token"]),
+        client.confirm_action(quota["data"]["confirmation_token"]),
+        client.confirm_action(rename["data"]["confirmation_token"]),
+        client.confirm_action(invite["data"]["confirmation_token"]),
+        client.confirm_action(role["data"]["confirmation_token"]),
+        client.confirm_action(create_key["data"]["confirmation_token"]),
+        client.confirm_action(delete_key["data"]["confirmation_token"]),
     ]
 
     assert [item["data"]["confirmed_operation"] for item in confirmed] == [
@@ -2309,12 +2309,12 @@ def test_group_previews_confirm_exact_requests(tmp_path: Path) -> None:
     assert_ax_envelope(create, "group.create.preview")
     assert fake.calls == []
 
-    client.confirm_mutation(create["data"]["confirmation_token"])
-    client.confirm_mutation(delete["data"]["confirmation_token"])
-    client.confirm_mutation(member["data"]["confirmation_token"])
-    client.confirm_mutation(owner["data"]["confirmation_token"])
-    client.confirm_mutation(perms["data"]["confirmation_token"])
-    client.confirm_mutation(org["data"]["confirmation_token"])
+    client.confirm_action(create["data"]["confirmation_token"])
+    client.confirm_action(delete["data"]["confirmation_token"])
+    client.confirm_action(member["data"]["confirmation_token"])
+    client.confirm_action(owner["data"]["confirmation_token"])
+    client.confirm_action(perms["data"]["confirmation_token"])
+    client.confirm_action(org["data"]["confirmation_token"])
 
     assert fake.calls[0]["data"]["oid"] == "-"
     assert fake.calls[1]["params"] == {"name": "soc-team"}
@@ -2346,12 +2346,12 @@ def test_installation_ingestion_and_output_previews_confirm_exact_requests(tmp_p
     assert_ax_envelope(install, "installation_key.create.preview")
     assert fake.calls == []
 
-    client.confirm_mutation(install["data"]["confirmation_token"])
-    client.confirm_mutation(delete_install["data"]["confirmation_token"])
-    client.confirm_mutation(ingest["data"]["confirmation_token"])
-    client.confirm_mutation(delete_ingest["data"]["confirmation_token"])
-    client.confirm_mutation(output["data"]["confirmation_token"])
-    client.confirm_mutation(delete_output["data"]["confirmation_token"])
+    client.confirm_action(install["data"]["confirmation_token"])
+    client.confirm_action(delete_install["data"]["confirmation_token"])
+    client.confirm_action(ingest["data"]["confirmation_token"])
+    client.confirm_action(delete_ingest["data"]["confirmation_token"])
+    client.confirm_action(output["data"]["confirmation_token"])
+    client.confirm_action(delete_output["data"]["confirmation_token"])
 
     assert fake.calls[1]["params"] == {"desc": "installer", "use_public_root_ca": "true", "tags": "prod,edr"}
     assert fake.calls[2]["params"] == {"iid": "iid-1"}
@@ -2383,10 +2383,10 @@ def test_extension_previews_confirm_exact_requests(tmp_path: Path) -> None:
     assert_ax_envelope(subscribe, "extension.subscribe.preview")
     assert fake.calls == []
 
-    client.confirm_mutation(subscribe["data"]["confirmation_token"])
-    client.confirm_mutation(unsubscribe["data"]["confirmation_token"])
-    client.confirm_mutation(rekey["data"]["confirmation_token"])
-    client.confirm_mutation(request["data"]["confirmation_token"])
+    client.confirm_action(subscribe["data"]["confirmation_token"])
+    client.confirm_action(unsubscribe["data"]["confirmation_token"])
+    client.confirm_action(rekey["data"]["confirmation_token"])
+    client.confirm_action(request["data"]["confirmation_token"])
 
     assert fake.calls[1]["method"] == "POST"
     assert fake.calls[2]["method"] == "DELETE"
@@ -2410,9 +2410,9 @@ def test_extension_definition_previews_and_impersonation_guard(tmp_path: Path) -
     with pytest.raises(ValidationError, match="impersonate"):
         client.preview_extension_request(OID, "ext-custom", "do_thing", impersonate=True)
 
-    client.confirm_mutation(create["data"]["confirmation_token"])
-    client.confirm_mutation(update["data"]["confirmation_token"])
-    client.confirm_mutation(delete["data"]["confirmation_token"])
+    client.confirm_action(create["data"]["confirmation_token"])
+    client.confirm_action(update["data"]["confirmation_token"])
+    client.confirm_action(delete["data"]["confirmation_token"])
 
     assert fake.calls[0]["data"]["oid"] == "-"
     assert fake.calls[1]["json"] == {"name": "ext-custom", "version": "1.0"}
@@ -2465,7 +2465,7 @@ def test_org_lifecycle_config_and_sensor_version_requests(tmp_path: Path) -> Non
     version = client.preview_set_sensor_version(OID, version="4.29.0", is_fallback=True)
 
     for preview in [create_org, set_config, dismiss, delete_org, version]:
-        client.confirm_mutation(preview["data"]["confirmation_token"])
+        client.confirm_action(preview["data"]["confirmation_token"])
 
     calls = [call for call in fake.calls if call["url"] != "https://jwt.limacharlie.io"]
     assert calls[0]["method"] == "GET"

@@ -119,7 +119,7 @@ def test_ax_trajectory_not_found_recovery_lists_then_retries(tmp_path: Path) -> 
     assert trajectory == ["sensor.get", "sensor.list", "sensor.get"]
 
 
-def test_ax_trajectory_mutation_boundary_requires_preview_before_confirm(tmp_path: Path) -> None:
+def test_ax_trajectory_action_boundary_requires_preview_before_confirm(tmp_path: Path) -> None:
     fake = SequencedHTTP()
     fake.add("POST", f"https://api.limacharlie.io/v1/{SID}/tags", {"ok": True})
     client = make_client(tmp_path, fake)
@@ -130,14 +130,14 @@ def test_ax_trajectory_mutation_boundary_requires_preview_before_confirm(tmp_pat
     assert preview["side_effects"] == []
     assert preview["state"]["current"] == "pending_confirmation"
 
-    confirmed = client.confirm_mutation(preview["data"]["confirmation_token"])
-    replay = client.confirm_mutation(preview["data"]["confirmation_token"])
+    confirmed = client.confirm_action(preview["data"]["confirmation_token"])
+    replay = client.confirm_action(preview["data"]["confirmation_token"])
 
     assert confirmed["ok"] is True
-    assert confirmed["operation"] == "mutation.confirm"
+    assert confirmed["operation"] == "action.confirm"
     assert confirmed["side_effects"][0]["type"] == "sensor_tag_added"
     assert replay["ok"] is False
-    assert replay["error"]["code"] == "mutation_preview_not_found"
+    assert replay["error"]["code"] == "action_preview_not_found"
     assert "test-token" not in json.dumps(preview)
     assert "test-token" not in json.dumps(confirmed)
 

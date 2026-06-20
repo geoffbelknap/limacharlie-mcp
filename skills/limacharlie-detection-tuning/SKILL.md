@@ -24,7 +24,7 @@ Treat tuning as evidence work, not content churn.
 4. Recommend changes:
    - Prefer narrower conditions, context checks, tags, or suppression boundaries.
    - Explain what evidence would validate the change.
-   - Use preview tools for any proposed mutation.
+   - Use preview tools for any proposed action.
 
 ## Output Shape
 

@@ -3418,10 +3418,10 @@ def lc_preview_delete_yara_source(oid: str, name: str, token_ttl_seconds: int = 
 
 
 @mcp.tool()
-def lc_list_pending_mutations() -> dict:
-    """List local mutation previews that can still be confirmed."""
+def lc_list_pending_actions() -> dict:
+    """List local action previews that can still be confirmed."""
 
-    return lc.list_pending_mutations()
+    return lc.list_pending_actions()
 
 
 @mcp.tool()
@@ -3465,17 +3465,17 @@ def lc_preview_remove_sensor_tag(
 
 
 @mcp.tool()
-def lc_confirm_mutation(confirmation_token: str) -> dict:
-    """Execute the exact typed mutation bound to a short-lived preview token."""
+def lc_confirm_action(confirmation_token: str) -> dict:
+    """Execute the exact typed action bound to a short-lived preview token."""
 
-    return _call("mutation.confirm", lc.confirm_mutation, confirmation_token=confirmation_token)
+    return _call("action.confirm", lc.confirm_action, confirmation_token=confirmation_token)
 
 
 @mcp.tool()
-def lc_cancel_mutation(confirmation_token: str) -> dict:
-    """Cancel one pending local mutation preview without calling LimaCharlie."""
+def lc_cancel_action(confirmation_token: str) -> dict:
+    """Cancel one pending local action preview without calling LimaCharlie."""
 
-    return _call("mutation.cancel", lc.cancel_mutation, confirmation_token=confirmation_token)
+    return _call("action.cancel", lc.cancel_action, confirmation_token=confirmation_token)
 
 
 def configure_profile(profile: str | None = None) -> str:

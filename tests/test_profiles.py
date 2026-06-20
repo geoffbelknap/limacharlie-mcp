@@ -55,10 +55,10 @@ def test_profile_tool_sets_are_focused_and_keep_safety_tools() -> None:
         names = tool_names_for_profile(OPERATION_CATALOG, profile)
         assert "lc_tool_catalog" in names
         assert not any("firehose" in name or name.startswith("lc_stream") for name in names)
-    assert "lc_confirm_mutation" in contain
-    assert "lc_cancel_mutation" in contain
-    assert "lc_confirm_mutation" not in review
-    assert "lc_confirm_mutation" in recover
+    assert "lc_confirm_action" in contain
+    assert "lc_cancel_action" in contain
+    assert "lc_confirm_action" not in review
+    assert "lc_confirm_action" in recover
     assert "lc_preview_rejoin_sensor" in recover
     assert "lc_preview_unseal_sensor" in recover
     assert "lc_list_api_keys" in review

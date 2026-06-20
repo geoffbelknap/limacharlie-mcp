@@ -48,7 +48,7 @@ The generated runtime key gets the permissions needed for org, sensor,
 detection, case, content, output, user, and API key metadata reads. The default
 setup creates one runtime key, not one key per MCP profile.
 For response workflows, add only the specific permissions required by the
-previewed mutation surfaces. Never request broad destructive permissions just to
+previewed action surfaces. Never request broad destructive permissions just to
 make onboarding easier.
 
 ## Failure Handling

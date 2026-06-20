@@ -16,7 +16,14 @@ from urllib.parse import quote
 import httpx
 
 from .local_vault import ensure_managed_vault
-from .profiles import filter_operation_catalog, normalize_profile, profile_catalog
+from .profiles import (
+    filter_operation_catalog,
+    normalize_profile,
+    operation_action_summary,
+    operation_permission_summary,
+    operation_suite_summary,
+    profile_catalog,
+)
 from .runtime_config import env_first, load_runtime_config
 
 
@@ -4686,6 +4693,8 @@ class LimaCharlieAPI:
     def tool_catalog(self, profile: str | None = None) -> dict[str, Any]:
         selected_profile = normalize_profile(profile)
         operations = filter_operation_catalog(OPERATION_CATALOG, selected_profile)
+        profiles = profile_catalog(OPERATION_CATALOG)
+        active_profile = profiles[selected_profile]
         return ToolResponse(
             ok=True,
             operation="tool.catalog",
@@ -4699,8 +4708,19 @@ class LimaCharlieAPI:
                 "auth": "vault_or_env_api_key_jwt_exchange",
                 "credential_provider_default": "vault",
                 "default_mode": "read_only",
+                "active_profile": active_profile,
+                "agent_guidance": {
+                    "profile_selection": "Use the narrowest profile that matches the workflow; avoid full-dev for normal operator sessions.",
+                    "start_with": active_profile["start_with"],
+                    "safe_actions": "Preview tools do not change LimaCharlie until lc_confirm_action confirms the returned token.",
+                    "permission_diagnosis": "Use permissions.required for reads, permissions.required_for_confirm for safe actions, and lc_auth_whoami with check_perm when a call fails with missing_permission.",
+                    "unsupported": "Live telemetry streaming and firehose ingestion are intentionally unsupported.",
+                },
+                "permission_summary": operation_permission_summary(operations),
+                "action_summary": operation_action_summary(operations),
+                "suite_summary": operation_suite_summary(operations),
                 "operations": operations,
-                "profiles": profile_catalog(OPERATION_CATALOG),
+                "profiles": profiles,
                 "unsupported_capabilities": UNSUPPORTED_CAPABILITIES,
             },
             side_effects=[],
@@ -4709,6 +4729,9 @@ class LimaCharlieAPI:
                 "summary": {
                     "profile": selected_profile,
                     "operation_count": len(operations),
+                    "tool_count": active_profile["tool_count"],
+                    "action_summary": operation_action_summary(operations),
+                    "suite_summary": operation_suite_summary(operations),
                     "unsupported_capability_count": len(UNSUPPORTED_CAPABILITIES),
                 },
                 "truncated": False,

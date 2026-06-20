@@ -88,6 +88,11 @@ def test_tool_catalog_exposes_operation_contracts(tmp_path: Path) -> None:
     assert_ax_envelope(result, "tool.catalog")
     assert result["data"]["default_mode"] == "read_only"
     assert result["data"]["credential_provider_default"] == "vault"
+    assert result["data"]["active_profile"]["title"] == "Full developer surface"
+    assert "profile_selection" in result["data"]["agent_guidance"]
+    assert result["data"]["permission_summary"]["required_for_safe_actions"]
+    assert result["data"]["action_summary"]["preview"] > 0
+    assert result["data"]["suite_summary"]["investigation"] > 0
     assert result["data"]["operations"]["sensor.list"]["required_inputs"] == ["oid"]
     assert result["data"]["operations"]["sensor.list"]["permissions"]["required"] == ["sensor.list"]
     assert result["data"]["operations"]["sensor.task.preview"]["permissions"]["mode"] == "safe_action"

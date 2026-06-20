@@ -20,6 +20,15 @@ def test_profile_catalog_filters_operations_and_reports_counts(tmp_path) -> None
     assert core["data"]["profile"] == "core"
     assert review["data"]["profile"] == "review"
     assert recover["data"]["profile"] == "recover"
+    assert review["data"]["active_profile"]["title"] == "Posture review and tuning"
+    assert "org posture review" in review["data"]["active_profile"]["best_for"]
+    assert review["data"]["agent_guidance"]["start_with"] == [
+        "lc_review_org_posture",
+        "lc_review_fleet_health",
+        "lc_review_detection_noise",
+    ]
+    assert "apikey.ctrl" in review["data"]["permission_summary"]["recommended"]
+    assert review["data"]["action_summary"] == {"read": review["meta"]["summary"]["operation_count"] - 1, "validate": 1}
     assert full["meta"]["summary"]["operation_count"] == len(OPERATION_CATALOG)
     assert core["meta"]["summary"]["operation_count"] < review["meta"]["summary"]["operation_count"] < full["meta"]["summary"]["operation_count"]
     assert recover["meta"]["summary"]["operation_count"] != review["meta"]["summary"]["operation_count"]

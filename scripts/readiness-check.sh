@@ -17,5 +17,6 @@ cd "$ROOT"
 "$PYTHON_BIN" -m limacharlie_mcp.configure --help >/dev/null
 "$PYTHON_BIN" -m limacharlie_mcp.auth_doctor --help >/dev/null
 "$PYTHON_BIN" -m limacharlie_mcp.vault_bootstrap --help >/dev/null
+"$PYTHON_BIN" -m limacharlie_mcp.trajectory_benchmark --help >/dev/null
 
 echo "readiness ok"

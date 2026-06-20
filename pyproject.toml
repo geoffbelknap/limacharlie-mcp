@@ -34,6 +34,7 @@ limacharlie-mcp-review = "limacharlie_mcp.server:main_review"
 limacharlie-mcp-configure = "limacharlie_mcp.configure:main"
 limacharlie-mcp-auth-doctor = "limacharlie_mcp.auth_doctor:main"
 limacharlie-mcp-vault-bootstrap = "limacharlie_mcp.vault_bootstrap:main"
+limacharlie-mcp-trajectory-benchmark = "limacharlie_mcp.trajectory_benchmark:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

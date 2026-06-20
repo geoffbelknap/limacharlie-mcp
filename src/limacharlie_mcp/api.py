@@ -3019,6 +3019,240 @@ def _structured_hive_catalog_entries() -> dict[str, dict[str, Any]]:
 OPERATION_CATALOG.update(_structured_hive_catalog_entries())
 
 
+DEFAULT_MCP_RUNTIME_PERMISSIONS = (
+    "org.get",
+    "sensor.list",
+    "sensor.get",
+    "insight.list",
+    "insight.det.get",
+    "insight.evt.get",
+    "insight.stat",
+    "audit.get",
+    "output.list",
+    "dr.list",
+    "dr.list.managed",
+    "fp.ctrl",
+    "yara.get",
+    "lookup.get",
+    "ikey.list",
+    "ingestkey.ctrl",
+    "user.ctrl",
+    "apikey.ctrl",
+    "job.get",
+    "replicant.get",
+    "replicant.task",
+)
+
+_LOCAL_PERMISSION_OPERATIONS = {
+    "tool.catalog",
+    "auth.status",
+    "download.sensor_targets.list",
+    "download.adapter_targets.list",
+    "action.pending.list",
+    "action.cancel",
+}
+_CREDENTIAL_PERMISSION_OPERATIONS = {"auth.refresh", "org.list"}
+_DYNAMIC_PERMISSION_OPERATIONS = {
+    "auth.whoami",
+    "action.confirm",
+    "hive.record.list",
+    "hive.record.get",
+    "hive.record.metadata.get",
+    "hive.record.validate",
+    "hive.record.set.preview",
+    "hive.record.delete.preview",
+    "hive.record.rename.preview",
+    "hive.record.enabled.set.preview",
+}
+
+_EXACT_REQUIRED_PERMISSIONS: dict[str, tuple[str, ...]] = {
+    "ai.usage.get": ("ai_agent.get",),
+    "ai.usage.identity.list": ("ai_agent.get",),
+    "api_key.create.preview": ("apikey.ctrl",),
+    "api_key.delete.preview": ("apikey.ctrl",),
+    "api_key.list": ("apikey.ctrl",),
+    "artifact.get_url": ("insight.evt.get",),
+    "artifact.list": ("insight.evt.get",),
+    "audit.list": ("audit.get",),
+    "detection.get": ("insight.det.get",),
+    "detection.list": ("insight.det.get",),
+    "dr_rule.get": ("dr.list",),
+    "dr_rule.list": ("dr.list",),
+    "event.children": ("insight.evt.get",),
+    "event.get": ("insight.evt.get",),
+    "event.list": ("insight.evt.get",),
+    "event.overview": ("insight.evt.get",),
+    "event.retention": ("insight.stat",),
+    "extension.request.preview": ("replicant.task",),
+    "fp_rule.delete.preview": ("fp.ctrl",),
+    "fp_rule.get": ("fp.ctrl",),
+    "fp_rule.list": ("fp.ctrl",),
+    "fp_rule.set.preview": ("fp.ctrl",),
+    "ingestion_key.create.preview": ("ingestkey.ctrl",),
+    "ingestion_key.delete.preview": ("ingestkey.ctrl",),
+    "ingestion_key.list": ("ingestkey.ctrl",),
+    "installation_key.get": ("ikey.list",),
+    "installation_key.list": ("ikey.list",),
+    "insight.status": ("insight.stat",),
+    "ioc.batch_search": ("insight.list",),
+    "ioc.object_info": ("insight.list",),
+    "ioc.search": ("insight.list",),
+    "job.get": ("job.get",),
+    "job.list": ("job.get",),
+    "job.wait": ("job.get",),
+    "mitre.get": ("dr.list",),
+    "org.config.get": ("org.get",),
+    "org.delete.confirmation": ("org.get",),
+    "org.errors": ("org.get",),
+    "org.get": ("org.get",),
+    "org.name.check": ("org.get",),
+    "org.quota_usage": ("org.get",),
+    "org.runtime_metadata": ("org.get",),
+    "org.stats": ("org.get",),
+    "org.urls": ("org.get",),
+    "output.list": ("output.list",),
+    "reliable_task.delete.preview": ("replicant.task",),
+    "reliable_task.list": ("replicant.get",),
+    "reliable_task.send.preview": ("replicant.task",),
+    "sensor.export": ("sensor.list",),
+    "sensor.get": ("sensor.get",),
+    "sensor.hostname_search": ("sensor.list",),
+    "sensor.isolation_status.get": ("sensor.get",),
+    "sensor.list": ("sensor.list",),
+    "sensor.online.list": ("sensor.list",),
+    "sensor.seal_status.get": ("sensor.get",),
+    "sensor.tag.list": ("sensor.get",),
+    "sensor.wait_online": ("sensor.get",),
+    "service.list": ("replicant.get",),
+    "service.request.preview": ("replicant.task",),
+    "spotcheck.run.preview": ("replicant.task",),
+    "tag.list": ("sensor.list",),
+    "tag.sensor_search": ("sensor.list",),
+    "user.invite.preview": ("user.ctrl",),
+    "user.list": ("user.ctrl",),
+    "user.permission.add.preview": ("user.ctrl",),
+    "user.permission.list": ("user.ctrl",),
+    "user.permission.remove.preview": ("user.ctrl",),
+    "user.remove.preview": ("user.ctrl",),
+    "user.role.set.preview": ("user.ctrl",),
+    "yara.scan.preview": ("yara.get",),
+    "yara_rule.list": ("yara.get",),
+    "yara_source.get": ("yara.get",),
+    "yara_source.list": ("yara.get",),
+}
+
+_PREFIX_REQUIRED_PERMISSIONS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("ai.session.", ("ai_agent.get",)),
+    ("ai_agent.", ("ai_agent.get",)),
+    ("ai_skill.", ("ai_skill.get",)),
+    ("lookup.", ("lookup.get",)),
+    ("org_note.", ("lookup.get",)),
+    ("playbook.", ("replicant.get",)),
+    ("schema.", ("org.get",)),
+    ("secret.", ("secret.get",)),
+    ("sop.", ("lookup.get",)),
+    ("vulnerability.", ("replicant.get",)),
+)
+
+_EXACT_CONFIRM_PERMISSIONS: dict[str, tuple[str, ...]] = {
+    "dr_rule.delete.preview": ("dr.del",),
+    "dr_rule.set.preview": ("dr.set",),
+    "lookup.delete.preview": ("lookup.del",),
+    "lookup.enabled.set.preview": ("lookup.set.mtd",),
+    "lookup.set.preview": ("lookup.set",),
+    "output.create.preview": ("output.set",),
+    "output.delete.preview": ("output.del",),
+    "sensor.delete.preview": ("sensor.del",),
+    "sensor.isolate.preview": ("sensor.task",),
+    "sensor.rejoin.preview": ("sensor.task",),
+    "sensor.seal.preview": ("sensor.task",),
+    "sensor.tag.add.preview": ("sensor.tag",),
+    "sensor.tag.remove.preview": ("sensor.tag",),
+    "sensor.task.preview": ("sensor.task",),
+    "sensor.unseal.preview": ("sensor.task",),
+    "yara_rule.delete.preview": ("yara.del",),
+    "yara_rule.set.preview": ("yara.set",),
+    "yara_source.delete.preview": ("yara.del",),
+    "yara_source.set.preview": ("yara.set",),
+}
+
+_PREFIX_CONFIRM_PERMISSIONS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("lookup.", ("lookup.set",)),
+    ("org_note.", ("lookup.set",)),
+    ("playbook.", ("replicant.task",)),
+    ("sop.", ("lookup.set",)),
+)
+
+_CONDITIONAL_PERMISSIONS: dict[str, tuple[dict[str, Any], ...]] = {
+    "auth.whoami": ({"when": "check_perm is provided", "required": ["the check_perm value"]},),
+    "action.confirm": ({"when": "confirmation_token refers to a previewed safe action", "required": ["the previewed action's required_for_confirm permissions"]},),
+    "dr_rule.get": ({"when": "namespace is managed", "required": ["dr.list.managed"]},),
+    "dr_rule.list": ({"when": "namespace is managed", "required": ["dr.list.managed"]},),
+    "hive.record.delete.preview": ({"when": "confirmed", "required": ["<hive>.del or <hive>.del.mtd, depending on the hive and metadata endpoint"]},),
+    "hive.record.enabled.set.preview": ({"when": "confirmed", "required": ["<hive>.set.mtd"]},),
+    "hive.record.get": ({"when": "called", "required": ["<hive>.get or <hive>.get.mtd, depending on the hive and endpoint"]},),
+    "hive.record.list": ({"when": "called", "required": ["<hive>.get or <hive>.list, depending on the hive"]},),
+    "hive.record.metadata.get": ({"when": "called", "required": ["<hive>.get.mtd"]},),
+    "hive.record.rename.preview": ({"when": "confirmed", "required": ["<hive>.set"]},),
+    "hive.record.set.preview": ({"when": "confirmed", "required": ["<hive>.set"]},),
+    "search.execute": ({"when": "stream is event", "required": ["insight.evt.get"]}, {"when": "stream is detect", "required": ["insight.det.get"]}, {"when": "stream is audit", "required": ["audit.get"]}),
+    "search.estimate": ({"when": "stream is event", "required": ["insight.evt.get"]}, {"when": "stream is detect", "required": ["insight.det.get"]}, {"when": "stream is audit", "required": ["audit.get"]}),
+    "search.poll": ({"when": "polling a query", "required": ["same stream permission used to start the search"]},),
+    "search.validate": ({"when": "stream is event", "required": ["insight.evt.get"]}, {"when": "stream is detect", "required": ["insight.det.get"]}, {"when": "stream is audit", "required": ["audit.get"]}),
+}
+
+_REVIEW_RECOMMENDED_PERMISSIONS: dict[str, tuple[str, ...]] = {
+    "review.access_hygiene": ("user.ctrl", "apikey.ctrl"),
+    "review.case_backlog": ("replicant.get",),
+    "review.content_coverage": ("dr.list", "dr.list.managed", "fp.ctrl", "yara.get", "lookup.get", "replicant.get"),
+    "review.detection_noise": ("insight.det.get", "replicant.get"),
+    "review.fleet_health": ("sensor.list",),
+    "review.org_posture": DEFAULT_MCP_RUNTIME_PERMISSIONS,
+    "review.output_health": ("output.list", "replicant.get", "replicant.task"),
+}
+
+
+def _first_matching_permissions(operation: str, rules: tuple[tuple[str, tuple[str, ...]], ...]) -> tuple[str, ...]:
+    for prefix, permissions in rules:
+        if operation.startswith(prefix):
+            return permissions
+    return ()
+
+
+def _operation_permission_contract(operation: str, entry: dict[str, Any]) -> dict[str, Any]:
+    conditional = [dict(item) for item in _CONDITIONAL_PERMISSIONS.get(operation, ())]
+    if operation in _LOCAL_PERMISSION_OPERATIONS:
+        return {"mode": "local", "required": [], "required_for_confirm": [], "conditional": conditional, "notes": "No LimaCharlie API permission is required for this local MCP operation."}
+    if operation in _CREDENTIAL_PERMISSION_OPERATIONS:
+        return {"mode": "credential", "required": [], "required_for_confirm": [], "conditional": conditional, "notes": "Requires a valid configured LimaCharlie credential; no org permission string is checked by this catalog entry."}
+    if operation in _DYNAMIC_PERMISSION_OPERATIONS:
+        return {"mode": "dynamic", "required": [], "required_for_confirm": [], "conditional": conditional, "notes": "Permission depends on tool inputs or the previewed safe action."}
+    if operation in _REVIEW_RECOMMENDED_PERMISSIONS:
+        return {"mode": "composite", "required": [], "required_for_confirm": [], "recommended": list(_REVIEW_RECOMMENDED_PERMISSIONS[operation]), "conditional": conditional, "notes": "Composite review tools degrade gracefully when some source reads fail; these permissions produce the most complete review."}
+
+    required = _EXACT_REQUIRED_PERMISSIONS.get(operation) or _first_matching_permissions(operation, _PREFIX_REQUIRED_PERMISSIONS)
+    required_for_confirm = _EXACT_CONFIRM_PERMISSIONS.get(operation) or _first_matching_permissions(operation, _PREFIX_CONFIRM_PERMISSIONS)
+    if required or required_for_confirm:
+        mode = "safe_action" if entry.get("action") == "preview" else "required"
+        return {"mode": mode, "required": list(required), "required_for_confirm": list(required_for_confirm), "conditional": conditional, "notes": "Preview tools do not perform the remote write until lc_confirm_action; required_for_confirm names the permission expected for confirmation."}
+
+    return {
+        "mode": "unknown",
+        "required": [],
+        "required_for_confirm": [],
+        "conditional": conditional,
+        "notes": "The exact LimaCharlie permission for this endpoint is not yet cataloged. Use lc_auth_whoami with check_perm when diagnosing access.",
+    }
+
+
+def _annotate_operation_permissions(catalog: dict[str, dict[str, Any]]) -> None:
+    for operation, entry in catalog.items():
+        entry.setdefault("permissions", _operation_permission_contract(operation, entry))
+
+
+_annotate_operation_permissions(OPERATION_CATALOG)
+
+
 _SAFE_DETECT_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,160}$")
 _SAFE_CASE_NUMBER = re.compile(r"^[0-9]{1,20}$")
 _SAFE_PERMISSION = re.compile(r"^[A-Za-z0-9_.:-]{1,120}$")

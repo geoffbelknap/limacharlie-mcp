@@ -89,6 +89,12 @@ def test_tool_catalog_exposes_operation_contracts(tmp_path: Path) -> None:
     assert result["data"]["default_mode"] == "read_only"
     assert result["data"]["credential_provider_default"] == "vault"
     assert result["data"]["operations"]["sensor.list"]["required_inputs"] == ["oid"]
+    assert result["data"]["operations"]["sensor.list"]["permissions"]["required"] == ["sensor.list"]
+    assert result["data"]["operations"]["sensor.task.preview"]["permissions"]["mode"] == "safe_action"
+    assert result["data"]["operations"]["sensor.task.preview"]["permissions"]["required_for_confirm"] == ["sensor.task"]
+    assert result["data"]["operations"]["auth.whoami"]["permissions"]["mode"] == "dynamic"
+    assert result["data"]["operations"]["review.org_posture"]["permissions"]["mode"] == "composite"
+    assert "apikey.ctrl" in result["data"]["operations"]["review.org_posture"]["permissions"]["recommended"]
     assert result["data"]["operations"]["event.list"]["suite"] == "investigation"
     assert result["data"]["operations"]["api_key.list"]["suite"] == "administration"
     assert result["data"]["operations"]["audit.list"]["suite"] == "investigation"
@@ -102,6 +108,19 @@ def test_tool_catalog_exposes_operation_contracts(tmp_path: Path) -> None:
     assert result["data"]["unsupported_capabilities"]["telemetry.live_stream"]["status"] == "intentionally_unsupported"
     assert result["data"]["unsupported_capabilities"]["telemetry.firehose"]["status"] == "intentionally_unsupported"
     assert result["meta"]["summary"]["unsupported_capability_count"] == 2
+
+
+def test_operation_catalog_has_permission_contracts() -> None:
+    missing = [operation for operation, entry in OPERATION_CATALOG.items() if "permissions" not in entry]
+
+    assert missing == []
+    for operation, entry in OPERATION_CATALOG.items():
+        contract = entry["permissions"]
+        assert contract["mode"] in {"local", "credential", "dynamic", "composite", "required", "safe_action", "unknown"}, operation
+        assert isinstance(contract["required"], list), operation
+        assert isinstance(contract["required_for_confirm"], list), operation
+        assert isinstance(contract["conditional"], list), operation
+        assert isinstance(contract["notes"], str) and contract["notes"], operation
 
 
 def test_list_orgs_uses_direct_api_and_jwt(tmp_path: Path) -> None:
